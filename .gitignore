@@ -3,6 +3,4 @@ Backend/node_modules/
 Backend/.env
 Backend/package-lock.json
 *.log
-frontend/guardia/
-frontend/js/perfil.js
-frontend/usuario/perfil.html
+

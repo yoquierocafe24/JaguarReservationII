@@ -56,9 +56,9 @@ const ENDPOINTS = {
 
 const REDIRECTS = {
   estudiante: 'Frontend/usuario/inicio.html',
-  estudiante: '/login/estudiante',
+  // estudiante: '/login/estudiante',
   admin: '/login/admin',
-  guardia: '/login/guardia'
+  guardia:'Frontend/guardia/panel.html'
 };
 
 

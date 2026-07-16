@@ -87,7 +87,8 @@ router.post('/login/guardia', async (req, res) => {
 
         const guardia = rows[0];
 
-        const coincide = await bcrypt.compare(contrasena, guardia.contrasena);
+        // const coincide = await bcrypt.compare(contrasena, guardia.contrasena);
+        const coincide = contrasena === guardia.contrasena;
 
         if (!coincide) {
 
@@ -109,7 +110,7 @@ router.post('/login/guardia', async (req, res) => {
             ok: true,
             rol: 'guardia',
             usuario: req.session.usuario,
-            redirigir: 'guardia/dashboard.html'
+            redirigir: 'Frontend/guardia/panel.html'
         });
 
     } catch (error) {

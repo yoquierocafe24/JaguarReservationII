@@ -1,0 +1,1116 @@
+/* ======================================
+   JAGUAR RESERVATION
+   PANEL DEL GUARDIA
+====================================== */
+
+
+/* RESET */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+
+/* VARIABLES */
+
+:root{
+    --carmine:#93061E;
+    --crimson:#DF1B3B;
+    --vermilion:#E04332;
+
+    --fondo:#f4f6fb;
+    --gris:#eef1f7;
+    --blanco:#ffffff;
+
+    --texto:#1a1a2e;
+    --subtexto:#6b7280;
+    --borde:#e5e7eb;
+
+    --verde:#15803d;
+    --verde-fondo:#dcfce7;
+
+    --amarillo:#a16207;
+    --amarillo-fondo:#fef3c7;
+
+    --rojo:#b91c1c;
+    --rojo-fondo:#fee2e2;
+}
+
+
+/* BODY */
+
+body{
+    min-height:100vh;
+    font-family:'Poppins',sans-serif;
+    background:var(--fondo);
+    color:var(--texto);
+}
+
+
+/* ======================================
+   TOPBAR
+====================================== */
+
+.topbar-guardia{
+    background:white;
+    padding:10px 28px;
+    min-height:68px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    border-top:5px solid var(--carmine);
+    border-bottom:1px solid var(--borde);
+
+    position:sticky;
+    top:0;
+    z-index:900;
+}
+
+
+.topbar-marca{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+
+.logo-jaguar{
+    width:36px;
+    height:36px;
+
+    border-radius:50%;
+    background:var(--carmine);
+    color:white;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:17px;
+    flex-shrink:0;
+}
+
+
+.topbar-marca h1{
+    margin:0;
+    font-size:19px;
+    font-weight:700;
+    color:var(--texto);
+}
+
+
+.topbar-marca p{
+    margin:1px 0 0;
+    font-size:11px;
+    color:var(--subtexto);
+}
+
+
+.topbar-acciones{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+
+.guardia-datos{
+    text-align:right;
+}
+
+
+.guardia-datos span{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+}
+
+
+.guardia-datos small{
+    display:block;
+    font-size:10px;
+    color:var(--subtexto);
+}
+
+
+.guardia-avatar{
+    width:36px;
+    height:36px;
+
+    border-radius:50%;
+    background:var(--carmine);
+    color:white;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:13px;
+    font-weight:600;
+    flex-shrink:0;
+}
+.logo-jaguar-img{
+    width:92px;
+    height:46px;
+    object-fit:contain;
+    flex-shrink:0;
+}
+
+.topbar-marca{
+    display:flex;
+    align-items:center;
+    gap:18px;
+}
+
+.topbar-acciones{
+    margin-left:auto;
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.btn-salir{
+    width:34px;
+    height:34px;
+
+    border:none;
+    border-radius:9px;
+
+    background:transparent;
+    color:var(--carmine);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:20px;
+    cursor:pointer;
+    transition:.2s;
+}
+
+
+.btn-salir:hover{
+    background:#fff1f2;
+}
+
+
+/* ======================================
+   CONTENIDO PRINCIPAL
+====================================== */
+
+.contenedor-guardia{
+    width:100%;
+    max-width:1050px;
+
+    margin:0 auto;
+    padding:28px;
+}
+
+
+/* ======================================
+   ENCABEZADO
+====================================== */
+
+.encabezado-pagina{
+    margin-bottom:22px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+}
+
+
+.encabezado-pagina h2{
+    margin:0 0 4px;
+    font-size:24px;
+    font-weight:700;
+    color:var(--texto);
+}
+
+
+.encabezado-pagina p{
+    margin:0;
+    font-size:14px;
+    color:var(--subtexto);
+}
+
+
+.fecha-actual{
+    padding:10px 14px;
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    border:1px solid var(--borde);
+    border-radius:11px;
+
+    background:var(--blanco);
+    color:var(--carmine);
+
+    font-size:12px;
+    white-space:nowrap;
+}
+
+
+.fecha-actual i{
+    color:var(--crimson);
+}
+
+
+/* ======================================
+   BUSCADOR
+====================================== */
+
+.buscador-seccion{
+    margin-bottom:18px;
+}
+
+
+.buscador{
+    width:100%;
+    min-height:44px;
+
+    padding:0 14px;
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    background:var(--blanco);
+    border:1px solid var(--borde);
+    border-radius:12px;
+
+    transition:.2s;
+}
+
+
+.buscador:focus-within{
+    border-color:var(--crimson);
+    box-shadow:0 0 0 3px rgba(223,27,59,.08);
+}
+
+
+.buscador > i{
+    font-size:15px;
+    color:var(--subtexto);
+}
+
+
+.buscador input{
+    flex:1;
+    min-width:0;
+
+    padding:11px 0;
+
+    border:none;
+    outline:none;
+    background:transparent;
+
+    font-family:'Poppins',sans-serif;
+    font-size:13px;
+    color:var(--texto);
+}
+
+
+.buscador input::placeholder{
+    color:#9ca3af;
+}
+
+
+.btn-limpiar{
+    width:28px;
+    height:28px;
+
+    border:none;
+    border-radius:7px;
+
+    background:transparent;
+    color:var(--subtexto);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:14px;
+    cursor:pointer;
+}
+
+
+.btn-limpiar:hover{
+    background:var(--gris);
+    color:var(--texto);
+}
+
+
+/* ======================================
+   RESUMEN
+====================================== */
+
+.resumen-dia{
+    margin-bottom:20px;
+
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+}
+
+
+.resumen-item{
+    padding:16px;
+
+    background:var(--blanco);
+    border:1px solid var(--borde);
+
+    border-top:4px solid var(--carmine);
+    border-radius:14px;
+
+    text-align:center;
+}
+
+
+.resumen-numero{
+    display:block;
+
+    margin-bottom:2px;
+
+    font-size:24px;
+    line-height:1.1;
+    font-weight:700;
+    color:var(--carmine);
+}
+
+
+.resumen-item small{
+    font-size:11px;
+    color:var(--subtexto);
+}
+
+
+/* ======================================
+   CARGA Y SIN RESULTADOS
+====================================== */
+
+.estado-carga{
+    min-height:130px;
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+
+    color:var(--subtexto);
+    font-size:13px;
+}
+
+
+.estado-carga p{
+    margin:0;
+}
+
+
+.sin-resultados{
+    padding:40px 20px;
+
+    background:var(--blanco);
+    border:1px solid var(--borde);
+    border-radius:14px;
+
+    text-align:center;
+}
+
+
+.sin-resultados i{
+    display:block;
+    margin-bottom:10px;
+
+    font-size:34px;
+    color:var(--subtexto);
+}
+
+
+.sin-resultados h3{
+    margin-bottom:5px;
+
+    font-size:17px;
+    font-weight:600;
+}
+
+
+.sin-resultados p{
+    margin:0;
+
+    font-size:13px;
+    color:var(--subtexto);
+}
+
+
+/* ======================================
+   LISTADO DE RESERVAS
+====================================== */
+
+.lista-reservas{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+
+
+.card-reserva{
+    padding:18px;
+
+    background:var(--blanco);
+    border:1px solid var(--borde);
+        border-top:4px solid var(--crimson);
+    border-radius:14px;
+
+    cursor:pointer;
+    transition:.2s;
+}
+
+
+.card-reserva:hover{
+    transform:translateY(-2px);
+    border-color:var(--crimson);
+    box-shadow:0 8px 22px rgba(0,0,0,.06);
+}
+
+
+.card-reserva:focus{
+    outline:none;
+    border-color:var(--crimson);
+    box-shadow:0 0 0 3px rgba(223,27,59,.08);
+}
+
+
+.card-header{
+    margin-bottom:12px;
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+
+    background:transparent;
+    border:none;
+    padding:0;
+}
+
+
+.codigo{
+    font-size:13px;
+    font-weight:700;
+    color:var(--crimson);
+}
+
+
+.estado{
+    padding:5px 9px;
+
+    border-radius:20px;
+
+    font-size:10px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+
+.estado-pendiente{
+    background:var(--amarillo-fondo);
+    color:var(--amarillo);
+}
+
+
+.estado-activo{
+    background:var(--verde-fondo);
+    color:var(--verde);
+}
+
+
+.estado-vencida,
+.estado-cancelada{
+    background:var(--rojo-fondo);
+    color:var(--rojo);
+}
+
+
+.card-body{
+    padding:0;
+}
+
+
+.card-body h4{
+    margin-bottom:8px;
+
+    font-size:15px;
+    font-weight:600;
+    color:var(--texto);
+}
+
+
+.card-body p{
+    margin-bottom:5px;
+
+    display:flex;
+    align-items:center;
+    gap:7px;
+
+    font-size:12px;
+    color:var(--subtexto);
+}
+
+
+.card-body p:last-child{
+    margin-bottom:0;
+}
+
+
+.card-body i{
+    width:15px;
+    color:var(--crimson);
+}
+
+
+/* ======================================
+   MODAL
+====================================== */
+
+.modal-dialog{
+    max-width:560px;
+}
+
+
+.modal-reserva{
+    overflow:hidden;
+
+    border:none;
+    border-radius:16px;
+    box-shadow:0 18px 50px rgba(0,0,0,.14);
+}
+
+
+.modal-header{
+    padding:18px 20px;
+
+    align-items:flex-start;
+
+    border-bottom:1px solid var(--borde);
+}
+
+
+.codigo-modal{
+    display:block;
+    margin-bottom:3px;
+
+    font-size:11px;
+    font-weight:700;
+    color:var(--crimson);
+}
+
+
+.modal-title{
+    font-size:18px;
+    font-weight:700;
+}
+
+
+.modal-body{
+    padding:20px;
+}
+
+
+.reserva-resumen{
+    margin-bottom:16px;
+
+    display:flex;
+    align-items:center;
+    gap:13px;
+}
+
+
+.reserva-icono{
+    width:48px;
+    height:48px;
+
+    border-radius:12px;
+    background:#fff1f2;
+    color:var(--crimson);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:21px;
+    flex-shrink:0;
+}
+
+
+.reserva-resumen h3{
+    margin:0 0 3px;
+
+    font-size:16px;
+    font-weight:600;
+}
+
+
+.reserva-resumen p{
+    margin:0;
+
+    font-size:12px;
+    color:var(--subtexto);
+}
+
+
+.separador{
+    margin:0 4px;
+}
+
+
+.estado-horario{
+    margin-bottom:18px;
+    padding:10px 13px;
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    border-radius:10px;
+
+    font-size:12px;
+    font-weight:500;
+}
+
+
+.estado-horario.estado-pendiente{
+    background:var(--amarillo-fondo);
+    color:var(--amarillo);
+}
+
+
+.estado-horario.estado-activo{
+    background:var(--verde-fondo);
+    color:var(--verde);
+}
+
+
+.estado-horario.estado-vencida,
+.estado-horario.estado-cancelada{
+    background:var(--rojo-fondo);
+    color:var(--rojo);
+}
+
+
+/* ======================================
+   PERSONAS
+====================================== */
+
+.personas-encabezado{
+    margin-bottom:12px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:15px;
+}
+
+
+.personas-encabezado h4{
+    margin:0;
+
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.7px;
+    text-transform:uppercase;
+    color:var(--subtexto);
+}
+
+
+.personas-encabezado span{
+    font-size:11px;
+    color:var(--subtexto);
+}
+
+
+.lista-personas{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+}
+
+
+.persona{
+    padding:12px 14px;
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+
+    border:1px solid var(--borde);
+    border-radius:12px;
+    background:var(--blanco);
+
+    cursor:pointer;
+    transition:.2s;
+}
+
+
+.persona:hover{
+    border-color:#f1a5b1;
+    background:#fffafb;
+}
+
+
+.persona-registrada{
+    background:#f0fdf4;
+    border-color:#bbf7d0;
+    cursor:default;
+}
+
+
+.persona-contenido{
+    min-width:0;
+
+    display:flex;
+    align-items:center;
+    gap:11px;
+}
+
+
+.persona-avatar{
+    width:34px;
+    height:34px;
+
+    border-radius:50%;
+    background:var(--carmine);
+    color:white;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:11px;
+    font-weight:600;
+    flex-shrink:0;
+}
+
+
+.persona-info{
+    min-width:0;
+}
+
+
+.persona-info h5{
+    margin:0 0 2px;
+
+    font-size:13px;
+    font-weight:600;
+}
+
+
+.persona-info small{
+    display:block;
+
+    font-size:10px;
+    color:var(--subtexto);
+}
+
+
+.persona-rol,
+.hora-entrada{
+    display:inline-block;
+    margin-top:4px;
+    margin-right:6px;
+
+    font-size:9px;
+    font-weight:600;
+    color:var(--crimson);
+}
+
+
+.hora-entrada{
+    color:var(--verde);
+}
+
+
+.persona-control{
+    flex-shrink:0;
+}
+
+
+.checkbox-asistencia{
+    width:19px;
+    height:19px;
+
+    accent-color:var(--crimson);
+    cursor:pointer;
+}
+
+
+.asistencia-confirmada{
+    display:flex;
+    align-items:center;
+    gap:5px;
+
+    font-size:10px;
+    font-weight:600;
+    color:var(--verde);
+}
+
+
+.sin-personas{
+    padding:24px 15px;
+
+    text-align:center;
+    color:var(--subtexto);
+}
+
+
+.sin-personas i{
+    display:block;
+    margin-bottom:6px;
+    font-size:26px;
+}
+
+
+.sin-personas p{
+    margin:0;
+    font-size:12px;
+}
+
+
+/* ======================================
+   ALERTA
+====================================== */
+
+.alerta-reserva{
+    margin-top:14px;
+    padding:10px 13px;
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    border-radius:10px;
+    background:var(--rojo-fondo);
+    color:var(--rojo);
+
+    font-size:11px;
+}
+
+
+/* ======================================
+   BOTONES DEL MODAL
+====================================== */
+
+.modal-footer{
+    padding:14px 20px;
+
+    border-top:1px solid var(--borde);
+}
+
+
+.btn-cancelar-modal,
+.btn-guardar-asistencia{
+    padding:10px 16px;
+
+    border-radius:10px;
+
+    font-family:'Poppins',sans-serif;
+    font-size:12px;
+    font-weight:600;
+
+    cursor:pointer;
+    transition:.2s;
+}
+
+
+.btn-cancelar-modal{
+    border:1px solid var(--borde);
+    background:white;
+    color:var(--texto);
+}
+
+
+.btn-cancelar-modal:hover{
+    background:var(--gris);
+}
+
+
+.btn-guardar-asistencia{
+    border:none;
+    background:var(--crimson);
+    color:white;
+}
+
+
+.btn-guardar-asistencia:hover{
+    background:var(--carmine);
+}
+
+
+.btn-guardar-asistencia:disabled{
+    opacity:.55;
+    cursor:not-allowed;
+}
+
+
+/* ======================================
+   TOAST
+====================================== */
+
+.toast{
+    font-family:'Poppins',sans-serif;
+    font-size:12px;
+}
+
+
+/* ======================================
+   RESPONSIVE
+====================================== */
+
+@media(max-width:768px){
+
+    .topbar-guardia{
+        padding:11px 16px;
+    }
+
+    .topbar-marca p,
+    .guardia-datos small{
+        display:none;
+    }
+
+    .topbar-marca h1{
+        font-size:15px;
+    }
+
+    .guardia-datos{
+        display:none;
+    }
+
+    .contenedor-guardia{
+        padding:18px;
+    }
+
+    .encabezado-pagina{
+        margin-bottom:18px;
+
+        flex-direction:column;
+        align-items:flex-start;
+        gap:12px;
+    }
+
+    .encabezado-pagina h2{
+        font-size:21px;
+    }
+
+    .encabezado-pagina p{
+        font-size:12px;
+    }
+
+    .fecha-actual{
+        padding:8px 11px;
+        font-size:11px;
+    }
+
+    .resumen-dia{
+        grid-template-columns:repeat(3,1fr);
+        gap:8px;
+    }
+
+    .resumen-item{
+        padding:12px 7px;
+    }
+
+    .resumen-numero{
+        font-size:20px;
+    }
+
+    .resumen-item small{
+        font-size:9px;
+    }
+
+    .lista-reservas{
+        grid-template-columns:1fr;
+    }
+
+    .card-reserva{
+        padding:15px;
+    }
+
+    .modal-dialog{
+        margin:12px;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer{
+        padding-left:16px;
+        padding-right:16px;
+    }
+
+}
+
+
+@media(max-width:480px){
+
+    .topbar-acciones{
+        gap:7px;
+    }
+
+    .logo-jaguar,
+    .guardia-avatar{
+        width:34px;
+        height:34px;
+    }
+
+    .topbar-marca{
+        gap:8px;
+    }
+
+    .topbar-marca h1{
+        font-size:13px;
+    }
+
+    .contenedor-guardia{
+        padding:14px;
+    }
+
+    .resumen-dia{
+        grid-template-columns:1fr;
+    }
+
+    .resumen-item{
+        text-align:left;
+    }
+
+    .persona{
+        align-items:flex-start;
+    }
+
+    .persona-contenido{
+        align-items:flex-start;
+    }
+
+    .personas-encabezado{
+        align-items:flex-start;
+        flex-direction:column;
+        gap:4px;
+    }
+
+    .modal-footer{
+        display:grid;
+        grid-template-columns:1fr;
+    }
+
+    .btn-cancelar-modal,
+    .btn-guardar-asistencia{
+        width:100%;
+    }
+
+}
