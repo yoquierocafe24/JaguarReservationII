@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+   <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+   <title>Jaguar Reservation — Panel del guardia</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" >
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" >
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/guardia.css"  >
+</head>
+<body>
+   <!-- =====================================
+         BARRA SUPERIOR
+    ====================================== -->
+  <header class="topbar-guardia">
+    <div class="topbar-marca">
+        <img
+            src="../img/Jaguares CEUTEC horizontal_Color.png"
+            alt="Jaguar Reservation"
+            class="logo-jaguar-img" >
+
+        <div>
+            <h1>Jaguar Reservation</h1>
+            <p>Control de acceso</p>
+        </div>
+
+    </div>
+
+    <div class="topbar-acciones">
+
+        <div class="guardia-datos">
+            <span id="guardia-nombre">Guardia</span>
+        </div>
+
+        <div
+            class="guardia-avatar"
+            id="guardia-avatar"
+        >
+            
+        </div>
+
+        <button
+            type="button"
+            class="btn-salir"
+            onclick="cerrarSesion()"
+            title="Cerrar sesión"
+        >
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
+
+    </div>
+
+</header>
+   <!-- =====================================
+         CONTENIDO PRINCIPAL
+    ====================================== -->
+   <main class="contenedor-guardia">
+       <!-- Título y fecha -->
+       <section class="encabezado-pagina">
+           <div>
+               <h2>
+                    Reservas de hoy
+                </h2>
+               <p>
+                    Consulta y registra la asistencia de las personas autorizadas.
+                </p>
+           </div>
+           <div
+                class="fecha-actual"
+                id="fecha-actual"
+            >
+                <i class="bi bi-calendar3"></i>
+               <span>
+                    Cargando fecha...
+                </span>
+            </div>
+       </section>
+       <!-- =====================================
+             BUSCADOR
+        ====================================== -->
+       <section class="buscador-seccion">
+           <div class="buscador">
+               <i class="bi bi-search"></i>
+               <input
+                    type="search"
+                    id="buscador-reservas"
+                    placeholder="Buscar por código de reserva o nombre..."
+                    autocomplete="off"
+                >
+               <button
+                    type="button"
+                    id="btn-limpiar-busqueda"
+                    class="btn-limpiar"
+                    title="Limpiar búsqueda"
+                >
+                    <i class="bi bi-x-lg"></i>
+                </button>
+           </div>
+       </section>
+       <!-- =====================================
+             RESUMEN DEL DÍA
+        ====================================== -->
+       <section class="resumen-dia">
+           <div class="resumen-item">
+               <span
+                    class="resumen-numero"
+                    id="total-reservas"
+                >
+                    0
+                </span>
+               <small>
+                    Reservas
+                </small>
+           </div>
+           <div class="resumen-item">
+               <span
+                    class="resumen-numero"
+                    id="total-pendientes"
+                >
+                    0
+                </span>
+               <small>
+                    Pendientes
+                </small>
+           </div>
+           <div class="resumen-item">
+               <span
+                    class="resumen-numero"
+                    id="total-vigentes"
+                >
+                    0
+                </span>
+               <small>
+                    Horario activo
+                </small>
+           </div>
+       </section>
+       <!-- =====================================
+             ESTADO DE CARGA
+        ====================================== -->
+       <div
+            class="estado-carga"
+            id="estado-carga"
+        >
+            <div
+                class="spinner-border text-danger"
+                role="status"
+            >
+                <span class="visually-hidden">
+                    Cargando...
+                </span>
+            </div>
+           <p>
+                Cargando reservas de hoy...
+            </p>
+        </div>
+       <!-- =====================================
+             LISTADO DE RESERVAS
+        ====================================== -->
+       <section
+            class="lista-reservas"
+            id="lista-reservas"
+        >
+            <!-- Las tarjetas se crean desde guardia.js -->
+        </section>
+       <!-- =====================================
+             SIN RESULTADOS
+        ====================================== -->
+       <section
+            class="sin-resultados"
+            id="sin-resultados"
+            hidden
+        >
+           <i class="bi bi-calendar2-x"></i>
+           <h3>
+                No se encontraron reservas
+            </h3>
+           <p id="mensaje-sin-resultados">
+                No hay reservas registradas para el día de hoy.
+            </p>
+       </section>
+   </main>
+   <!-- =====================================
+         MODAL DETALLE DE RESERVA
+    ====================================== -->
+   <div
+        class="modal fade"
+        id="modalReserva"
+        tabindex="-1"
+        aria-labelledby="modalReservaTitulo"
+        aria-hidden="true"
+    >
+       <div
+            class="modal-dialog modal-dialog-centered modal-dialog-scrollable"
+        >
+           <div class="modal-content modal-reserva">
+               <!-- Encabezado -->
+               <div class="modal-header">
+                   <div>
+                       <span
+                            class="codigo-modal"
+                            id="modal-codigo"
+                        >
+                            R000-0000
+                        </span>
+                       <h2
+                            class="modal-title"
+                            id="modalReservaTitulo"
+                        >
+                            Reserva
+                        </h2>
+                   </div>
+                   <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"
+                    ></button>
+               </div>
+               <!-- Contenido -->
+               <div class="modal-body">
+                   <!-- Información mínima de la reserva -->
+                   <section class="reserva-resumen">
+                       <div class="reserva-icono">
+                            <i
+                                class="bi bi-calendar2-check"
+                                id="modal-icono"
+                            ></i>
+                        </div>
+                       <div>
+                           <h3 id="modal-espacio">
+                                Espacio
+                            </h3>
+                           <p>
+                               <span id="modal-horario">
+                                    00:00 – 00:00
+                                </span>
+                               <span class="separador">
+                                    ·
+                                </span>
+                               <span id="modal-personas-esperadas">
+                                    1 persona esperada
+                                </span>
+                           </p>
+                       </div>
+                   </section>
+                   <!-- Estado del horario -->
+                   <div
+                        class="estado-horario"
+                        id="estado-horario"
+                    >
+                        <i class="bi bi-clock"></i>
+                       <span id="texto-estado-horario">
+                            Consultando horario...
+                        </span>
+                    </div>
+                   <!-- Personas -->
+                   <section class="personas-seccion">
+                       <div class="personas-encabezado">
+                           <h4>
+                                Personas esperadas
+                            </h4>
+                           <span id="contador-seleccionados">
+                                0 seleccionadas
+                            </span>
+                       </div>
+                       <div
+                            class="lista-personas"
+                            id="lista-personas"
+                        >
+                            <!-- Las personas se crean desde guardia.js -->
+                        </div>
+                   </section>
+                   <!-- Mensaje cuando no se puede registrar -->
+                   <div
+                        class="alerta-reserva"
+                        id="alerta-reserva"
+                        hidden
+                    >
+                       <i class="bi bi-exclamation-circle"></i>
+                       <span id="alerta-reserva-texto">
+                            Esta reserva ya no permite registrar asistencia.
+                        </span>
+                   </div>
+               </div>
+               <!-- Botón guardar -->
+               <div class="modal-footer">
+                   <button
+                        type="button"
+                        class="btn-cancelar-modal"
+                        data-bs-dismiss="modal"
+                    >
+                        Cerrar
+                    </button>
+                   <button
+                        type="button"
+                        class="btn-guardar-asistencia"
+                        id="btn-guardar-asistencia"
+                        onclick="guardarAsistencia()"
+                    >
+                        <i class="bi bi-check2-circle"></i>
+                       Guardar asistencia
+                    </button>
+               </div>
+           </div>
+       </div>
+   </div>
+   <!-- =====================================
+         TOAST
+    ====================================== -->
+   <div
+        class="toast-container position-fixed bottom-0 end-0 p-3"
+    >
+       <div
+            id="toastMensaje"
+            class="toast"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+        >
+           <div class="d-flex">
+               <div class="toast-body">
+                    Mensaje
+                </div>
+               <button
+                    type="button"
+                    class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast"
+                    aria-label="Cerrar"
+                ></button>
+           </div>
+       </div>
+   </div>
+   <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+    ></script>
+   <script src="../js/guardia.js"></script>
+
+</body>
+</html>

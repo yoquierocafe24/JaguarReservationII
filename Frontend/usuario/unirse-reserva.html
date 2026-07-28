@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Jaguar Reservation — Unirse a reserva</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="../css/unirse-reserva.css?"
+    >
+</head>
+
+<body>
+
+    <main class="registro-page">
+
+        <section class="registro-card">
+
+            <div class="registro-header">
+
+                <div class="registro-icono">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+
+                <h1>Unirse a una reserva</h1>
+
+                <p>
+                    Registra tus datos para aparecer como
+                    acompañante autorizado.
+                </p>
+
+            </div>
+
+            <div
+                id="mensaje-reserva"
+                class="estado-reserva"
+            >
+                Verificando la reserva...
+            </div>
+
+            <div
+                id="datos-reserva"
+                class="datos-reserva"
+                hidden
+            >
+
+                <div class="codigo-reserva">
+
+                    <span>Código de reserva</span>
+
+                    <strong id="reserva-codigo">
+                        --
+                    </strong>
+
+                </div>
+
+                <div class="datos-grid">
+
+                    <div class="dato-item">
+
+                        <i class="bi bi-geo-alt-fill"></i>
+
+                        <div>
+                            <span>Espacio</span>
+                            <strong id="reserva-espacio">
+                                --
+                            </strong>
+                        </div>
+
+                    </div>
+
+                    <div class="dato-item">
+
+                        <i class="bi bi-calendar-event-fill"></i>
+
+                        <div>
+                            <span>Fecha</span>
+                            <strong id="reserva-fecha">
+                                --
+                            </strong>
+                        </div>
+
+                    </div>
+
+                    <div class="dato-item">
+
+                        <i class="bi bi-clock-fill"></i>
+
+                        <div>
+                            <span>Horario</span>
+                            <strong id="reserva-horario">
+                                --
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <form
+                id="form-unirse"
+                class="registro-form"
+                hidden
+            >
+
+                <div class="campo-formulario">
+
+                    <label for="nombre">
+                        Nombre completo
+                    </label>
+
+                    <div class="input-con-icono">
+
+                        <i class="bi bi-person-fill"></i>
+
+                        <input
+                            type="text"
+                            id="nombre"
+                            placeholder="Escribe tu nombre completo"
+                            autocomplete="name"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+                <div class="campo-formulario">
+
+                    <label for="cuenta">
+                        Número de cuenta
+                    </label>
+
+                    <div class="input-con-icono">
+
+                        <i class="bi bi-person-vcard-fill"></i>
+
+                        <input
+                            type="text"
+                            id="cuenta"
+                            placeholder="Ejemplo: 20231001001"
+                            inputmode="numeric"
+                            autocomplete="off"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="submit"
+                    id="btn-registrar"
+                    class="btn-registrar"
+                >
+
+                    <i class="bi bi-check-circle-fill"></i>
+
+                    Registrarme en la reserva
+
+                </button>
+
+            </form>
+
+            <div
+                id="resultado"
+                class="resultado-registro"
+                hidden
+            ></div>
+
+            <p class="nota-seguridad">
+
+                <i class="bi bi-shield-check"></i>
+
+                Tus datos serán verificados con el registro
+                de estudiantes matriculados.
+
+            </p>
+
+        </section>
+
+    </main>
+
+    <script src="../js/unirse-reserva.js"></script>
+
+</body>
+
+</html>

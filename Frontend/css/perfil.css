@@ -1,0 +1,539 @@
+/* ======================================
+   PERFIL - VISTA DEL ESTUDIANTE
+====================================== */
+
+
+/* ======================================
+   TARJETA DE BIENVENIDA / HERO
+====================================== */
+
+.perfil-hero{
+    background:linear-gradient(135deg,var(--carmine) 0%,var(--vermilion) 100%);
+    border-radius:18px;
+    padding:28px 30px;
+    display:flex;
+    align-items:center;
+    gap:22px;
+    color:white;
+    margin-bottom:24px;
+    box-shadow:0 10px 25px rgba(147,6,30,.18);
+}
+
+
+.perfil-avatar{
+    width:74px;
+    height:74px;
+    min-width:74px;
+    border-radius:50%;
+    background:rgba(255,255,255,.18);
+    border:2px solid rgba(255,255,255,.5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    font-weight:700;
+}
+
+
+.perfil-hero-info h2{
+    font-size:21px;
+    font-weight:700;
+    margin-bottom:4px;
+}
+
+
+.perfil-hero-info p{
+    font-size:13px;
+    color:rgba(255,255,255,.85);
+    margin-bottom:12px;
+}
+
+
+.perfil-hero-tags{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+
+.perfil-tag{
+    background:rgba(255,255,255,.16);
+    border:1px solid rgba(255,255,255,.3);
+    border-radius:20px;
+    padding:5px 12px;
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+
+.perfil-tag i{
+    font-size:13px;
+}
+
+
+/* ======================================
+   TARJETAS DE ESTADISTICAS
+====================================== */
+
+.stats-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:18px;
+    margin-bottom:24px;
+}
+
+
+.stat-card{
+    background:white;
+    border:1px solid var(--borde);
+    border-radius:16px;
+    padding:18px 20px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+
+.stat-icon{
+    width:44px;
+    height:44px;
+    min-width:44px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:19px;
+}
+
+
+.stat-icon.azul{ background:#e3f2fd; color:#0d47a1; }
+.stat-icon.ambar{ background:#fff8e1; color:#f57f17; }
+.stat-icon.verde{ background:#e8f5e9; color:#2e7d32; }
+
+
+.stat-valor{
+    font-size:22px;
+    font-weight:700;
+    color:var(--texto);
+    line-height:1.1;
+}
+
+
+.stat-label{
+    font-size:12.5px;
+    color:var(--subtexto);
+}
+
+
+/* ======================================
+   TARJETA DE RESERVAS
+====================================== */
+
+.reservas-card{
+    background:white;
+    border:1px solid var(--borde);
+    border-radius:16px;
+    padding:22px 24px;
+}
+
+
+.reservas-card h3{
+    font-size:16px;
+    font-weight:600;
+    color:var(--texto);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:16px;
+}
+
+
+.reservas-card h3 i{
+    color:var(--crimson);
+}
+
+
+.reserva-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:14px 0;
+    border-bottom:1px solid var(--borde);
+}
+
+
+.reserva-row:last-child{
+    border-bottom:none;
+    padding-bottom:0;
+}
+
+
+.reserva-icono{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:19px;
+    background:var(--gris);
+}
+
+
+.reserva-info{
+    flex:1;
+    min-width:0;
+}
+
+
+.reserva-info .n{
+    font-size:14px;
+    font-weight:600;
+    color:var(--texto);
+}
+
+
+.reserva-info .s{
+    font-size:12.5px;
+    color:var(--subtexto);
+    margin-top:2px;
+}
+
+
+.reserva-codigo{
+    font-size:11px;
+    color:var(--subtexto);
+    white-space:nowrap;
+}
+
+
+/* BADGES DE ESTADO */
+
+.badge-estado{
+    padding:5px 12px;
+    border-radius:20px;
+    font-size:11.5px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+
+.badge-aprobada{ background:#dcfce7; color:#16a34a; }
+.badge-pendiente{ background:#fff8e1; color:#c47f00; }
+.badge-cancelada{ background:#fde2e1; color:var(--carmine); }
+.badge-vencida{
+    background:#ede9fe;
+    color:#6d28d9;
+}
+
+.badge-rechazada{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+/* BOTON CANCELAR RESERVA */
+
+.btn-cancelar-reserva{
+    background:white;
+    border:1px solid var(--carmine);
+    color:var(--carmine);
+    border-radius:20px;
+    padding:6px 13px;
+    font-size:12px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    cursor:pointer;
+    transition:.2s;
+    white-space:nowrap;
+}
+
+/* ======================================
+   ACCIONES DE CADA RESERVA
+====================================== */
+
+.reserva-acciones{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+
+/* Botón detalles */
+
+.btn-detalle-reserva{
+    background:white;
+    border:1px solid var(--borde);
+    color:var(--texto);
+
+    border-radius:20px;
+    padding:6px 12px;
+
+    font-size:12px;
+    font-weight:600;
+
+    display:flex;
+    align-items:center;
+    gap:5px;
+
+    cursor:pointer;
+    transition:.2s;
+    white-space:nowrap;
+}
+
+
+.btn-detalle-reserva:hover{
+    background:var(--gris);
+}
+
+
+/* Botón QR */
+
+.btn-qr-reserva{
+    background:var(--crimson);
+    border:1px solid var(--crimson);
+    color:white;
+
+    border-radius:20px;
+    padding:6px 12px;
+
+    font-size:12px;
+    font-weight:600;
+
+    display:flex;
+    align-items:center;
+    gap:5px;
+
+    cursor:pointer;
+    transition:.2s;
+    white-space:nowrap;
+}
+
+
+.btn-qr-reserva:hover{
+    background:var(--carmine);
+    border-color:var(--carmine);
+}
+
+.btn-cancelar-reserva:hover{
+    background:var(--carmine);
+    color:white;
+}
+
+
+/* ESTADO VACIO / CARGANDO */
+
+.reservas-empty{
+    text-align:center;
+    padding:30px 10px;
+    color:var(--subtexto);
+    font-size:13.5px;
+}
+
+
+.reservas-empty i{
+    font-size:30px;
+    display:block;
+    margin-bottom:10px;
+    color:var(--borde);
+}
+
+/* ======================================
+   MODALES
+====================================== */
+
+.modal-reserva{
+    border:none;
+    border-radius:18px;
+    overflow:hidden;
+}
+
+
+.modal-reserva .modal-header{
+    padding:20px 22px;
+    border-bottom:1px solid var(--borde);
+}
+
+
+.modal-reserva .modal-header small{
+    display:block;
+    color:var(--subtexto);
+    margin-bottom:3px;
+}
+
+
+.modal-reserva .modal-header h5{
+    margin:0;
+    font-weight:700;
+    color:var(--texto);
+}
+
+
+.modal-reserva .modal-body{
+    padding:22px;
+}
+
+
+.detalle-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:14px;
+}
+
+
+.detalle-item{
+    background:var(--gris2);
+    border-radius:13px;
+    padding:14px;
+}
+
+
+.detalle-item span{
+    display:block;
+    color:var(--subtexto);
+    font-size:11.5px;
+    margin-bottom:5px;
+}
+
+
+.detalle-item strong{
+    display:block;
+    color:var(--texto);
+    font-size:13.5px;
+    font-weight:600;
+}
+
+/* QR mostrado desde el perfil */
+
+#qr-modal-imagen{
+    display:block;
+    width:190px;
+    max-width:100%;
+    height:auto;
+
+    margin:0 auto;
+
+    border-radius:10px;
+}
+
+
+#qr-modal-cargando{
+    color:var(--subtexto);
+    font-size:14px;
+    padding:30px 10px;
+}
+
+
+#qr-modal-mensaje{
+    color:var(--crimson);
+    font-size:13px;
+    margin:0;
+}
+
+
+[hidden]{
+    display:none !important;
+}
+
+/* ======================================
+   RESPONSIVE
+====================================== */
+
+@media(max-width:900px){
+
+    .perfil-hero{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .perfil-resumen{
+        width:100%;
+    }
+
+    .perfil-resumen-item{
+        flex:1;
+        min-width:0;
+    }
+}
+
+
+@media(max-width:768px){
+
+    .perfil-hero{
+        padding:24px 18px;
+    }
+
+    .perfil-identidad{
+        flex-direction:column;
+        text-align:center;
+    }
+
+    .perfil-estado{
+        justify-content:center;
+    }
+
+    .stats-grid{
+        grid-template-columns:1fr;
+    }
+
+    .reserva-row{
+        display:grid;
+        grid-template-columns:42px 1fr;
+        gap:12px;
+        padding:16px 0;
+    }
+
+    .reserva-icono{
+        grid-row:1 / 3;
+    }
+
+    .reserva-codigo,
+    .badge-estado,
+    .reserva-acciones{
+        grid-column:2;
+    }
+
+    .reserva-acciones{
+        flex-wrap:wrap;
+        margin-top:4px;
+    }
+
+    .detalle-grid{
+        grid-template-columns:1fr;
+    }
+}
+
+
+@media(max-width:480px){
+
+    .perfil-resumen-item{
+        padding:12px 8px;
+    }
+
+    .perfil-resumen-item strong{
+        font-size:19px;
+    }
+
+    .perfil-resumen-item span{
+        font-size:10.5px;
+    }
+
+    .reservas-card{
+        padding:18px 16px;
+    }
+
+    .btn-detalle-reserva,
+    .btn-qr-reserva,
+    .btn-cancelar-reserva{
+        padding:6px 10px;
+        font-size:11px;
+    }
+
+    #qr-modal-imagen{
+        width:165px;
+    }
+}

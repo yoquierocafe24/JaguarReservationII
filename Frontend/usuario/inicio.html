@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+ <head>
+ <meta charset="UTF-8">
+ <meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+ <title>Jaguar Reservation — Inicio</title>
+ <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+ <link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+ <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/estilo.css">
+<link rel="stylesheet" href="../css/inicio.css">
+ </head>
+ <body>
+ <div class="app-layout">
+     <!-- SIDEBAR -->
+    <div class="sidebar">
+         <div class="sidebar-header">
+            <p>Jaguar Reservation · Polideportivo</p>
+        </div>
+         <div class="sidebar-section">
+            <span>Estudiante</span>
+        </div>
+         <nav class="sidebar-nav">
+             <a href="inicio.html">
+                <i class="bi bi-house-door-fill"></i>
+                Inicio
+            </a>
+             <a href="perfil.html">
+                <i class="bi bi-person-circle"></i>
+                Mi perfil
+            </a>
+         </nav>
+         <div class="sidebar-bottom">
+             <a onclick="cerrarSesion()">
+                 <i class="bi bi-box-arrow-right"></i>
+                 Cerrar sesión
+             </a>
+         </div>
+     </div>
+
+  <!-- OVERLAY PARA MÓVIL -->
+     <div class="overlay" onclick="cerrarMenu()"></div>
+
+     <!-- MAIN -->
+    <div class="main-content">
+         <!-- TOPBAR -->
+        <div class="topbar">
+             <div class="topbar-left">
+                 <button class="menu-btn" onclick="abrirMenu()">
+                     <i class="bi bi-list"></i>
+                 </button>
+                 <span class="topbar-title">
+                     Inicio
+                 </span>
+             </div>
+             <div class="topbar-right">
+                  <span class="topbar-fecha" id="topbar-fecha"></span>
+                 <div class="usuario-info">
+                     <span id="usuario-nombre"></span>
+                     <small>Estudiante</small>
+                 </div>
+                 <div class="avatar" id="usuario-avatar"></div>
+             </div>
+         </div>
+         <!-- CONTENIDO -->
+        <div class="page-content">
+             <div class="page-title">
+                 <h2>Selecciona un espacio</h2>
+                 <p>
+                    Elige el área que deseas reservar.
+                </p>
+             </div>
+             <div class="row g-4">
+                 <!-- FUTBOL -->
+                 <div class="col-md-3">
+                     <div class="espacio-card"
+                         onclick="seleccionarEspacio('futbol')">
+                         <div class="emoji">
+                             ⚽
+                         </div>
+                         <h4>Fútbol</h4>
+                     </div>
+                 </div>
+                 <!-- BALONCESTO -->
+                 <div class="col-md-3">
+                     <div class="espacio-card"
+                         onclick="seleccionarEspacio('baloncesto')">
+                         <div class="emoji">
+                             🏀
+                         </div>
+                         <h4>Baloncesto</h4>
+                     </div>
+                 </div>
+                 <!-- VOLEIBOL -->
+                 <div class="col-md-3">
+                     <div class="espacio-card"
+                         onclick="seleccionarEspacio('voleibol')">
+                         <div class="emoji">
+                             🏐
+                         </div>
+                         <h4>Voleibol</h4>
+                     </div>
+                 </div>
+                 <!-- ZONA JAGUAR -->
+                 <div class="col-md-3">
+                     <div class="espacio-card"
+                         onclick="seleccionarEspacio('zona_jaguar')">
+                         <div class="emoji">
+                             🎮
+                         </div>
+                         <h4>Zona Jaguar</h4>
+                     </div>
+                 </div>
+             </div>
+         </div>
+     </div>
+ </div>
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/session.js"></script>
+ <script src="../js/inicio.js"></script>
+ 
+ </body>
+ </html>

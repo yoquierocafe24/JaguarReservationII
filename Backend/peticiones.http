@@ -1,0 +1,42 @@
+### Archivo de pruebas para la extension "REST Client" de VS Code.
+### Instala la extension "REST Client", abre este archivo y pulsa
+### "Send Request" arriba de cada bloque. El backend debe estar corriendo (npm run dev).
+
+### 1) Comprobar que la API responde
+GET http://localhost:3000/
+
+### 2) Login estudiante (correcto)
+POST http://localhost:3000/login/estudiante
+Content-Type: application/json
+
+{ "cuenta": "42411047", "dni": "1103200700078" }
+
+### 3) Login estudiante (DNI incorrecto -> 401)
+POST http://localhost:3000/login/estudiante
+Content-Type: application/json
+
+{ "cuenta": "42411126", "dni": "0000" }
+
+### 4) Login estudiante inactivo (-> 401)
+POST http://localhost:3000/login/estudiante
+Content-Type: application/json
+
+{ "cuenta": "42411099", "dni": "0801200300789" }
+
+### 5) Login admin (correcto)
+POST http://localhost:3000/login/admin
+Content-Type: application/json
+
+{ "correo": "keila@ceutec.hn", "contrasena": "admin123" }
+
+### 6) Login guardia (correcto)
+POST http://localhost:3000/login/guardia
+Content-Type: application/json
+
+{ "usuario": "guardia", "contrasena": "guardia123" }
+
+### 7) Ver quien esta logueado
+GET http://localhost:3000/sesion
+
+### 8) Cerrar sesion
+GET http://localhost:3000/logout 

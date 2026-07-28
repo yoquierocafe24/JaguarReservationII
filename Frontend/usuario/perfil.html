@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+ <head>
+ <meta charset="UTF-8">
+ <meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+ <title>Jaguar Reservation — Mi perfil</title>
+ <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+ <link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+ <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/estilo.css">
+<link rel="stylesheet" href="../css/perfil.css">
+ </head>
+ <body>
+ <div class="app-layout">
+     <!-- SIDEBAR -->
+    <div class="sidebar">
+         <div class="sidebar-header">
+            <p>Jaguar Reservation · Polideportivo</p>
+        </div>
+         <div class="sidebar-section">
+            <span>Estudiante</span>
+        </div>
+         <nav class="sidebar-nav">
+             <a href="inicio.html">
+                <i class="bi bi-house-door-fill"></i>
+                Inicio
+            </a>
+             <a href="perfil.html" class="active">
+                <i class="bi bi-person-circle"></i>
+                Mi perfil
+            </a>
+         </nav>
+         <div class="sidebar-bottom">
+             <a onclick="cerrarSesion()">
+                 <i class="bi bi-box-arrow-right"></i>
+                 Cerrar sesión
+             </a>
+         </div>
+     </div>
+
+  <!-- OVERLAY PARA MÓVIL -->
+     <div class="overlay" onclick="cerrarMenu()"></div>
+
+     <!-- MAIN -->
+    <div class="main-content">
+         <!-- TOPBAR -->
+        <div class="topbar">
+             <div class="topbar-left">
+                 <button class="menu-btn" onclick="abrirMenu()">
+                     <i class="bi bi-list"></i>
+                 </button>
+                 <span class="topbar-title">
+                     Mi perfil
+                 </span>
+             </div>
+             <div class="topbar-right">
+                  <span class="topbar-fecha" id="topbar-fecha"></span>
+                 <div class="usuario-info">
+                     <span id="usuario-nombre"></span>
+                     <small>Estudiante</small>
+                 </div>
+                 <div class="avatar" id="usuario-avatar"></div>
+             </div>
+         </div>
+         <!-- CONTENIDO -->
+        <div class="page-content">
+             <div class="page-title">
+                 <h2>Mi perfil</h2>
+                 <p>
+                    Tus datos y el historial de tus reservas en el polideportivo.
+                </p>
+             </div>
+
+             <!-- TARJETA DE BIENVENIDA -->
+             <div class="perfil-hero">
+                 <div class="perfil-avatar" id="perfil-avatar">--</div>
+                 <div class="perfil-hero-info">
+                     <h2 id="perfil-nombre">Cargando...</h2>
+                     <p>Estudiante activo · CEUTEC</p>
+                     <div class="perfil-hero-tags">
+                         <span class="perfil-tag"><i class="bi bi-person-vcard"></i><span id="perfil-cuenta">—</span></span>
+                         <span class="perfil-tag"><i class="bi bi-envelope"></i><span id="perfil-correo">—</span></span>
+                         <span class="perfil-tag" id="perfil-carrera-tag" style="display:none">
+                            <i class="bi bi-mortarboard"></i><span id="perfil-carrera">—</span>
+                         </span>
+                     </div>
+                 </div>
+             </div>
+
+             <!-- ESTADISTICAS -->
+             <div class="stats-grid">
+                 <div class="stat-card">
+                     <div class="stat-icon azul"><i class="bi bi-calendar2-check"></i></div>
+                     <div>
+                         <div class="stat-valor" id="stat-aprobadas">0</div>
+                         <div class="stat-label">Confirmadas</div>
+                     </div>
+                 </div>
+                 <div class="stat-card">
+                     <div class="stat-icon ambar"><i class="bi bi-hourglass-split"></i></div>
+                     <div>
+                         <div class="stat-valor" id="stat-pendientes">0</div>
+                         <div class="stat-label">Pendientes</div>
+                     </div>
+                 </div>
+                 <div class="stat-card">
+                     <div class="stat-icon verde"><i class="bi bi-clock-history"></i></div>
+                     <div>
+                         <div class="stat-valor" id="stat-total">0</div>
+                         <div class="stat-label">Total de reservas</div>
+                     </div>
+                 </div>
+             </div>
+
+             <!-- LISTADO DE RESERVAS -->
+             <div class="reservas-card">
+                 <h3><i class="bi bi-bookmark-check"></i>Mis reservaciones</h3>
+                 <div id="lista-reservas">
+                     <div class="reservas-empty">
+                         <i class="bi bi-arrow-repeat"></i>
+                         Cargando tus reservas...
+                     </div>
+                 </div>
+             </div>
+
+             
+
+         </div>
+     </div>
+ </div>
+
+ <!-- =====================================
+     MODAL DE DETALLES
+===================================== -->
+
+<div class="modal fade"
+     id="modalDetalleReserva"
+     tabindex="-1"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content modal-reserva">
+
+            <div class="modal-header">
+
+                <div>
+                    <small>Detalles de la reserva</small>
+                    <h5 id="detalle-codigo">
+                        Reserva
+                    </h5>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="detalle-grid">
+
+                    <div class="detalle-item">
+                        <span>Espacio</span>
+                        <strong id="detalle-espacio">—</strong>
+                    </div>
+
+                    <div class="detalle-item">
+                        <span>Fecha</span>
+                        <strong id="detalle-fecha">—</strong>
+                    </div>
+
+                    <div class="detalle-item">
+                        <span>Horario</span>
+                        <strong id="detalle-hora">—</strong>
+                    </div>
+
+                    <div class="detalle-item">
+                        <span>Estado</span>
+                        <strong id="detalle-estado">—</strong>
+                    </div>
+
+                    <div class="detalle-item">
+                        <span>Acompañantes autorizados</span>
+                        <strong id="detalle-acompanantes">0</strong>
+                    </div>
+
+                    <div class="detalle-item">
+                        <span>Solicitud especial</span>
+                        <strong id="detalle-solicitud">Ninguna</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================
+     MODAL DEL QR
+===================================== -->
+
+<div class="modal fade"
+     id="modalQrReserva"
+     tabindex="-1"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content modal-reserva">
+
+            <div class="modal-header">
+
+                <div>
+                    <small>Código QR</small>
+                    <h5 id="qr-modal-codigo">
+                        Reserva
+                    </h5>
+                </div>
+
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body text-center">
+
+                <div id="qr-modal-cargando">
+                    Generando código QR...
+                </div>
+
+                <img
+                    id="qr-modal-imagen"
+                    alt="Código QR de la reserva"
+                    hidden
+                >
+
+                <p id="qr-modal-mensaje" hidden></p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/session.js"></script>
+ <script src="../js/perfil.js"></script>
+
+ </body>
+ </html>

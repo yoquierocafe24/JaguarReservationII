@@ -1,0 +1,90 @@
+/* ======================================
+   INICIO - SELECCIÓN DE ESPACIOS
+====================================== */
+
+
+/* CONTENEDOR DE TARJETAS */
+
+.espacios-container{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:24px;
+
+}
+
+
+
+/* TARJETAS */
+
+.espacio-card{
+    background:white;
+    border:1px solid var(--borde);
+    border-radius:16px;
+    padding:24px;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+    transition:.25s;
+
+
+}
+
+
+
+.espacio-card:hover{
+    transform:translateY(-5px);
+    box-shadow:
+    0 10px 25px rgba(0,0,0,.08);
+    border-color:var(--crimson);
+
+
+}
+
+
+
+/* EMOJI */
+
+
+.emoji{
+    font-size:42px;
+    margin-bottom:12px;
+    transition:.25s;
+
+
+}
+
+
+
+.espacio-card:hover .emoji{
+    transform:scale(1.12);
+
+
+}
+
+
+
+/* NOMBRE DEL ESPACIO */
+
+
+.espacio-card h4{
+    margin:0;
+    font-size:18px;
+    font-weight:600;
+    color:var(--texto);
+
+
+}
+
+
+
+/* RESPONSIVE */
+
+
+@media(max-width:768px){
+    .espacios-container{
+        grid-template-columns:1fr;
+    }
+
+
+}
+

@@ -1,0 +1,78 @@
+
+:root{
+  --navy:#4b0007; --navy-2:#7a0c13; --navy-3:#260003; --red:#930b0d; --red-2:#b81012; --gold:#ffcc00;
+  --bg:#f7eeee; --border:#ead8d8; --ink:#2b0a0d; --muted:#80686b; --lav:#fff1f1;
+  --font:'Poppins',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none}
+input{font-family:inherit}
+.ti{line-height:1}
+
+/* Fondo institucional */
+.login-bg{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;
+  background:linear-gradient(150deg,var(--navy) 0%,var(--navy-3) 100%)}
+.login-bg::before{content:'';position:absolute;top:-110px;right:-130px;width:540px;height:540px;
+  background:conic-gradient(from 210deg at 60% 40%,var(--red) 0deg 95deg,transparent 95deg);opacity:.22;border-radius:50%}
+.login-wm{position:absolute;bottom:-26px;left:-30px;width:360px;opacity:.07;z-index:0;pointer-events:none}
+
+/* Tarjeta central */
+.login-card{position:relative;z-index:1;background:#fff;border-radius:22px;box-shadow:0 24px 60px rgba(0,0,0,.35);
+  width:100%;max-width:415px;padding:34px;text-align:center;animation:pop .35s ease}
+@keyframes pop{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+
+.lc-logos{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:18px}
+.lc-logos img{height:36px}
+.lc-logos .sep{width:1px;height:30px;background:var(--border)}
+.lc-title{font-size:1.7rem;font-weight:800;color:var(--navy);letter-spacing:-.3px}
+.lc-title span{color:var(--red)}
+.lc-sub{font-size:.79rem;color:var(--muted);margin:4px 0 22px}
+
+/* Selector de tipo de usuario */
+.utabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--bg);border-radius:12px;padding:5px;margin-bottom:20px}
+.utab{padding:11px 8px;border-radius:9px;background:transparent;font-size:13px;font-weight:600;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+.utab i{font-size:17px}
+.utab.active{background:#fff;color:var(--red);box-shadow:0 2px 8px rgba(9,7,94,.1)}
+
+/* Campos */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:15px;text-align:left}
+.field label{font-size:.78rem;font-weight:600;color:#374151}
+.iwrap{position:relative}
+.iwrap .ii{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px;pointer-events:none}
+.iwrap input{width:100%;height:48px;padding:0 14px 0 42px;font-size:.92rem;color:var(--ink);
+  background:var(--bg);border:1.5px solid var(--border);border-radius:11px;outline:none;transition:.2s}
+.iwrap input:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(147,11,13,.1)}
+
+/* Botón */
+.btn-cta{width:100%;height:50px;background:linear-gradient(135deg,var(--red),var(--red-2));color:#fff;border-radius:11px;
+  font-size:.95rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 6px 16px rgba(147,11,13,.3);transition:.2s;margin-top:6px}
+.btn-cta:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(147,11,13,.42)}
+
+/* Pistas y pie */
+.creds-hint{margin-top:15px;background:var(--lav);border:1px solid #dcd9f5;border-radius:10px;padding:10px 13px;
+  font-size:11px;color:var(--navy);line-height:1.7;text-align:left}
+.creds-hint b{color:var(--red)}
+.lc-foot{margin-top:18px;font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px}
+
+/* Toast de aviso */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;
+  font-size:13px;font-weight:600;padding:12px 20px;border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.25);
+  z-index:9999;opacity:0;transition:.35s;display:flex;align-items:center;gap:9px}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.ok{background:#1e7d43}
+#toast.error{background:var(--red-2)}
+
+
+/* Ajustes responsive para telefono */
+@media (max-width:520px){
+  .login-bg{padding:14px;}
+  .login-card{padding:26px 20px;border-radius:18px;}
+  .lc-title{font-size:1.45rem;}
+  .lc-sub{font-size:.74rem;}
+  .lc-logos img{height:30px;}
+  .utabs{grid-template-columns:1fr;gap:6px;}
+  .utab{padding:10px 8px;}
+}

@@ -1,0 +1,253 @@
+:root {
+    --carmine: #93061e;
+    --crimson: #df1b3b;
+    --vermilion: #e04332;
+    --blanco: #ffffff;
+    --fondo: #f5f6f8;
+    --texto: #252525;
+    --texto-suave: #6c6c6c;
+    --borde: #e5e5e5;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Poppins", sans-serif;
+    background: var(--fondo);
+    color: var(--texto);
+}
+
+.registro-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px;
+}
+
+.registro-card {
+    width: 100%;
+    max-width: 560px;
+    background: var(--blanco);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.09);
+}
+
+.registro-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.registro-icono {
+    width: 66px;
+    height: 66px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(147, 6, 30, 0.1);
+    color: var(--carmine);
+    font-size: 30px;
+}
+
+.registro-header h1 {
+    margin: 0 0 8px;
+    color: var(--carmine);
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.registro-header p {
+    margin: 0;
+    color: var(--texto-suave);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.estado-reserva {
+    margin-bottom: 20px;
+    padding: 13px 16px;
+    border-radius: 10px;
+    background: #f1f1f1;
+    color: var(--texto-suave);
+    text-align: center;
+    font-size: 14px;
+}
+
+.estado-reserva.exito {
+    background: #eaf7ef;
+    color: #20733a;
+}
+
+.estado-reserva.error {
+    background: #fdecec;
+    color: #a32121;
+}
+
+.datos-reserva {
+    margin-bottom: 24px;
+}
+
+.codigo-reserva {
+    padding: 15px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    text-align: center;
+    background: var(--carmine);
+    color: var(--blanco);
+}
+
+.codigo-reserva span {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+.codigo-reserva strong {
+    font-size: 21px;
+    letter-spacing: 0.5px;
+}
+
+.datos-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.dato-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 1px solid var(--borde);
+    border-radius: 11px;
+}
+
+.dato-item i {
+    color: var(--carmine);
+    font-size: 20px;
+}
+
+.dato-item span {
+    display: block;
+    color: var(--texto-suave);
+    font-size: 12px;
+}
+
+.dato-item strong {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.registro-form {
+    display: grid;
+    gap: 18px;
+}
+
+.campo-formulario label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.input-con-icono {
+    position: relative;
+}
+
+.input-con-icono i {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    transform: translateY(-50%);
+    color: var(--carmine);
+}
+
+.input-con-icono input {
+    width: 100%;
+    padding: 12px 14px 12px 42px;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: 0.2s;
+}
+
+.input-con-icono input:focus {
+    border-color: var(--carmine);
+    box-shadow: 0 0 0 3px rgba(147, 6, 30, 0.1);
+}
+
+.btn-registrar {
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 16px;
+    background: var(--carmine);
+    color: var(--blanco);
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-registrar:hover {
+    background: #760418;
+}
+
+.btn-registrar:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.resultado-registro {
+    margin-top: 18px;
+    padding: 13px 15px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.resultado-registro.exito {
+    background: #eaf7ef;
+    color: #20733a;
+}
+
+.resultado-registro.error {
+    background: #fdecec;
+    color: #a32121;
+}
+
+.nota-seguridad {
+    margin: 22px 0 0;
+    color: var(--texto-suave);
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.nota-seguridad i {
+    color: var(--carmine);
+}
+
+@media (max-width: 576px) {
+    .registro-card {
+        padding: 24px 18px;
+        border-radius: 16px;
+    }
+
+    .registro-header h1 {
+        font-size: 22px;
+    }
+
+    .codigo-reserva strong {
+        font-size: 18px;
+    }
+}

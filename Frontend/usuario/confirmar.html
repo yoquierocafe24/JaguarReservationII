@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Jaguar Reservation — Confirmación</title>
+ <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+ <link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+ <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/estilo.css">
+<link rel="stylesheet" href="../css/confirmar.css?v=12">
+
+</head>
+<body>
+ <div class="app-layout">
+     <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+         <div class="sidebar-header">
+            <p>Jaguar Reservation · Polideportivo</p>
+        </div>
+         <div class="sidebar-section">
+            <span>Estudiante</span>
+        </div>
+         <nav class="sidebar-nav">
+             <a href="inicio.html">
+                <i class="bi bi-house-door-fill"></i>
+                Inicio
+            </a>
+             <a href="perfil.html">
+                <i class="bi bi-person-circle"></i>
+                Mi perfil
+            </a>
+         </nav>
+         <div class="sidebar-bottom">
+             <a onclick="cerrarSesion()">
+                <i class="bi bi-box-arrow-right"></i>
+                Cerrar sesión
+            </a>
+         </div>
+     </div>
+     
+     <!-- OVERLAY PARA MÓVIL -->
+     <div class="overlay" onclick="cerrarMenu()"></div>
+
+     <!-- MAIN -->
+    <div class="main-content">
+         <!-- TOPBAR -->
+        <div class="topbar">
+             <div class="topbar-left">
+                 <button class="menu-btn" onclick="abrirMenu()">
+                    <i class="bi bi-list"></i>
+                </button>
+                 <span class="topbar-titulo">
+                    Confirmación
+                </span>
+             </div>
+             <div class="topbar-right">
+                <span class="topbar-fecha" id="topbar-fecha"></span>
+                 <div class="usuario-info">
+                     <span id="usuario-nombre"></span>
+                     <small>
+                        Estudiante
+                    </small>
+                 </div>
+                 <div class="avatar" id="usuario-avatar">
+                 </div>
+             </div>
+         </div>
+         <!-- CONTENIDO -->
+        <div class="page-content">
+             <div class="confirm-card">
+                 <div class="success-icon">
+                     <i class="bi bi-check-lg"></i>
+                 </div>
+                 <h2 class="confirm-title " id="confirm-titulo">
+                     ¡Reserva confirmada!
+                 </h2>
+                 <p class="confirm-subtitle" id="confirm-subtitulo">
+                     Tu reserva fue registrada correctamente.
+                    Presenta el código de reserva al ingresar al área reservada.
+                 </p>
+                 <!-- DATOS -->
+                <div class="reserva-info">
+                     <div class="info-item">
+                         <span>Espacio</span>
+                         <strong id="conf-espacio">
+                            --
+                        </strong>
+                     </div>
+                     <div class="info-item">
+                         <span>Fecha</span>
+                         <strong id="conf-fecha">
+                            --
+                        </strong>
+                     </div>
+                     <div class="info-item">
+                         <span>Horario</span>
+                         <strong id="conf-hora">
+                            --
+                        </strong>
+                     </div>
+                    
+                 </div>
+                 <!-- CÓDIGO -->
+                <div class="codigo-card">
+                     <small>
+                         Código de reserva
+                     </small>
+                     <h4 id="conf-codigo">
+                         000000
+                     </h4>
+                 </div>
+                 <!-- QR -->
+              <div id="contenedor-qr" class="qr-box">
+
+              <div id="qr-cargando">
+             <p>Generando código QR...</p>
+             </div>
+
+            <img
+                  id="imagen-qr"
+                 alt="Código QR de la reserva"
+                     hidden
+                          >
+
+                 <p id="mensaje-qr" hidden></p>
+
+</div>
+                 <!-- BOTONES -->
+                 <div class="botones">
+                     <a href="inicio.html"
+                       class="btn-inicio">
+                         <i class="bi bi-house-door-fill"></i>
+                         Inicio
+                     </a>
+                     <a href="perfil.html"
+                       class="btn-perfil">
+                         <i class="bi bi-calendar-check"></i>
+                         Perfil
+                     </a>
+                 </div>
+             </div>
+         </div>
+     </div>
+ </div>
+ <script>
+ function abrirMenu(){
+     document
+        .getElementById("sidebar")
+        .classList.toggle("active");
+ }
+ </script>
+  <script src="../js/session.js"></script>
+ <script src="../js/confirmar.js?v=12"></script>
+ 
+ </body>
+ </html>

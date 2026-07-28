@@ -1,0 +1,429 @@
+/* ======================================
+   CSS GENERAL ESTUDIANTE
+====================================== */
+
+
+/* RESET */
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+
+/* VARIABLES */
+:root{
+    --carmine:#93061E;
+    --crimson:#DF1B3B;
+    --vermilion:#E04332;
+    --fondo:#f4f6fb;
+    --gris:#eef1f7;
+    --texto:#1a1a2e;
+    --subtexto:#6b7280;
+    --borde:#e5e7eb;
+    --blanco:#ffffff;
+}
+
+
+/* BODY */
+body{
+    font-family:'Poppins',sans-serif;
+    background:var(--fondo);
+    color:var(--texto);
+
+}
+
+
+/* ESTRUCTURA GENERAL */
+
+.app-layout{
+    display:flex;
+    min-height:100vh;
+
+}
+
+
+
+/* ======================================
+        SIDEBAR
+====================================== */
+
+
+.sidebar{
+    width:260px;
+    background:var(--carmine);
+    position:fixed;
+    top:0;
+    left:0;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    z-index:1000;
+
+}
+
+
+/* LOGO / TITULO */
+
+.sidebar-header{
+    padding:20px 20px 12px;
+    border-bottom:
+    1px solid rgba(255,255,255,.15);
+
+}
+
+
+.sidebar-header p{
+    color:rgba(255,255,255,.6);
+    font-size:11px;
+
+}
+
+
+
+/* SECCION */
+
+.sidebar-section{
+    padding:20px 16px 8px;
+
+}
+
+
+.sidebar-section span{
+    font-size:10px;
+    font-weight:600;
+    color:rgba(255,255,255,.4);
+    letter-spacing:1px;
+    text-transform:uppercase;
+
+}
+
+
+
+/* MENU */
+
+.sidebar-nav{
+    flex:1;
+    padding:4px 0;
+
+}
+
+
+.sidebar-nav a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 20px;
+    color:rgba(255,255,255,.7);
+    text-decoration:none;
+    font-size:14px;
+    border-left:3px solid transparent;
+    transition:.2s;
+
+
+}
+
+
+
+.sidebar-nav a:hover{
+    background:rgba(255,255,255,.10);
+    color:white;
+
+}
+
+
+
+.sidebar-nav a.active{
+    background:rgba(255,255,255,.15);
+    color:white;
+    border-left:3px solid white;
+    font-weight:600;
+
+}
+
+
+
+
+/* CERRAR SESION */
+
+.sidebar-bottom{
+    padding:16px 20px;
+    border-top:
+    1px solid rgba(255,255,255,.15);
+
+}
+
+
+
+.sidebar-bottom a{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:rgba(255,255,255,.5);
+    text-decoration:none;
+    font-size:13px;
+    cursor:pointer;
+
+}
+
+
+
+.sidebar-bottom a:hover{
+    color:white;
+
+}
+
+
+
+
+
+/* ======================================
+        CONTENIDO PRINCIPAL
+====================================== */
+
+
+.main-content{
+    margin-left:260px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+
+
+}
+
+
+
+/* ======================================
+        TOPBAR
+====================================== */
+
+
+.topbar{
+    background:white;
+    padding:12px 28px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid var(--borde);
+    position:sticky;
+    top:0;
+    z-index:900;
+
+
+}
+
+
+
+.topbar-left{
+    display:flex;
+    align-items:center;
+    gap:12px;
+
+}
+
+
+
+.topbar-title{
+    font-size:17px;
+    font-weight:600;
+    color:var(--texto);
+
+
+}
+
+
+
+
+.topbar-right{
+    display:flex;
+    align-items:center;
+    gap:14px;
+
+
+}
+
+
+
+
+/* USUARIO */
+
+
+.usuario-info{
+    text-align:right;
+
+}
+
+
+.usuario-info span{
+    display:block;
+    font-size:13px;
+    font-weight:500;
+
+
+}
+
+
+
+.usuario-info small{
+    font-size:11px;
+    color:var(--subtexto);
+
+
+}
+
+
+
+
+/* AVATAR */
+
+
+.avatar{
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    background:var(--carmine);
+    color:white;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:600;
+
+
+}
+
+
+
+
+
+/* ======================================
+        CONTENIDO PAGINAS
+====================================== */
+
+
+.page-content{
+    padding:28px;
+    flex:1;
+
+}
+
+
+
+.page-title{
+    margin-bottom:24px;
+
+}
+
+
+
+.page-title h2{
+    font-size:24px;
+    font-weight:700;
+    color:var(--texto);
+
+
+}
+
+
+
+.page-title p{
+    color:var(--subtexto);
+    font-size:14px;
+
+
+}
+
+
+
+
+
+/* BOTON GENERAL */
+
+
+.btn-jaguar{
+    width:100%;
+    padding:14px;
+    background:var(--crimson);
+    color:white;
+    border:none;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+
+
+}
+
+
+
+.btn-jaguar:hover{
+    background:var(--carmine);
+
+}
+
+
+
+/*======================================
+RESPONSIVE
+======================================*/
+
+.menu-btn{
+    display:none;
+    background:none;
+    border:none;
+    margin-right:10px;
+    font-size:25px;
+    cursor:pointer;
+}
+
+.overlay{
+    display:none;
+}
+
+@media (max-width:768px){
+
+    .sidebar{
+        width:230px;
+        transform:translateX(-100%);
+        transition:.3s;
+        z-index:1000;
+    }
+
+    .sidebar.activo{
+        transform:translateX(0);
+    }
+
+    .main-content{
+        margin-left:0;
+    }
+
+    .menu-btn{
+        display:block;
+    }
+
+    .page-content{
+        padding:18px;
+    }
+
+    .overlay{
+        position:fixed;
+        top:0;
+        left:0;
+        width:100%;
+        height:100%;
+        background:rgba(0,0,0,.45);
+        display:none;
+        z-index:900;
+    }
+
+    .overlay.activo{
+        display:block;
+    }
+
+    .topbar-fecha{
+        display:none;
+    }
+
+}

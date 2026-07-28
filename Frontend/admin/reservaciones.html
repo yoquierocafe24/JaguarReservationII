@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Jaguar Reservation — Reservas</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/admin.css">
+  <link rel="stylesheet" href="../css/reservar-admin.css">
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar-admin">
+
+    <div class="sidebar-brand">
+      <img src="../img/V.E CEUTEC logo-03.png" alt="Jaguares CEUTEC" class="sidebar-logo">
+
+      <div class="sidebar-brand-text">
+        <h1>Jaguar Reservation</h1>
+        <p>Polideportivo</p>
+      </div>
+    </div>
+
+    <div class="sidebar-section-title">Administración</div>
+
+                <nav class="sidebar-menu">
+                  <a   href="dashboard.html" class="sidebar-link " >
+                    <i class="bi bi-house-door"></i>
+                    <span>Inicio</span>
+                </a>
+               <a href="reservaciones.html"class="sidebar-link active">
+                    <i class="bi bi-calendar2-check"></i>
+                    <span>Reservas</span>
+                </a>
+                 <a href="calendario.html" class="sidebar-link">
+                    <i class="bi bi-calendar3"></i>
+                    <span>Calendario</span>
+                </a>
+                 <a   href="estudiantes.html"   class="sidebar-link" >
+                    <i class="bi bi-mortarboard"></i>
+                    <span>Estudiantes</span>
+                </a>
+               <a  href="inventario.html" class="sidebar-link">
+                    <i class="bi bi-controller"></i>
+                    <span>Zona Jaguar</span>
+                </a>
+               <a href="equipos.html" class="sidebar-link">
+                    <i class="bi bi-people"></i>
+                    <span>Equipos</span>
+                </a>
+               <a  href="asistencia.html"  class="sidebar-link">
+                    <i class="bi bi-clipboard-check"></i>
+                    <span>Asistencia</span>
+                </a>
+               <a   href="guardias.html"   class="sidebar-link">
+                    <i class="bi bi-person-badge"></i>
+                    <span>Guardias</span>
+                </a>
+               <a href="reportes.html"class="sidebar-link">
+                    <i class="bi bi-file-earmark-bar-graph"></i>
+                    <span>Reportes</span>
+                </a>
+           </nav>
+           <div class="sidebar-bottom">
+               <button
+                    type="button"
+                    class="btn-cerrar-sidebar"
+                    onclick="cerrarSesion()"
+                >
+                    <i class="bi bi-box-arrow-left"></i>
+                    <span>Cerrar sesión</span>
+                </button>
+           </div>
+       </aside>
+      
+
+  <!-- OVERLAY MÓVIL -->
+  <div id="sidebar-overlay" class="sidebar-overlay" onclick="cerrarMenu()"></div>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="admin-main">
+
+    <!-- TOPBAR -->
+    <header class="admin-topbar">
+
+      <div class="topbar-left">
+        <button type="button" class="menu-admin-btn" onclick="abrirMenu()">
+          <i class="bi bi-list"></i>
+        </button>
+
+        <span class="topbar-page-title">Reservas</span>
+      </div>
+
+      <div class="topbar-right">
+
+        <span class="topbar-date" id="topbar-fecha"></span>
+
+        <div class="admin-user">
+
+          <div class="admin-user-text">
+            <span id="usuario-nombre">Administradora</span>
+            <small>Administrador</small>
+          </div>
+
+          <div class="admin-avatar" id="usuario-avatar">A</div>
+
+        </div>
+
+      </div>
+
+    </header>
+
+    <!-- CONTENIDO -->
+    <section class="page-content">
+
+      <div class="page-title">
+        <h2>Reservas</h2>
+        <p>Revisa y administra las reservas registradas por los estudiantes.</p>
+      </div>
+
+      <!-- RESUMEN -->
+      <div class="resumen-grid">
+
+        <div class="resumen-item pendientes">
+          <span>Pendientes</span>
+          <strong id="total-pendiente">0</strong>
+        </div>
+
+        <div class="resumen-item">
+          <span>Aprobadas</span>
+          <strong id="total-aprobada">0</strong>
+        </div>
+
+        <div class="resumen-item">
+          <span>Rechazadas</span>
+          <strong id="total-rechazada">0</strong>
+        </div>
+
+        <div class="resumen-item">
+          <span>Canceladas</span>
+          <strong id="total-cancelada">0</strong>
+        </div>
+
+      </div>
+
+      <!-- FILTROS -->
+      <div class="card-jaguar">
+
+        <div class="filtros-grid">
+
+          <div class="filtro">
+            <label for="filtro-estado">Estado</label>
+
+            <select id="filtro-estado" onchange="cargarReservas()">
+              <option value="">Todos</option>
+              <option value="pendiente">Pendientes</option>
+              <option value="aprobada">Aprobadas</option>
+              <option value="rechazada">Rechazadas</option>
+              <option value="cancelada">Canceladas</option>
+            </select>
+          </div>
+
+          <div class="filtro">
+            <label for="filtro-espacio">Espacio</label>
+
+            <select id="filtro-espacio" onchange="cargarReservas()">
+              <option value="">Todos</option>
+              <option value="1">Fútbol</option>
+              <option value="2">Baloncesto</option>
+              <option value="3">Voleibol</option>
+              <option value="4">Zona Jaguar</option>
+            </select>
+          </div>
+
+          <div class="filtro">
+            <label for="filtro-fecha">Fecha</label>
+            <input type="date" id="filtro-fecha" onchange="cargarReservas()">
+          </div>
+
+          <div class="filtro">
+            <label for="filtro-buscar">Buscar</label>
+
+            <input
+              type="text"
+              id="filtro-buscar"
+              placeholder="Código, nombre o cuenta"
+              oninput="renderTabla()"
+            >
+          </div>
+
+        </div>
+
+        <div class="filtros-acciones">
+          <button type="button" class="btn-limpiar" onclick="limpiarFiltros()">
+            <i class="bi bi-x-circle"></i>
+            Limpiar filtros
+          </button>
+        </div>
+
+      </div>
+
+      <!-- TABLA -->
+      <div class="card-jaguar">
+
+        <div class="tabla-wrap">
+
+          <table class="tabla-reservas">
+
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Estudiante</th>
+                <th>Espacio</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Acomp.</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody id="tabla-body"></tbody>
+
+          </table>
+
+        </div>
+
+        <div class="tabla-vacia" id="tabla-vacia" style="display:none;">
+          <i class="bi bi-inbox"></i>
+          No hay reservas que coincidan con los filtros.
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal fade" id="modalDetalle" tabindex="-1">
+
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Detalle de la reserva</h5>
+
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="detalle-grid" id="detalle-body"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div
+  class="position-fixed top-0 start-50 translate-middle-x p-3"
+  style="z-index:99999; width:100%; max-width:400px;"
+>
+  <div id="toastMensaje" class="toast w-100" role="alert">
+    <div class="toast-body text-center"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/reservar-admin.js?v=10"></script>
+</body>
+</html>
