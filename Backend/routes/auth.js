@@ -47,7 +47,7 @@ router.post('/login/admin', async (req, res) => {
             ok: true,
             rol: 'admin',
             usuario: req.session.usuario,
-            redirigir: 'admin/dashboard.html'
+            redirigir: 'Frontend/admin/dashboard.html'
         });
 
     } catch (error) {
@@ -87,8 +87,8 @@ router.post('/login/guardia', async (req, res) => {
 
         const guardia = rows[0];
 
-        // const coincide = await bcrypt.compare(contrasena, guardia.contrasena);
-        const coincide = contrasena === guardia.contrasena;
+        const coincide = await bcrypt.compare(contrasena, guardia.contrasena);
+       // const coincide = contrasena === guardia.contrasena;
 
         if (!coincide) {
 

@@ -36,14 +36,14 @@ async function cargarSesionGuardia() {
        const data = await respuesta.json();
        if (!respuesta.ok || !data.ok) {
            window.location.href =
-           //Solo colocar modo comentario no borrar esta ruta 
-                "/JR/JaguarReservation/login.html";
+
+          "../../login.html";
            return;
         }
        if (data.usuario.rol !== "guardia") {
            window.location.href =
-           //Solo colocar modo comentario no borrar esta ruta 
-                "/JR/JaguarReservation/login.html";
+
+         "../../login.html";
            return;
         }
        const nombre = data.usuario.nombre || "Guardia";
@@ -93,7 +93,7 @@ async function cargarReservasHoy() {
    mostrarCarga(true);
    try {
        const respuesta = await fetch(
-            `${API_URL}/api/reservas/hoy`,
+            `${API_URL}/api/guardias/hoy`,
             {
                 credentials: "include"
             }
@@ -101,8 +101,7 @@ async function cargarReservasHoy() {
        const data = await respuesta.json();
        if (respuesta.status === 401) {
            window.location.href =
-           //Solo colocar modo comentario no borrar esta ruta 
-                "/JR/JaguarReservation/login.html";
+           "../../login.html";
            return;
         }
        if (!respuesta.ok || !data.ok) {
@@ -253,7 +252,7 @@ async function abrirDetalleReserva(idReserva) {
    modalReserva.show();
    try {
        const respuesta = await fetch(
-            `${API_URL}/api/reservas/guardia/${encodeURIComponent(idReserva)}`,
+            `${API_URL}/api/guardias/${encodeURIComponent(idReserva)}`,
             {
                 credentials: "include"
             }
@@ -459,7 +458,7 @@ async function guardarAsistencia() {
     `;
    try {
        const respuesta = await fetch(
-            `${API_URL}/api/reservas/guardia/${encodeURIComponent(idReserva)}/asistencia`,
+            `${API_URL}/api/guardias/${encodeURIComponent(idReserva)}/asistencia`,
             {
                 method: "PUT",
                credentials: "include",
@@ -632,8 +631,8 @@ async function cerrarSesion() {
        const data = await respuesta.json();
        if (respuesta.ok && data.ok) {
            window.location.href =
-           //Solo colocar modo comentario no borrar esta ruta 
-                "/JR/JaguarReservation/login.html";
+
+           "../../login.html";
            return;
        }
        mostrarToast(

@@ -124,14 +124,13 @@ body{
 
 .guardia-datos span{
     display:block;
-    font-size:13px;
+    font-size:15px;
     font-weight:600;
 }
 
-
 .guardia-datos small{
     display:block;
-    font-size:10px;
+    font-size:12px;
     color:var(--subtexto);
 }
 
@@ -225,22 +224,24 @@ body{
 
 
 .encabezado-pagina h2{
-    margin:0 0 4px;
-    font-size:24px;
+    margin:0 0 6px;
+    font-size:32px;
     font-weight:700;
+    line-height:1.2;
     color:var(--texto);
 }
 
 
 .encabezado-pagina p{
     margin:0;
-    font-size:14px;
+    font-size:17px;
+    line-height:1.5;
     color:var(--subtexto);
 }
 
 
 .fecha-actual{
-    padding:10px 14px;
+    padding:12px 16px;
 
     display:flex;
     align-items:center;
@@ -252,7 +253,8 @@ body{
     background:var(--blanco);
     color:var(--carmine);
 
-    font-size:12px;
+    font-size:14px;
+    font-weight:500;
     white-space:nowrap;
 }
 
@@ -273,7 +275,7 @@ body{
 
 .buscador{
     width:100%;
-    min-height:44px;
+    min-height:54px;
 
     padding:0 14px;
 
@@ -296,7 +298,7 @@ body{
 
 
 .buscador > i{
-    font-size:15px;
+    font-size:18px;
     color:var(--subtexto);
 }
 
@@ -304,15 +306,14 @@ body{
 .buscador input{
     flex:1;
     min-width:0;
-
-    padding:11px 0;
+    padding:14px 0;
 
     border:none;
     outline:none;
     background:transparent;
 
     font-family:'Poppins',sans-serif;
-    font-size:13px;
+    font-size:16px;
     color:var(--texto);
 }
 
@@ -375,18 +376,16 @@ body{
 
 .resumen-numero{
     display:block;
+    margin-bottom:5px;
 
-    margin-bottom:2px;
-
-    font-size:24px;
+    font-size:30px;
     line-height:1.1;
     font-weight:700;
     color:var(--carmine);
 }
 
-
 .resumen-item small{
-    font-size:11px;
+    font-size:14px;
     color:var(--subtexto);
 }
 
@@ -503,18 +502,17 @@ body{
 
 
 .codigo{
-    font-size:13px;
+    font-size:15px;
     font-weight:700;
     color:var(--crimson);
 }
 
 
 .estado{
-    padding:5px 9px;
-
+    padding:7px 12px;
     border-radius:20px;
 
-    font-size:10px;
+    font-size:12px;
     font-weight:600;
     white-space:nowrap;
 }
@@ -545,22 +543,24 @@ body{
 
 
 .card-body h4{
-    margin-bottom:8px;
+    margin-bottom:10px;
 
-    font-size:15px;
+    font-size:18px;
     font-weight:600;
+    line-height:1.35;
     color:var(--texto);
 }
 
 
 .card-body p{
-    margin-bottom:5px;
+    margin-bottom:7px;
 
     display:flex;
     align-items:center;
-    gap:7px;
+    gap:8px;
 
-    font-size:12px;
+    font-size:15px;
+    line-height:1.4;
     color:var(--subtexto);
 }
 
@@ -571,7 +571,8 @@ body{
 
 
 .card-body i{
-    width:15px;
+    width:18px;
+    font-size:15px;
     color:var(--crimson);
 }
 
@@ -974,7 +975,7 @@ body{
    RESPONSIVE
 ====================================== */
 
-@media(max-width:768px){
+@media(max-width:992px){
 
     .topbar-guardia{
         padding:11px 16px;
@@ -1006,16 +1007,16 @@ body{
     }
 
     .encabezado-pagina h2{
-        font-size:21px;
+        font-size:25px;
     }
 
     .encabezado-pagina p{
-        font-size:12px;
+        font-size:15px;
     }
 
     .fecha-actual{
-        padding:8px 11px;
-        font-size:11px;
+        padding:9px 12px;
+        font-size:13px;
     }
 
     .resumen-dia{
@@ -1028,11 +1029,11 @@ body{
     }
 
     .resumen-numero{
-        font-size:20px;
+        font-size:25px;
     }
 
     .resumen-item small{
-        font-size:9px;
+        font-size:12px;
     }
 
     .lista-reservas{

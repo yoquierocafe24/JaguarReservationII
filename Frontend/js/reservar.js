@@ -141,25 +141,96 @@ async function cargarHoras() {
   const ahora = new Date();
   const horaActualMinutos = ahora.getHours() * 60 + ahora.getMinutes();
 
-  // Consulta al backend qué horas ya están ocupadas
-  let horasOcupadas = [];
+// Consulta al backend qué horas ya están ocupadas o agotadas
+let horasOcupadas = [];
 
-  try {
+try {
 
-    const res = await fetch(
-      `http://localhost:3000/api/reservas/horarios/consultar?espacio=${espacios[espacio]}&fecha=${fechaSel}`,
-      { credentials: "include" }
-    );
+  let url;
 
-    const data = await res.json();
+  // =========================================
+  // ZONA JAGUAR
+  // Se bloquea solamente cuando se agotan
+  // todas las unidades del juego seleccionado
+  // =========================================
+  if (espacio === "zona_jaguar") {
 
-    if (data.ok) {
-      horasOcupadas = data.horasOcupadas;
+    const idItem = selectJuego?.value;
+
+    if (!idItem) {
+
+      wrap.innerHTML = `
+        <p style="font-size:13px;color:var(--subtexto)">
+          Selecciona primero un juego para consultar los horarios disponibles.
+        </p>
+      `;
+
+      return;
     }
 
-  } catch (error) {
-    console.error("Error al consultar horarios:", error);
+    url =
+      `http://localhost:3000/api/inventario/horarios-agotados?fecha=${fechaSel}&id_item=${idItem}`;
+
+  } else {
+
+    // =========================================
+    // CANCHAS
+    // Una reserva sí bloquea el espacio completo
+    // =========================================
+    url =
+      `http://localhost:3000/api/reservas/horarios/consultar?espacio=${espacios[espacio]}&fecha=${fechaSel}`;
+
   }
+
+  const res = await fetch(url, {
+    credentials: "include"
+  });
+
+  const data = await res.json();
+
+  console.log("RESPUESTA DE HORARIOS:", data);
+
+  if (!res.ok || !data.ok) {
+    throw new Error(
+      data.mensaje || "No se pudieron consultar los horarios."
+    );
+  }
+
+  if (espacio === "zona_jaguar") {
+
+    // La nueva ruta devuelve horarios_agotados
+    horasOcupadas = (data.horarios_agotados || []).map(horario => {
+
+      const inicio =
+        String(horario.hora_inicio).slice(0, 5);
+
+      const fin =
+        String(horario.hora_fin).slice(0, 5);
+
+      return `${inicio}–${fin}`;
+
+    });
+
+  } else {
+
+    // La ruta actual de canchas devuelve horasOcupadas
+    horasOcupadas = data.horasOcupadas || [];
+
+  }
+
+} catch (error) {
+
+  console.error(
+    "Error al consultar horarios:",
+    error
+  );
+
+  mostrarToast(
+    "No se pudieron consultar los horarios disponibles.",
+    "danger"
+  );
+
+}
 
   wrap.innerHTML = horas.map(h => {
 
@@ -212,8 +283,8 @@ async function seleccionarFecha(y, m, d) {
 
 const espacios = {
   futbol: 1,
-  voleibol: 2,
-  baloncesto: 3,
+  baloncesto: 2,
+  voleibol: 3,
   zona_jaguar: 4
 };
 
@@ -307,8 +378,22 @@ if (!/^\d{8}$/.test(telefono)) {
 
     // Guardamos la información para confirmar.html
     const reserva = {
-
         id_reserva: data.id_reserva || null,
+
+       // Será true si el backend devuelve tiene_qr
+    // o si devuelve directamente un qr_token.
+    tiene_qr:
+        data.tiene_qr === true ||
+        Boolean(data.qr_token),
+
+    qr_token:
+        data.qr_token || null,
+
+    cant_acompanantes:
+        cantAcompanantes,
+
+            tipo_reserva:
+        "individual",
 
         nombre: document.getElementById("campo-nombre").value,
 
@@ -316,8 +401,8 @@ if (!/^\d{8}$/.test(telefono)) {
 
         espacio: espacioLabels[espacio],
 
-     jjuego:
-    espacio === "zona_jaguar" && selectJuego
+        juego:
+         espacio === "zona_jaguar" && selectJuego
         ? selectJuego.options[selectJuego.selectedIndex].text
         : null,
 
@@ -327,9 +412,10 @@ if (!/^\d{8}$/.test(telefono)) {
 
         horaFin: horaFin,
 
-        codigo: data.codigo || ("JR-" + (data.id_reserva ?? "0000"))
+        codigo: data.codigo || data.id_reserva ||  "0000"
 
     };
+    console.log("RESERVA GUARDADA:", reserva);
 
     sessionStorage.setItem(
         "ultimaReserva",
@@ -359,70 +445,38 @@ if (!/^\d{8}$/.test(telefono)) {
 
 function mostrarToast(mensaje, tipo="danger") {
 
-
     const toast = document.getElementById("toastMensaje");
 
-
     if(!toast){
-
         console.log(mensaje);
         return;
-
     }
 
-
     const cuerpo = toast.querySelector(".toast-body");
-
-
     cuerpo.textContent = mensaje;
-
 
     toast.className = 
     `toast text-bg-${tipo}`;
 
-
     const bsToast = new bootstrap.Toast(toast);
-
 
     bsToast.show();
 
 }
 function abrirMenu(){
-
-
-    document
-    .querySelector(".sidebar")
-    .classList.add("activo");
-
-
-    document
-    .querySelector(".overlay")
-    .classList.add("activo");
-
-
+    document .querySelector(".sidebar") .classList.add("activo");
+    document .querySelector(".overlay") .classList.add("activo");
 }
 
 
 
 function cerrarMenu(){
-
-
-    document
-    .querySelector(".sidebar")
-    .classList.remove("activo");
-
-
-    document
-    .querySelector(".overlay")
-    .classList.remove("activo");
-
-
+    document .querySelector(".sidebar") .classList.remove("activo");
+    document .querySelector(".overlay") .classList.remove("activo");
 }
 
 async function cargarJuegos() {
-
     try {
-
         const respuesta = await fetch(
             "http://localhost:3000/api/inventario/juegos",
             {
@@ -448,7 +502,6 @@ async function cargarJuegos() {
         }
 
     } catch (error) {
-
         console.error(error);
         mostrarToast("No se pudieron cargar los juegos.", "danger");
 
@@ -458,9 +511,6 @@ async function cargarJuegos() {
 
 
 async function cerrarSesion() {
-
-      console.log("Entró a cerrarSesion");
-
     try {
 
         const res = await fetch("http://localhost:3000/api/auth/logout", {
@@ -488,10 +538,51 @@ async function cerrarSesion() {
         console.error(error);
 
         mostrarToast("Error al cerrar la sesión.", "danger");
-
     }
 
 }
+
+/* ======================================
+   ADVERTENCIA DE ACOMPAÑANTES
+====================================== */
+
+function verificarCantidadAcompanantes() {
+
+    const input = document.getElementById("campo-acompanantes");
+    const advertencia = document.getElementById("advertencia-acompanantes");
+
+    if (!input || !advertencia) return;
+
+    const cantidad = Number(input.value) || 0;
+
+    // Umbral de advertencia (NO es un límite)
+    const UMBRAL_ADVERTENCIA = 15;
+
+    if (cantidad >= UMBRAL_ADVERTENCIA) {
+        advertencia.hidden = false;
+    } else {
+        advertencia.hidden = true;
+    }
+
+}
+
+const campoAcompanantes =
+    document.getElementById("campo-acompanantes");
+
+if (campoAcompanantes) {
+
+    campoAcompanantes.addEventListener(
+        "input",
+        verificarCantidadAcompanantes
+    );
+
+    verificarCantidadAcompanantes();
+
+}
+
+
+
+
 
 // Solo permite números en el campo de teléfono, máximo 8 dígitos
 document.getElementById('campo-telefono').addEventListener('input', function(e) {
@@ -513,12 +604,28 @@ let choicesJuego = null;
 const selectJuego = document.getElementById('juego');
 
 if (selectJuego) {
+
   choicesJuego = new Choices(selectJuego, {
     searchEnabled: false,
     itemSelectText: '',
     shouldSort: false,
     placeholder: true,
   });
+
+}
+
+if (selectJuego) {
+
+  selectJuego.addEventListener("change", async () => {
+
+    horaSel = null;
+
+    if (fechaSel) {
+      await cargarHoras();
+    }
+
+  });
+
 }
 
 // Solo cargar juegos si el espacio es zona_jaguar

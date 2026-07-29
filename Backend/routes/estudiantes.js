@@ -39,6 +39,8 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
             const nombre = fila[1];
             const dni = fila[2];
             const correo = fila[30];
+            const carrera = fila[7];
+            const tipo_ingreso = fila[10];
 
             if (!cuenta || !nombre || !dni)
                 continue;
@@ -60,10 +62,12 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
                      SET nombre=?,
                          dni=?,
                          correo=?,
+                         carrera=?,
+                         tipo_ingreso=?,
                          activo=1
                      WHERE cuenta=?`,
 
-                    [nombre, dni, correo, cuenta]
+                    [nombre, dni, correo, carrera, tipo_ingreso, cuenta]
 
                 );
 
@@ -72,10 +76,10 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
                 await db.query(
 
                     `INSERT INTO Estudiantes
-                    (nombre,dni,cuenta,correo,activo)
-                    VALUES (?,?,?,?,1)`,
+                    (nombre,dni,cuenta,correo,carrera,tipo_ingreso,activo)
+                    VALUES (?,?,?,?,?,?,1)`,
 
-                    [nombre, dni, cuenta, correo]
+                    [nombre, dni, cuenta, correo, carrera, tipo_ingreso]
 
                 );
 
@@ -120,5 +124,145 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
     }
 
 });
+
+// ========================================
+// OBTENER TODOS LOS ESTUDIANTES
+// ========================================
+
+router.get("/estudiantes", async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+
+            `SELECT
+                id_estudiante,
+                cuenta,
+                nombre,
+                correo,
+                carrera,
+                tipo_ingreso,
+                activo
+            FROM Estudiantes
+            ORDER BY nombre`
+
+        );
+
+        res.json({
+            ok: true,
+            estudiantes: rows
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: error.message
+        });
+
+    }
+
+});
+
+// ========================================
+// CERRAR TRIMESTRE
+// ========================================
+
+router.put("/estudiantes/cerrar-trimestre", async (req, res) => {
+
+    try {
+
+        const [resultado] = await db.query(
+
+            `UPDATE Estudiantes
+             SET activo = 0`
+
+        );
+
+        res.json({
+
+            ok: true,
+            mensaje: "Trimestre cerrado correctamente.",
+
+            estudiantesActualizados: resultado.affectedRows
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+
+            ok: false,
+            mensaje: error.message
+
+        });
+
+    }
+
+});
+
+// ========================================
+// ESTADISTICAS
+// ========================================
+
+router.get("/estudiantes/resumen", async (req, res) => {
+
+    try {
+
+        const [[total]] = await db.query(
+
+            `SELECT COUNT(*) total
+             FROM Estudiantes`
+
+        );
+
+        const [[activos]] = await db.query(
+
+            `SELECT COUNT(*) activos
+             FROM Estudiantes
+             WHERE activo=1`
+
+        );
+
+        const [[inactivos]] = await db.query(
+
+            `SELECT COUNT(*) inactivos
+             FROM Estudiantes
+             WHERE activo=0`
+
+        );
+
+        res.json({
+
+            ok:true,
+
+            total: total.total,
+
+            activos: activos.activos,
+
+            inactivos: inactivos.inactivos
+
+        });
+
+    } catch(error){
+
+        console.log(error);
+
+        res.status(500).json({
+
+            ok:false,
+
+            mensaje:error.message
+
+        });
+
+    }
+
+});
+
 
 module.exports = router;

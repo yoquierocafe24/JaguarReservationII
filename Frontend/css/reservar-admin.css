@@ -1,0 +1,437 @@
+/* ======================================
+   CSS RESERVAS — ADMINISTRADOR
+   Depende de estilo.css (layout, sidebar, topbar, variables).
+   Aqui solo va lo propio de esta vista.
+====================================== */
+
+
+/* VARIABLES DE ESTADO
+   La paleta institucional es roja y no alcanza para distinguir
+   aprobada/pendiente, asi que los estados usan color semantico.
+   El rojo de "rechazada" es el mismo de .msg-error del estudiante. */
+
+:root{
+    --est-pendiente-bg:#fef3c7;
+    --est-pendiente-tx:#92400e;
+    --est-aprobada-bg:#d1fae5;
+    --est-aprobada-tx:#065f46;
+    --est-rechazada-bg:#fee2e2;
+    --est-rechazada-tx:#991b1b;
+    --est-cancelada-bg:#f3f4f6;
+    --est-cancelada-tx:#6b7280;
+}
+
+
+/* ======================================
+        TARJETA
+====================================== */
+
+.card-jaguar{
+    background:var(--blanco);
+    border-radius:16px;
+    padding:24px;
+    border:1px solid var(--borde);
+    margin-bottom:20px;
+}
+
+
+/* ======================================
+        RESUMEN
+====================================== */
+
+.resumen-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:16px;
+    margin-bottom:20px;
+}
+
+.resumen-item{
+    background:var(--blanco);
+    border:1px solid var(--borde);
+    border-radius:16px;
+    padding:18px 20px;
+}
+
+.resumen-item span{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    color:var(--subtexto);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+}
+
+.resumen-item strong{
+    font-size:26px;
+    font-weight:700;
+    color:var(--texto);
+}
+
+.resumen-item.pendientes strong{
+    color:var(--crimson);
+}
+
+
+/* ======================================
+        FILTROS
+====================================== */
+
+.filtros-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+}
+
+.filtro label{
+    display:block;
+    font-size:12px;
+    font-weight:500;
+    color:var(--subtexto);
+    margin-bottom:6px;
+}
+
+.filtro select,
+.filtro input{
+    width:100%;
+    padding:11px 14px;
+    border:1.5px solid var(--borde);
+    border-radius:12px;
+    font-family:'Poppins',sans-serif;
+    font-size:14px;
+    color:var(--texto);
+    background:var(--fondo);
+    transition:border-color .2s;
+}
+
+.filtro select:focus,
+.filtro input:focus{
+    outline:none;
+    border-color:var(--crimson);
+    background:var(--blanco);
+}
+
+.filtros-acciones{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:14px;
+}
+
+.btn-limpiar{
+    background:none;
+    border:1.5px solid var(--borde);
+    border-radius:10px;
+    padding:8px 16px;
+    font-family:'Poppins',sans-serif;
+    font-size:13px;
+    color:var(--subtexto);
+    cursor:pointer;
+    transition:.2s;
+}
+
+.btn-limpiar:hover{
+    border-color:var(--crimson);
+    color:var(--crimson);
+}
+
+
+/* ======================================
+        TABLA
+====================================== */
+
+.tabla-wrap{
+    overflow-x:auto;
+}
+
+.tabla-reservas{
+    width:100%;
+    border-collapse:collapse;
+    min-width:900px;
+}
+
+.tabla-reservas thead th{
+    text-align:left;
+    font-size:11px;
+    font-weight:600;
+    color:var(--subtexto);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    padding:0 14px 12px;
+    border-bottom:1px solid var(--borde);
+    white-space:nowrap;
+}
+
+.tabla-reservas tbody td{
+    padding:14px;
+    font-size:13px;
+    color:var(--texto);
+    border-bottom:1px solid var(--gris);
+    vertical-align:middle;
+}
+
+.tabla-reservas tbody tr:last-child td{
+    border-bottom:none;
+}
+
+.tabla-reservas tbody tr:hover{
+    background:var(--fondo);
+}
+
+.celda-id{
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.celda-persona strong{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+}
+
+.celda-persona small{
+    font-size:11px;
+    color:var(--subtexto);
+}
+
+.celda-hora{
+    white-space:nowrap;
+}
+
+.celda-juego{
+    font-size:11px;
+    color:var(--subtexto);
+    display:block;
+}
+
+
+/* ======================================
+        BADGE DE ESTADO
+====================================== */
+
+.badge-estado{
+    display:inline-block;
+    padding:5px 12px;
+    border-radius:50px;
+    font-size:11px;
+    font-weight:600;
+    text-transform:capitalize;
+    white-space:nowrap;
+}
+
+.badge-estado.pendiente{
+    background:var(--est-pendiente-bg);
+    color:var(--est-pendiente-tx);
+}
+
+.badge-estado.aprobada{
+    background:var(--est-aprobada-bg);
+    color:var(--est-aprobada-tx);
+}
+
+.badge-estado.rechazada{
+    background:var(--est-rechazada-bg);
+    color:var(--est-rechazada-tx);
+}
+
+.badge-estado.cancelada{
+    background:var(--est-cancelada-bg);
+    color:var(--est-cancelada-tx);
+}
+
+
+/* ======================================
+        ACCIONES
+====================================== */
+
+.acciones{
+    display:flex;
+    gap:6px;
+    white-space:nowrap;
+}
+
+.btn-accion{
+    width:32px;
+    height:32px;
+    border-radius:9px;
+    border:1.5px solid var(--borde);
+    background:var(--blanco);
+    color:var(--subtexto);
+    font-size:14px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    transition:.2s;
+}
+
+.btn-accion:hover{
+    background:var(--fondo);
+}
+
+.btn-accion.aprobar:hover{
+    border-color:var(--est-aprobada-tx);
+    color:var(--est-aprobada-tx);
+}
+
+.btn-accion.rechazar:hover,
+.btn-accion.cancelar:hover{
+    border-color:var(--crimson);
+    color:var(--crimson);
+}
+
+.btn-accion.ver:hover{
+    border-color:var(--texto);
+    color:var(--texto);
+}
+
+
+/* ======================================
+        VACIO Y CARGA
+====================================== */
+
+.tabla-vacia{
+    text-align:center;
+    padding:44px 20px;
+    color:var(--subtexto);
+    font-size:14px;
+}
+
+.tabla-vacia i{
+    display:block;
+    font-size:32px;
+    margin-bottom:10px;
+    color:var(--borde);
+}
+
+
+/* ======================================
+        MODAL DE DETALLE
+====================================== */
+
+.modal-content{
+    border:none;
+    border-radius:16px;
+    font-family:'Poppins',sans-serif;
+}
+
+.modal-header{
+    border-bottom:1px solid var(--borde);
+    padding:20px 24px;
+}
+
+.modal-title{
+    font-size:16px;
+    font-weight:600;
+    color:var(--texto);
+}
+
+.modal-body{
+    padding:24px;
+}
+
+.detalle-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:18px;
+}
+
+.detalle-item span{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    color:var(--subtexto);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    margin-bottom:4px;
+}
+
+.detalle-item strong{
+    font-size:14px;
+    font-weight:500;
+    color:var(--texto);
+}
+
+.detalle-item.ancho{
+    grid-column:1 / -1;
+}
+
+.page-content{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
+    padding:24px;
+}
+
+.page-title{
+    margin-bottom:20px;
+}
+
+.page-title h2{
+    margin:0 0 4px;
+    font-size:24px;
+    font-weight:700;
+    color:var(--texto);
+}
+
+.page-title p{
+    margin:0;
+    font-size:13px;
+    color:var(--subtexto);
+}
+
+.badge-estado.vencida{
+    background:#e5e7eb;
+    color:#6b7280;
+}
+
+.tabla-reservas tbody tr.fila-vencida{
+    background:#f7f8fa;
+}
+
+.tabla-reservas tbody tr.fila-vencida td{
+    color:#8b929e;
+}
+
+.tabla-reservas tbody tr.fila-vencida:hover{
+    background:#f1f3f6;
+}
+
+@media(max-width:600px){
+    .page-content{
+        padding:16px;
+    }
+
+    .page-title h2{
+        font-size:21px;
+    }
+}
+
+
+/* ======================================
+        RESPONSIVE
+====================================== */
+
+@media (max-width:992px){
+
+    .resumen-grid{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .filtros-grid{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+}
+
+@media (max-width:576px){
+
+    .resumen-grid,
+    .filtros-grid{
+        grid-template-columns:1fr;
+    }
+
+    .detalle-grid{
+        grid-template-columns:1fr;
+    }
+
+}

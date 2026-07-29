@@ -1,0 +1,384 @@
+/* ======================================
+   JAGUAR RESERVATION
+   CSS GENERAL ADMINISTRACIÓN
+====================================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+:root{
+    --carmine:#93061E;
+    --crimson:#DF1B3B;
+    --vermilion:#E04332;
+
+    --fondo:#f4f6fb;
+    --gris:#eef1f7;
+    --blanco:#ffffff;
+
+    --texto:#1a1a2e;
+    --subtexto:#6b7280;
+    --borde:#e5e7eb;
+}
+
+body{
+    min-height:100vh;
+    font-family:'Poppins',sans-serif;
+    background:var(--fondo);
+    color:var(--texto);
+}
+
+button,
+input,
+select,
+textarea{
+    font-family:'Poppins',sans-serif;
+}
+
+
+/* ======================================
+   ESTRUCTURA
+====================================== */
+
+.admin-layout{
+    min-height:100vh;
+    display:flex;
+}
+
+.admin-main{
+    min-width:0;
+    min-height:100vh;
+    margin-left:250px;
+    flex:1;
+}
+
+
+/* ======================================
+   SIDEBAR
+====================================== */
+
+.sidebar-admin{
+    width:250px;
+    height:100vh;
+
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:1000;
+
+    display:flex;
+    flex-direction:column;
+
+    background:
+        linear-gradient(
+            180deg,
+            #870319 0%,
+            var(--carmine) 50%,
+            #690012 100%
+        );
+
+    color:white;
+}
+
+.sidebar-brand{
+    min-height:115px;
+    padding:20px 18px;
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    border-bottom:1px solid rgba(255,255,255,.15);
+}
+
+.sidebar-logo{
+    width:68px;
+    height:50px;
+    object-fit:contain;
+    flex-shrink:0;
+}
+
+.sidebar-brand-text{
+    min-width:0;
+}
+
+.sidebar-brand-text h1{
+    margin:0 0 3px;
+
+    font-size:14px;
+    font-weight:700;
+    line-height:1.2;
+    color:white;
+}
+
+.sidebar-brand-text p{
+    margin:0;
+
+    font-size:10px;
+    color:rgba(255,255,255,.65);
+}
+
+.sidebar-section-title{
+    padding:20px 20px 8px;
+
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:rgba(255,255,255,.45);
+}
+
+.sidebar-menu{
+    flex:1;
+    padding:4px 0;
+    overflow-y:auto;
+
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+}
+
+.sidebar-menu::-webkit-scrollbar{
+    display:none;
+}
+
+.sidebar-link{
+    min-height:45px;
+    padding:10px 19px;
+
+    display:flex;
+    align-items:center;
+    gap:12px;
+
+    border-left:3px solid transparent;
+
+    color:rgba(255,255,255,.72);
+    text-decoration:none;
+
+    font-size:13px;
+    transition:.2s;
+}
+
+.sidebar-link i{
+    width:19px;
+    font-size:17px;
+    text-align:center;
+}
+
+.sidebar-link:hover{
+    background:rgba(255,255,255,.09);
+    color:white;
+}
+
+.sidebar-link.active{
+    background:rgba(255,255,255,.15);
+    border-left-color:white;
+    color:white;
+    font-weight:600;
+}
+
+.sidebar-badge{
+    min-width:20px;
+    height:20px;
+    margin-left:auto;
+    padding:0 6px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:20px;
+    background:var(--crimson);
+    color:white;
+
+    font-size:10px;
+    font-weight:600;
+}
+
+.sidebar-bottom{
+    padding:14px 18px;
+    border-top:1px solid rgba(255,255,255,.15);
+}
+
+.btn-cerrar-sidebar{
+    width:100%;
+    padding:10px 0;
+
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    border:none;
+    background:transparent;
+
+    color:rgba(255,255,255,.65);
+
+    font-size:12px;
+    cursor:pointer;
+}
+
+.btn-cerrar-sidebar:hover{
+    color:white;
+}
+
+
+/* ======================================
+   TOPBAR
+====================================== */
+
+.admin-topbar{
+    min-height:62px;
+    padding:10px 24px;
+
+    position:sticky;
+    top:0;
+    z-index:900;
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    background:white;
+    border-bottom:1px solid var(--borde);
+}
+
+.topbar-left,
+.topbar-right{
+    display:flex;
+    align-items:center;
+}
+
+.topbar-left{
+    gap:10px;
+}
+
+.topbar-right{
+    gap:20px;
+}
+
+.topbar-page-title{
+    font-size:16px;
+    font-weight:600;
+}
+
+.menu-admin-btn{
+    display:none;
+
+    border:none;
+    background:transparent;
+
+    color:var(--texto);
+
+    font-size:24px;
+    cursor:pointer;
+}
+
+.topbar-date{
+    font-size:11px;
+    color:var(--subtexto);
+}
+
+.admin-user{
+    display:flex;
+    align-items:center;
+    gap:9px;
+}
+
+.admin-user-text{
+    text-align:right;
+}
+
+.admin-user-text span{
+    display:block;
+
+    font-size:12px;
+    font-weight:600;
+}
+
+.admin-user-text small{
+    display:block;
+
+    font-size:10px;
+    color:var(--subtexto);
+}
+
+.admin-avatar{
+    width:36px;
+    height:36px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:50%;
+
+    background:var(--carmine);
+    color:white;
+
+    font-size:11px;
+    font-weight:600;
+}
+
+
+/* ======================================
+   OVERLAY
+====================================== */
+
+.sidebar-overlay{
+    display:none;
+}
+
+
+/* ======================================
+   RESPONSIVE
+====================================== */
+
+@media(max-width:900px){
+
+    .sidebar-admin{
+        width:235px;
+        transform:translateX(-100%);
+        transition:.3s;
+    }
+
+    .sidebar-admin.activo{
+        transform:translateX(0);
+    }
+
+    .admin-main{
+        margin-left:0;
+    }
+
+    .menu-admin-btn{
+        display:block;
+    }
+
+    .sidebar-overlay{
+        position:fixed;
+        inset:0;
+        z-index:950;
+
+        background:rgba(0,0,0,.45);
+    }
+
+    .sidebar-overlay.activo{
+        display:block;
+    }
+}
+
+@media(max-width:600px){
+
+    .admin-topbar{
+        padding:10px 15px;
+    }
+
+    .topbar-date,
+    .admin-user-text{
+        display:none;
+    }
+
+    .topbar-right{
+        gap:8px;
+    }
+}
