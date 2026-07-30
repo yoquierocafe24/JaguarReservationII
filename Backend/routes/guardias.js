@@ -50,6 +50,7 @@ router.get('/hoy', async (req, res) => {
                 ON r.id_espacio=es.id_espacio
 
             WHERE r.fecha = CURDATE()
+            AND r.estado = 'aprobada'
             
 
             ORDER BY r.hora_inicio`
@@ -73,6 +74,116 @@ router.get('/hoy', async (req, res) => {
     }
 
 });
+
+
+// =======================================
+// GUARDIA - Buscar reservas por cuenta
+// GET /api/reservas/guardia/buscar?cuenta=...
+// Busca titular o acompañante
+// =======================================
+
+router.get('/buscar', async (req, res) => {
+
+    try {
+
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                ok: false,
+                mensaje: "Debe iniciar sesión."
+            });
+        }
+
+        if (req.session.usuario.rol !== "guardia") {
+            return res.status(403).json({
+                ok: false,
+                mensaje: "No tiene permisos."
+            });
+        }
+
+        const cuenta = String(req.query.cuenta || "").trim();
+
+        if (!cuenta) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe ingresar un número de cuenta."
+            });
+        }
+
+        const [rows] = await db.query(
+
+            `SELECT DISTINCT
+                r.id_reserva,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                r.estado,
+                r.cant_acompanantes,
+
+                titular.nombre AS estudiante,
+                titular.cuenta AS cuenta_titular,
+
+                es.nombre AS espacio,
+
+                CASE
+                    WHEN titular.cuenta = ? THEN 'titular'
+                    ELSE 'acompanante'
+                END AS coincidencia
+
+            FROM Reservas r
+
+            INNER JOIN Estudiantes titular
+                ON titular.id_estudiante = r.id_estudiante
+
+            INNER JOIN Espacios es
+                ON es.id_espacio = r.id_espacio
+
+            LEFT JOIN Reserva_Acompanantes ra
+                ON ra.id_reserva = r.id_reserva
+                AND ra.confirmado = 1
+
+            LEFT JOIN Estudiantes acompanante
+                ON acompanante.id_estudiante = ra.id_estudiante
+
+           WHERE r.fecha = CURDATE()
+                    AND r.estado = 'aprobada'
+                    AND (
+                     titular.cuenta = ?
+                         OR acompanante.cuenta = ?
+                        )
+
+            ORDER BY r.fecha DESC, r.hora_inicio DESC`,
+
+            [
+                cuenta,
+                cuenta,
+                cuenta
+            ]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "No se encontró ninguna reserva con ese número de cuenta."
+            });
+        }
+
+        res.json({
+            ok: true,
+            reservas: rows
+        });
+
+    } catch (error) {
+
+        console.error("ERROR BUSCANDO RESERVA POR CUENTA:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+    }
+
+});
+
 
 
 // =======================================

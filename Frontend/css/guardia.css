@@ -582,7 +582,7 @@ body{
 ====================================== */
 
 .modal-dialog{
-    max-width:560px;
+    max-width:800px;
 }
 
 
@@ -615,7 +615,7 @@ body{
 
 
 .modal-title{
-    font-size:18px;
+    font-size:32px;
     font-weight:700;
 }
 
@@ -654,7 +654,7 @@ body{
 .reserva-resumen h3{
     margin:0 0 3px;
 
-    font-size:16px;
+    font-size:28px;
     font-weight:600;
 }
 
@@ -662,7 +662,7 @@ body{
 .reserva-resumen p{
     margin:0;
 
-    font-size:12px;
+    font-size:18px;
     color:var(--subtexto);
 }
 
@@ -745,7 +745,7 @@ body{
 
 
 .persona{
-    padding:12px 14px;
+    padding:18px 20px;
 
     display:flex;
     align-items:center;
@@ -784,8 +784,8 @@ body{
 
 
 .persona-avatar{
-    width:34px;
-    height:34px;
+    width:44px;
+    height:44px;
 
     border-radius:50%;
     background:var(--carmine);
@@ -795,7 +795,7 @@ body{
     align-items:center;
     justify-content:center;
 
-    font-size:11px;
+    font-size:15px;
     font-weight:600;
     flex-shrink:0;
 }
@@ -809,7 +809,7 @@ body{
 .persona-info h5{
     margin:0 0 2px;
 
-    font-size:13px;
+    font-size:19px;
     font-weight:600;
 }
 
@@ -817,7 +817,7 @@ body{
 .persona-info small{
     display:block;
 
-    font-size:10px;
+    font-size:15px;
     color:var(--subtexto);
 }
 
@@ -828,13 +828,14 @@ body{
     margin-top:4px;
     margin-right:6px;
 
-    font-size:9px;
+    font-size:13px;
     font-weight:600;
     color:var(--crimson);
 }
 
 
 .hora-entrada{
+     font-size:13px;
     color:var(--verde);
 }
 
@@ -845,8 +846,8 @@ body{
 
 
 .checkbox-asistencia{
-    width:19px;
-    height:19px;
+    width:26px;
+    height:26px;
 
     accent-color:var(--crimson);
     cursor:pointer;

@@ -200,47 +200,192 @@ function renderizarReservas(reservas) {
 
 // =======================================
 // BUSCADOR
+// Busca por código, nombre, espacio
+// o número de cuenta
 // =======================================
 
 function prepararBuscador() {
-   const buscador =
+
+    const buscador =
         document.getElementById("buscador-reservas");
-   const limpiar =
+
+    const limpiar =
         document.getElementById("btn-limpiar-busqueda");
-   buscador.addEventListener("input", () => {
-       const texto =
-            normalizarTexto(buscador.value.trim());
-       const filtradas = reservasDelDia.filter(reserva => {
-           const codigo =
-                normalizarTexto(reserva.id_reserva);
-           const nombre =
-                normalizarTexto(reserva.estudiante);
-           const espacio =
-                normalizarTexto(reserva.espacio);
-           return (
-                codigo.includes(texto) ||
-                nombre.includes(texto) ||
-                espacio.includes(texto)
-            );
-       });
-       renderizarReservas(filtradas);
-       const mensaje =
-            document.getElementById("mensaje-sin-resultados");
-       if (texto) {
-           mensaje.textContent =
+
+    const mensaje =
+        document.getElementById("mensaje-sin-resultados");
+
+    let temporizadorBusqueda;
+
+    buscador.addEventListener("input", () => {
+
+        clearTimeout(temporizadorBusqueda);
+
+        temporizadorBusqueda = setTimeout(async () => {
+
+            const valor = buscador.value.trim();
+            const texto = normalizarTexto(valor);
+
+            // Si el buscador está vacío, mostrar reservas del día
+            if (!valor) {
+
+                renderizarReservas(reservasDelDia);
+
+                mensaje.textContent =
+                    "No hay reservas registradas para el día de hoy.";
+
+                return;
+            }
+
+            // Verificar si escribió únicamente números
+            const esNumeroCuenta = /^\d+$/.test(valor);
+
+            // Si son números, buscar la cuenta en el backend
+            if (esNumeroCuenta) {
+
+                await buscarReservaPorCuenta(valor);
+
+                return;
+            }
+
+            // Si escribió texto, conservar la búsqueda actual
+            const filtradas = reservasDelDia.filter(reserva => {
+
+                const codigo =
+                    normalizarTexto(reserva.id_reserva);
+
+                const nombre =
+                    normalizarTexto(reserva.estudiante);
+
+                const espacio =
+                    normalizarTexto(reserva.espacio);
+
+                return (
+                    codigo.includes(texto) ||
+                    nombre.includes(texto) ||
+                    espacio.includes(texto)
+                );
+
+            });
+
+            renderizarReservas(filtradas);
+
+            mensaje.textContent =
                 "No hay reservas que coincidan con la búsqueda.";
-       } else {
-           mensaje.textContent =
-                "No hay reservas registradas para el día de hoy.";
-       }
-   });
-   limpiar.addEventListener("click", () => {
-       buscador.value = "";
+
+        }, 400);
+
+    });
+
+    limpiar.addEventListener("click", () => {
+
+        clearTimeout(temporizadorBusqueda);
+
+        buscador.value = "";
+
         renderizarReservas(reservasDelDia);
+
+        mensaje.textContent =
+            "No hay reservas registradas para el día de hoy.";
+
         buscador.focus();
-   });
+
+    });
 
 }
+
+
+
+// =======================================
+// BUSCAR RESERVA POR NÚMERO DE CUENTA
+// =======================================
+
+async function buscarReservaPorCuenta(cuenta) {
+
+    const mensaje =
+        document.getElementById("mensaje-sin-resultados");
+
+    try {
+
+        const respuesta = await fetch(
+            `${API_URL}/api/guardias/buscar?cuenta=${encodeURIComponent(cuenta)}`,
+            {
+                credentials: "include"
+            }
+        );
+
+        const data = await respuesta.json();
+
+        // Si no se encontró ninguna reserva
+        if (respuesta.status === 404) {
+
+            renderizarReservas([]);
+
+            mensaje.textContent =
+                data.mensaje ||
+                "No se encontró una reserva con ese número de cuenta.";
+
+            return;
+        }
+
+        // Si la sesión venció
+        if (respuesta.status === 401) {
+
+            window.location.href =
+                "../../login.html";
+
+            return;
+        }
+
+        // Otros errores
+        if (!respuesta.ok || !data.ok) {
+
+            renderizarReservas([]);
+
+            mensaje.textContent =
+                data.mensaje ||
+                "No se pudo realizar la búsqueda.";
+
+            mostrarToast(
+                data.mensaje ||
+                "No se pudo realizar la búsqueda.",
+                "danger"
+            );
+
+            return;
+        }
+
+        const reservasEncontradas =
+            Array.isArray(data.reservas)
+                ? data.reservas
+                : [];
+
+        renderizarReservas(reservasEncontradas);
+
+        mensaje.textContent =
+            "No se encontró una reserva con ese número de cuenta.";
+
+    } catch (error) {
+
+        console.error(
+            "Error buscando por número de cuenta:",
+            error
+        );
+
+        renderizarReservas([]);
+
+        mensaje.textContent =
+            "No se pudo conectar con el servidor.";
+
+        mostrarToast(
+            "No se pudo conectar con el servidor.",
+            "danger"
+        );
+
+    }
+
+}
+
 
 
 // =======================================
