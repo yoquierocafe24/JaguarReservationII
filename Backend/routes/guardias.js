@@ -801,7 +801,7 @@ router.put('/:id/asistencia', async (req, res) => {
 
             await conexion.query(
 
-                `INSERT INTO Asistencia (
+                `INSERT INTO asistencia (
                     id_reserva,
                     id_estudiante,
                     tipo_asistencia,
