@@ -88,10 +88,9 @@ router.get("/:id/qr", async (req, res) => {
 
         // Dirección que se guardará dentro del QR
         // Esta ruta cambiará cuando el sistema esté publicado.
-        // NO BORRAR MI RUTA 
+        // la oficial
         const enlaceRegistro =
-            `http://localhost/JR/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
-        // UTILIZAR ESTA RUTA, NO LA MIA
+       `https://jaguar-reservation-ii.vercel.app/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
          // const enlaceRegistro =
         //`http://localhost/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
 
