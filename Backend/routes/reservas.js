@@ -352,7 +352,7 @@ if (
 
         await db.query(
 
-            `INSERT INTO Reservas(
+            `INSERT INTO reservas(
 
                 id_reserva,
                 id_estudiante,
@@ -446,11 +446,11 @@ router.get('/', async (req, res) => {
                 es.nombre AS espacio_nombre,
                 i.nombre AS item_nombre
             FROM reservas r
-            INNER JOIN Estudiantes e
+            INNER JOIN estudiantes e
                 ON e.id_estudiante = r.id_estudiante
-            INNER JOIN Espacios es
+            INNER JOIN espacios es
                 ON es.id_espacio = r.id_espacio
-            LEFT JOIN Inventario i
+            LEFT JOIN inventario i
                 ON i.id_item = r.id_item
             WHERE 1 = 1
         `;
@@ -734,7 +734,7 @@ router.put('/:id/rechazar', async (req, res) => {
         }
 
         await db.query(
-            `UPDATE Reservas
+            `UPDATE reservas
              SET estado = 'rechazada'
              WHERE id_reserva = ?`,
             [req.params.id]
@@ -890,7 +890,7 @@ router.put('/:id/cancelar', async (req, res) => {
 
         await db.query(
 
-            `UPDATE Reservas
+            `UPDATE reservas
              SET
                 estado = 'cancelada',
                 cancelado_por = ?,
