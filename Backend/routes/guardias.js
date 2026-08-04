@@ -41,7 +41,7 @@ router.get('/hoy', async (req, res) => {
 
                 es.nombre AS espacio
 
-            FROM Reservas r
+            FROM reservas r
 
             INNER JOIN Estudiantes e
                 ON r.id_estudiante=e.id_estudiante
@@ -197,7 +197,7 @@ router.get('/buscar', async (req, res) => {
 
                     'titular' AS tipo_asistencia
 
-                FROM Reservas r
+                FROM reservas r
 
                 INNER JOIN Estudiantes titular
                     ON titular.id_estudiante =
@@ -225,7 +225,7 @@ router.get('/buscar', async (req, res) => {
 
                     'acompanante' AS tipo_asistencia
 
-                FROM Reservas r
+                FROM reservas r
 
                 INNER JOIN Reserva_Acompanantes ra
                     ON ra.id_reserva = r.id_reserva
@@ -353,7 +353,7 @@ router.get('/:id', async (req, res) => {
                 es.nombre AS espacio,
                 i.nombre AS juego
 
-            FROM Reservas r
+            FROM reservas r
 
             INNER JOIN Espacios es
                 ON es.id_espacio = r.id_espacio
@@ -400,7 +400,7 @@ router.get('/:id', async (req, res) => {
                     e.cuenta,
                     'titular' AS tipo_asistencia
 
-                FROM Reservas r
+                FROM reservas r
 
                 INNER JOIN Estudiantes e
                     ON e.id_estudiante = r.id_estudiante
@@ -416,7 +416,7 @@ router.get('/:id', async (req, res) => {
                     e.cuenta,
                     'acompanante' AS tipo_asistencia
 
-                FROM Reserva_Acompanantes ra
+                FROM reserva_acompanantes ra
 
                 INNER JOIN Estudiantes e
                     ON e.id_estudiante = ra.id_estudiante
@@ -456,7 +456,7 @@ router.get('/:id', async (req, res) => {
                     ELSE 0
                 END AS puede_registrar
 
-            FROM Reservas
+            FROM reservas
             WHERE id_reserva = ?`,
 
             [req.params.id]
@@ -562,7 +562,7 @@ router.put('/:id/asistencia', async (req, res) => {
                     ELSE 0
                 END AS horario_activo
 
-            FROM Reservas
+            FROM reservas
             WHERE id_reserva = ?`,
 
             [id_reserva]
@@ -682,7 +682,7 @@ router.put('/:id/asistencia', async (req, res) => {
                 const [titular] = await conexion.query(
 
                     `SELECT id_reserva
-                     FROM Reservas
+                     FROM reservas
                      WHERE id_reserva = ?
                      AND id_estudiante = ?`,
 
@@ -700,7 +700,7 @@ router.put('/:id/asistencia', async (req, res) => {
                 const [acompanante] = await conexion.query(
 
                     `SELECT id
-                     FROM Reserva_Acompanantes
+                     FROM reserva_acompanantes
                      WHERE id_reserva = ?
                      AND id_estudiante = ?
                      AND confirmado = 1`,
@@ -734,7 +734,7 @@ router.put('/:id/asistencia', async (req, res) => {
             const [existente] = await conexion.query(
 
                 `SELECT id_asistencia
-                 FROM Asistencia
+                 FROM asistencia
                  WHERE id_reserva = ?
                  AND id_estudiante = ?`,
 

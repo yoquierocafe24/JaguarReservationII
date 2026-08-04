@@ -14,7 +14,7 @@ router.post('/login/admin', async (req, res) => {
         const { correo, contrasena } = req.body;
 
         const [rows] = await db.query(
-            'SELECT * FROM Administradores WHERE correo = ?',
+            'SELECT * FROM administradores WHERE correo = ?',
             [correo]
         );
 
@@ -74,7 +74,7 @@ router.post('/login/guardia', async (req, res) => {
         const { usuario, contrasena } = req.body;
 
         const [rows] = await db.query(
-            'SELECT * FROM Guardia WHERE usuario = ?',
+            'SELECT * FROM guardia WHERE usuario = ?',
             [usuario]
         );
 
@@ -137,7 +137,7 @@ router.post('/login/estudiante', async (req, res) => {
         const { cuenta, dni } = req.body;
 
         const [rows] = await db.query(
-            'SELECT * FROM Estudiantes WHERE cuenta = ?',
+            'SELECT * FROM estudiantes WHERE cuenta = ?',
             [cuenta]
         );
 

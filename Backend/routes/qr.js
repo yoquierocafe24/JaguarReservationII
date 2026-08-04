@@ -40,7 +40,7 @@ router.get("/:id/qr", async (req, res) => {
                 estado,
                 fecha,
                 hora_fin
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
 
             [id]
@@ -161,7 +161,7 @@ router.get("/publica/:token", async (req, res) => {
                 es.nombre AS espacio,
                 i.nombre AS juego
 
-            FROM Reservas r
+            FROM reservas r
 
             INNER JOIN Espacios es
                 ON es.id_espacio = r.id_espacio
@@ -207,7 +207,7 @@ router.get("/publica/:token", async (req, res) => {
                     ELSE 0
                 END AS vigente
 
-            FROM Reservas
+            FROM reservas
             WHERE id_reserva = ?`,
 
             [reserva.id_reserva]
@@ -224,7 +224,7 @@ router.get("/publica/:token", async (req, res) => {
         const [acompanantes] = await db.query(
 
             `SELECT COUNT(*) AS total
-             FROM Reserva_Acompanantes
+             FROM reserva_acompanantes
              WHERE id_reserva = ?
              AND confirmado = 1`,
 
@@ -361,7 +361,7 @@ router.post("/unirse", async (req, res) => {
                 hora_inicio,
                 hora_fin
 
-            FROM Reservas
+            FROM reservas
 
             WHERE qr_token = ?
 
@@ -446,7 +446,7 @@ router.post("/unirse", async (req, res) => {
                     ELSE 0
                 END AS vigente
 
-            FROM Reservas
+            FROM reservas
 
             WHERE id_reserva = ?`,
 
@@ -478,7 +478,7 @@ router.post("/unirse", async (req, res) => {
                 cuenta,
                 activo
 
-            FROM Estudiantes
+            FROM estudiantes
 
             WHERE cuenta = ?
             LIMIT 1`,
@@ -579,7 +579,7 @@ const [conflictoHorario] = await conexion.query(
 
     `SELECT DISTINCT r.id_reserva
 
-     FROM Reservas r
+     FROM reservas r
 
      LEFT JOIN Reserva_Acompanantes ra
         ON ra.id_reserva = r.id_reserva
@@ -628,7 +628,7 @@ if (conflictoHorario.length > 0) {
 
                 `SELECT id
 
-                 FROM Reserva_Acompanantes
+                 FROM reserva_acompanantes
 
                  WHERE id_reserva = ?
                  AND id_estudiante = ?
@@ -663,7 +663,7 @@ if (conflictoHorario.length > 0) {
 
                 `SELECT COUNT(*) AS total
 
-                 FROM Reserva_Acompanantes
+                 FROM reserva_acompanantes
 
                  WHERE id_reserva = ?
                  AND confirmado = 1`,

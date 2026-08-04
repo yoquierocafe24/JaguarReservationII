@@ -15,7 +15,7 @@ router.get('/juegos', async (req, res) => {
                 nombre,
                 categoria,
                 cantidad_total
-            FROM Inventario
+            FROM inventario
             WHERE estado = 'activo'
             ORDER BY nombre
         `);
@@ -57,7 +57,7 @@ router.get('/horarios-agotados', async (req, res) => {
         // Obtener la cantidad total disponible del juego
         const [items] = await db.query(
             `SELECT cantidad_total
-             FROM Inventario
+             FROM inventario
              WHERE id_item = ?
                AND estado = 'activo'
              LIMIT 1`,
@@ -81,7 +81,7 @@ router.get('/horarios-agotados', async (req, res) => {
                 hora_fin,
                 COUNT(*) AS total_reservado
 
-             FROM Reservas
+             FROM reservas
 
              WHERE fecha = ?
                AND id_item = ?

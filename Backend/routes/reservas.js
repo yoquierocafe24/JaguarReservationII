@@ -16,7 +16,7 @@ async function generarIdReserva() {
     const [rows] = await db.query(
 
         `SELECT id_reserva
-         FROM Reservas
+         FROM reservas
          WHERE id_reserva LIKE ?
          ORDER BY CAST(SUBSTRING(id_reserva, 2, 3) AS UNSIGNED) DESC
          LIMIT 1`,
@@ -110,7 +110,7 @@ router.post('/', async (req, res) => {
 
         const [estudiante] = await db.query(
 
-            `SELECT * FROM Estudiantes
+            `SELECT * FROM estudiantes
              WHERE id_estudiante = ?
              AND activo = 1`,
 
@@ -138,7 +138,7 @@ router.post('/', async (req, res) => {
         const [choqueEstudiante] = await db.query(
 
             `SELECT *
-             FROM Reservas
+             FROM reservas
              WHERE id_estudiante = ?
              AND fecha = ?
              AND estado IN ('pendiente','aprobada')
@@ -192,7 +192,7 @@ router.post('/', async (req, res) => {
             const [ocupado] = await db.query(
 
                 `SELECT *
-                 FROM Reservas
+                 FROM reservas
                  WHERE id_espacio IN (?)
                  AND fecha = ?
                  AND estado IN ('pendiente','aprobada')
@@ -239,7 +239,7 @@ router.post('/', async (req, res) => {
             const [item] = await db.query(
 
                 `SELECT cantidad_total
-                 FROM Inventario
+                 FROM inventario
                  WHERE id_item = ?
                  AND estado = 'activo'`,
 
@@ -263,7 +263,7 @@ router.post('/', async (req, res) => {
             const [reservasDelJuego] = await db.query(
 
                 `SELECT *
-                 FROM Reservas
+                 FROM reservas
                  WHERE id_espacio = 4
                  AND id_item = ?
                  AND fecha = ?
@@ -445,7 +445,7 @@ router.get('/', async (req, res) => {
                 e.correo AS estudiante_correo,
                 es.nombre AS espacio_nombre,
                 i.nombre AS item_nombre
-            FROM Reservas r
+            FROM reservas r
             INNER JOIN Estudiantes e
                 ON e.id_estudiante = r.id_estudiante
             INNER JOIN Espacios es
@@ -566,7 +566,7 @@ router.get('/horarios/consultar', async (req, res) => {
         const [rows] = await db.query(
 
             `SELECT hora_inicio, hora_fin
-             FROM Reservas
+             FROM reservas
              WHERE id_espacio IN (?)
              AND fecha = ?
              AND estado IN ('pendiente','aprobada')`,
@@ -623,7 +623,7 @@ router.put('/:id/aprobar', async (req, res) => {
 
         const [rows] = await db.query(
             `SELECT estado, fecha, hora_fin
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
             [req.params.id]
         );
@@ -646,7 +646,7 @@ router.put('/:id/aprobar', async (req, res) => {
 
         const [vigencia] = await db.query(
             `SELECT TIMESTAMP(fecha, hora_fin) >= NOW() AS vigente
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
             [req.params.id]
         );
@@ -698,7 +698,7 @@ router.put('/:id/rechazar', async (req, res) => {
 
         const [rows] = await db.query(
             `SELECT estado, fecha, hora_fin
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
             [req.params.id]
         );
@@ -721,7 +721,7 @@ router.put('/:id/rechazar', async (req, res) => {
 
         const [vigencia] = await db.query(
             `SELECT TIMESTAMP(fecha, hora_fin) >= NOW() AS vigente
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
             [req.params.id]
         );
@@ -816,7 +816,7 @@ router.put('/:id/cancelar', async (req, res) => {
         const [rows] = await db.query(
 
             `SELECT *
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
 
             [req.params.id]
@@ -866,7 +866,7 @@ router.put('/:id/cancelar', async (req, res) => {
             `SELECT
                 TIMESTAMP(fecha, hora_inicio) > NOW()
                     AS puede_cancelar
-             FROM Reservas
+             FROM reservas
              WHERE id_reserva = ?`,
 
             [req.params.id]
