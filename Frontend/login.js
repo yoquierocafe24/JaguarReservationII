@@ -58,13 +58,11 @@ const ENDPOINTS = {
 };
 
 const REDIRECTS = {
-  estudiante: 'Frontend/usuario/inicio.html',
+  estudiante: 'usuario/inicio.html',
   // estudiante: '/login/estudiante',
-  admin:'Frontend/admin/dashboard.html',
-  guardia:'Frontend/guardia/panel.html'
-};
-
-
+  admin:'admin/dashboard.html',
+  guardia:'guardia/panel.html'
+}
 
 function setTipo(t) {
   tipo = t;
