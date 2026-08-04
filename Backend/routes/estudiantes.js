@@ -39,7 +39,7 @@ async function crearNuevoPeriodo() {
 
     const [resultado] = await db.query(
 
-        `INSERT INTO Periodo_Academico (nombre, fecha_inicio, fecha_fin, estado)
+        `INSERT INTO periodo_academico (nombre, fecha_inicio, fecha_fin, estado)
          VALUES (?, ?, ?, 'Activo')`,
 
         [nombre, formatearFecha(fechaInicio), formatearFecha(fechaFin)]
