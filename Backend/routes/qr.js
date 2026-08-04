@@ -192,26 +192,48 @@ router.get("/publica/:token", async (req, res) => {
             });
         }
 
-        const [vigencia] = await db.query(
+       const [vigencia] = await db.query(
 
-            `SELECT
-                CASE
-                    WHEN fecha > CURDATE() THEN 1
+    `SELECT
+        CASE
+            WHEN fecha >
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
+            THEN 1
 
-                    WHEN fecha = CURDATE()
-                     AND CURTIME() <= hora_fin
-                    THEN 1
+            WHEN fecha =
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
 
-                    ELSE 0
-                END AS vigente
+            AND TIME(
+                CONVERT_TZ(
+                    NOW(),
+                    '+00:00',
+                    '-06:00'
+                )
+            ) <= hora_fin
 
-            FROM reservas
-            WHERE id_reserva = ?`,
+            THEN 1
 
-            [reserva.id_reserva]
+            ELSE 0
+        END AS vigente
 
-        );
+    FROM reservas
+    WHERE id_reserva = ?`,
 
+    [reserva.id_reserva]
+
+);
         if (!vigencia[0]?.vigente) {
             return res.status(400).json({
                 ok: false,
