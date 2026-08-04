@@ -90,8 +90,7 @@ router.get("/:id/qr", async (req, res) => {
         // Esta ruta cambiará cuando el sistema esté publicado.
         // NO BORRAR MI RUTA 
         const enlaceRegistro =
-            `/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
-
+            `http://localhost/JR/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
         // UTILIZAR ESTA RUTA, NO LA MIA
          // const enlaceRegistro =
         //`http://localhost/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
