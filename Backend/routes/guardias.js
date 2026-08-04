@@ -557,32 +557,62 @@ router.put('/:id/asistencia', async (req, res) => {
 
         const [reservas] = await conexion.query(
 
-            `SELECT
-                id_reserva,
-                fecha,
-                hora_inicio,
-                hora_fin,
-                estado,
+    `SELECT
+        id_reserva,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        estado,
 
-                CASE
-                    WHEN fecha = CURDATE() THEN 1
-                    ELSE 0
-                END AS es_hoy,
+        CASE
+            WHEN fecha =
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
+            THEN 1
+            ELSE 0
+        END AS es_hoy,
 
-                CASE
-                    WHEN fecha = CURDATE()
-                     AND CURTIME() >= hora_inicio
-                     AND CURTIME() <= hora_fin
-                    THEN 1
-                    ELSE 0
-                END AS horario_activo
+        CASE
+            WHEN fecha =
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
 
-            FROM reservas
-            WHERE id_reserva = ?`,
+             AND TIME(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                ) >= hora_inicio
 
-            [id_reserva]
+             AND TIME(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                ) <= hora_fin
 
-        );
+            THEN 1
+            ELSE 0
+        END AS horario_activo
+
+    FROM reservas
+    WHERE id_reserva = ?`,
+
+    [id_reserva]
+
+);
 
         if (reservas.length === 0) {
 
