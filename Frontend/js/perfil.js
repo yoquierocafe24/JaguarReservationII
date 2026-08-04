@@ -229,7 +229,7 @@ async function cargarPerfil() {
     try {
 
         const respuesta = await fetch(
-            "http://localhost:3000/api/auth/session",
+            `${API_URL}/api/auth/session`,
             {
                 credentials: "include"
             }
@@ -510,8 +510,8 @@ async function cargarReservas(actualizarCards = false) {
 
         const url =
             parametros.toString()
-                ? `http://localhost:3000/api/reservas?${parametros.toString()}`
-                : "http://localhost:3000/api/reservas";
+                ?   `${API_URL}/api/reservas?${parametros.toString()}`
+                : ` ${API_URL}/api/reservas`;
 
         const respuesta = await fetch(url, {
             credentials: "include"
@@ -734,7 +734,7 @@ modal.show();
 try {
 
     const respuesta = await fetch(
-        `http://localhost:3000/api/qr/${encodeURIComponent(idReserva)}/qr`,
+           `${API_URL}/api/qr/${encodeURIComponent(idReserva)}/qr`,
         {
             credentials: "include"
         }
@@ -930,7 +930,7 @@ async function enviarCancelacion() {
         mensaje.hidden = true;
 
         const respuesta = await fetch(
-            `http://localhost:3000/api/reservas/${encodeURIComponent(reservaSeleccionadaCancelar)}/cancelar`,
+               `${API_URL}/api/reservas/${encodeURIComponent(reservaSeleccionadaCancelar)}/cancelar`,
             {
                 method: "PUT",
                 credentials: "include",
@@ -1081,7 +1081,7 @@ async function enviarCancelacion() {
         mensaje.hidden = true;
 
         const respuesta = await fetch(
-            `http://localhost:3000/api/reservas/${encodeURIComponent(reservaSeleccionadaCancelar)}/cancelar`,
+               `${API_URL}/api/reservas/${encodeURIComponent(reservaSeleccionadaCancelar)}/cancelar`,
             {
                 method: "PUT",
                 credentials: "include",
@@ -1188,7 +1188,7 @@ async function cerrarSesion() {
     try {
 
         const respuesta = await fetch(
-            "http://localhost:3000/api/auth/logout",
+            `${API_URL}/api/auth/logout`,
             {
                 method: "POST",
                 credentials: "include"

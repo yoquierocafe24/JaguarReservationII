@@ -1,7 +1,10 @@
 
 const $ = (s) => document.querySelector(s);
 
-const API_URL = 'http://localhost:3000';
+//LO NUEVO
+const API_URL =
+    'https://jaguarreservationii-production.up.railway.app';
+    
 let tipo = 'estudiante';
 
 // Campos que se muestran según el tipo de usuario

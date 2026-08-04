@@ -1,7 +1,13 @@
+
+
+const API_URL =
+    "https://jaguarreservationii-production.up.railway.app";
+
 async function cargarSesion() {
     try {
         const respuesta = await fetch(
-            'http://localhost:3000/api/auth/session',
+          
+    `${API_URL}/api/auth/session`,
             {
                 credentials: 'include'
             }

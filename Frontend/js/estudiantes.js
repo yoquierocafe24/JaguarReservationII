@@ -1,4 +1,5 @@
-const API_BASE = 'http://localhost:3000';
+const API_URL =
+    "https://jaguarreservationii-production.up.railway.app";
 
 // Actualizar fecha y hora en tiempo real
 function updateDateTime() {
@@ -33,7 +34,7 @@ function updateDateTime() {
 async function cargarSesionAdmin() {
     try {
         const response = await fetch(
-            `${API_BASE}/api/auth/session`,
+            `${API_URL}/api/auth/session`,
             {
                 credentials: 'include'
             }
@@ -170,7 +171,7 @@ function getPeriodoSeleccionado() {
 
 async function cargarPeriodos() {
     try {
-        const response = await fetch(`${API_BASE}/estudiantes/periodos`);
+        const response = await fetch(`${API_URL}/estudiantes/periodos`);
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
@@ -205,8 +206,8 @@ async function loadDashboard() {
         const periodoSeleccionado = getPeriodoSeleccionado();
 
         const [resumenRes, estudiantesRes] = await Promise.all([
-            fetch(`${API_BASE}/estudiantes/resumen${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`),
-            fetch(`${API_BASE}/estudiantes${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`)
+            fetch(`${API_URL}/estudiantes/resumen${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`),
+            fetch(`${API_URL}/estudiantes${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`)
         ]);
 
         if (!resumenRes.ok || !estudiantesRes.ok) {
@@ -290,7 +291,7 @@ async function handleUpload(event) {
 
     try {
         setStatus('Subiendo archivo...');
-        const response = await fetch(`${API_BASE}/estudiantes/subir`, {
+        const response = await fetch(`${API_URL}/estudiantes/subir`, {
             method: 'POST',
             body: formData
         });
@@ -312,7 +313,7 @@ async function handleUpload(event) {
 async function handleCloseTrimester() {
     try {
         setStatus('Cerrando trimestre...');
-        const response = await fetch(`${API_BASE}/estudiantes/cerrar-trimestre`, {
+        const response = await fetch(`${API_URL}/estudiantes/cerrar-trimestre`, {
             method: 'PUT'
         });
 

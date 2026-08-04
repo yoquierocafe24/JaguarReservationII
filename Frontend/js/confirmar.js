@@ -127,7 +127,7 @@ async function cargarCodigoQR(idReserva, tieneQR) {
         btnDescargarQR.hidden = true;
 
         const respuesta = await fetch(
-            `http://localhost:3000/api/qr/${encodeURIComponent(idReserva)}/qr`,
+    `${API_URL}/api/qr/${encodeURIComponent(idReserva)}/qr`,
             {
                 method: "GET",
                 credentials: "include"
@@ -257,8 +257,8 @@ cargarCodigoQR(
 // ======================================
  async function cerrarSesion(){
      try{
-         const res = await fetch(
-            "http://localhost:3000/api/auth/logout",
+        const res = await fetch(
+    `${API_URL}/api/auth/logout`,
             {
                 method:"POST",
                 credentials:"include"

@@ -1,4 +1,7 @@
-const API_URL = "http://localhost:3000";
+// LO NUEVOOO
+
+const API_URL =
+    'https://jaguarreservationii-production.up.railway.app';
 
 let reservasDelDia = [];
 let reservaSeleccionada = null;

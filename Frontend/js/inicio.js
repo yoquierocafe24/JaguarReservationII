@@ -1,3 +1,7 @@
+// const API_URL =
+// "https://jaguarreservationii-production.up.railway.app";
+
+
 function seleccionarEspacio(espacio){
 
     sessionStorage.setItem(
@@ -16,7 +20,8 @@ async function cerrarSesion() {
 
     try {
 
-        const res = await fetch("http://localhost:3000/api/auth/logout", {
+        const res = await fetch(
+    `${API_URL}/api/auth/logout`, {
 
             method: "POST",
             credentials: "include"

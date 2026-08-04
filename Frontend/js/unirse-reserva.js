@@ -1,3 +1,7 @@
+
+const API_URL =
+    "https://jaguarreservationii-production.up.railway.app";
+
 // ======================================
 // ELEMENTOS DEL HTML
 // ======================================
@@ -55,7 +59,7 @@ async function cargarReserva() {
             "Verificando la reserva...";
 
         const respuesta = await fetch(
-            `http://localhost:3000/api/qr/publica/${encodeURIComponent(token)}`
+               `${API_URL}/api/qr/publica/${encodeURIComponent(token)}`
         );
 
         const datos = await respuesta.json();
@@ -170,9 +174,10 @@ if (!expresionNombre.test(nombre)) {
             `;
 
             const respuesta = await fetch(
-                "http://localhost:3000/api/qr/unirse",
+                   `${API_URL}/api/qr/unirse`,
                 {
                     method: "POST",
+                    credentials: "include",
 
                     headers: {
                         "Content-Type":

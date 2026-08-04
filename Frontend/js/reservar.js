@@ -168,8 +168,8 @@ try {
       return;
     }
 
-    url =
-      `http://localhost:3000/api/inventario/horarios-agotados?fecha=${fechaSel}&id_item=${idItem}`;
+   url =
+  `${API_URL}/api/inventario/horarios-agotados?fecha=${fechaSel}&id_item=${idItem}`;
 
   } else {
 
@@ -177,9 +177,8 @@ try {
     // CANCHAS
     // Una reserva sí bloquea el espacio completo
     // =========================================
-    url =
-      `http://localhost:3000/api/reservas/horarios/consultar?espacio=${espacios[espacio]}&fecha=${fechaSel}`;
-
+   url =
+  `${API_URL}/api/reservas/horarios/consultar?espacio=${espacios[espacio]}&fecha=${fechaSel}`;
   }
 
   const res = await fetch(url, {
@@ -357,8 +356,7 @@ if (!/^\d{8}$/.test(telefono)) {
 
     try {
 
-        const res = await fetch("http://localhost:3000/api/reservas", {
-
+       const res = await fetch(`${API_URL}/api/reservas`, {
             method: "POST",
 
             credentials: "include",
@@ -478,7 +476,7 @@ function cerrarMenu(){
 async function cargarJuegos() {
     try {
         const respuesta = await fetch(
-            "http://localhost:3000/api/inventario/juegos",
+    `${API_URL}/api/inventario/juegos`,
             {
                 credentials: "include"
             }
@@ -513,7 +511,7 @@ async function cargarJuegos() {
 async function cerrarSesion() {
     try {
 
-        const res = await fetch("http://localhost:3000/api/auth/logout", {
+        const res = await fetch(`${API_URL}/api/auth/logout`, {
 
             method: "POST",
             credentials: "include"
