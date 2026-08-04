@@ -147,7 +147,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
 
     toast('Acceso correcto. Redirigiendo...', 'ok');
     setTimeout(() => {
-      window.location.href = data.redirigir || REDIRECTS[tipo];
+      window.location.href = REDIRECTS[tipo];
     }, 700);
 
   } catch (err) {
