@@ -358,7 +358,7 @@ router.get('/:id', async (req, res) => {
             INNER JOIN espacios es
                 ON es.id_espacio = r.id_espacio
 
-            LEFT JOIN Inventario i
+            LEFT JOIN inventario i
                 ON i.id_item = r.id_item
 
             WHERE r.id_reserva = ?`,
