@@ -53,7 +53,33 @@ router.get('/hoy', async (req, res) => {
             AND r.estado = 'aprobada'
             
 
-            ORDER BY r.hora_inicio`
+            ORDER BY
+
+    /* Primero: reservas con horario activo */
+    CASE
+        WHEN CURTIME() >= r.hora_inicio
+         AND CURTIME() <= r.hora_fin
+        THEN 1
+
+        /* Segundo: reservas que aún no comienzan */
+        WHEN CURTIME() < r.hora_inicio
+        THEN 2
+
+        /* Tercero: reservas ya vencidas */
+        ELSE 3
+    END,
+
+    /* Activas y próximas: la hora más cercana primero */
+    CASE
+        WHEN CURTIME() <= r.hora_fin
+        THEN r.hora_inicio
+    END ASC,
+
+    /* Vencidas: la más reciente primero */
+    CASE
+        WHEN CURTIME() > r.hora_fin
+        THEN r.hora_fin
+    END DESC`
 
         );
 
@@ -75,17 +101,17 @@ router.get('/hoy', async (req, res) => {
 
 });
 
-
 // =======================================
-// GUARDIA - Buscar reservas por cuenta
+// GUARDIA - Buscar persona por cuenta
 // GET /api/reservas/guardia/buscar?cuenta=...
-// Busca titular o acompañante
+// Busca titulares y acompañantes del día
 // =======================================
 
 router.get('/buscar', async (req, res) => {
 
     try {
 
+        // Verificar sesión activa
         if (!req.session.usuario) {
             return res.status(401).json({
                 ok: false,
@@ -93,6 +119,7 @@ router.get('/buscar', async (req, res) => {
             });
         }
 
+        // Solo el guardia puede buscar personas
         if (req.session.usuario.rol !== "guardia") {
             return res.status(403).json({
                 ok: false,
@@ -100,7 +127,8 @@ router.get('/buscar', async (req, res) => {
             });
         }
 
-        const cuenta = String(req.query.cuenta || "").trim();
+        const cuenta =
+            String(req.query.cuenta || "").trim();
 
         if (!cuenta) {
             return res.status(400).json({
@@ -109,52 +137,149 @@ router.get('/buscar', async (req, res) => {
             });
         }
 
+        // Validar formato de cuenta
+        if (!/^\d+$/.test(cuenta)) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "El número de cuenta solo debe contener números."
+            });
+        }
+
         const [rows] = await db.query(
 
-            `SELECT DISTINCT
-                r.id_reserva,
-                r.fecha,
-                r.hora_inicio,
-                r.hora_fin,
-                r.estado,
-                r.cant_acompanantes,
+            `SELECT
+                persona.id_reserva,
+                persona.fecha,
+                persona.hora_inicio,
+                persona.hora_fin,
+                persona.estado,
+                persona.cant_acompanantes,
 
-                titular.nombre AS estudiante,
-                titular.cuenta AS cuenta_titular,
+                persona.id_estudiante,
+                persona.nombre,
+                persona.cuenta,
+                persona.tipo_asistencia,
 
                 es.nombre AS espacio,
 
+                /* Indica si ya registró asistencia */
                 CASE
-                    WHEN titular.cuenta = ? THEN 'titular'
-                    ELSE 'acompanante'
-                END AS coincidencia
+                    WHEN a.id_asistencia IS NULL THEN 0
+                    ELSE 1
+                END AS asistio,
 
-            FROM Reservas r
+                a.hora_entrada,
 
-            INNER JOIN Estudiantes titular
-                ON titular.id_estudiante = r.id_estudiante
+                /* Indica si la reserva está en su horario */
+                CASE
+                    WHEN persona.fecha = CURDATE()
+                     AND CURTIME() >= persona.hora_inicio
+                     AND CURTIME() <= persona.hora_fin
+                    THEN 1
+                    ELSE 0
+                END AS horario_activo
+
+            FROM (
+
+                /* Buscar como titular */
+                SELECT
+                    r.id_reserva,
+                    r.id_espacio,
+                    r.fecha,
+                    r.hora_inicio,
+                    r.hora_fin,
+                    r.estado,
+                    r.cant_acompanantes,
+
+                    titular.id_estudiante,
+                    titular.nombre,
+                    titular.cuenta,
+
+                    'titular' AS tipo_asistencia
+
+                FROM Reservas r
+
+                INNER JOIN Estudiantes titular
+                    ON titular.id_estudiante =
+                       r.id_estudiante
+
+                WHERE r.fecha = CURDATE()
+                AND r.estado = 'aprobada'
+                AND titular.cuenta = ?
+
+                UNION ALL
+
+                /* Buscar como acompañante */
+                SELECT
+                    r.id_reserva,
+                    r.id_espacio,
+                    r.fecha,
+                    r.hora_inicio,
+                    r.hora_fin,
+                    r.estado,
+                    r.cant_acompanantes,
+
+                    acompanante.id_estudiante,
+                    acompanante.nombre,
+                    acompanante.cuenta,
+
+                    'acompanante' AS tipo_asistencia
+
+                FROM Reservas r
+
+                INNER JOIN Reserva_Acompanantes ra
+                    ON ra.id_reserva = r.id_reserva
+                    AND ra.confirmado = 1
+
+                INNER JOIN Estudiantes acompanante
+                    ON acompanante.id_estudiante =
+                       ra.id_estudiante
+
+                WHERE r.fecha = CURDATE()
+                AND r.estado = 'aprobada'
+                AND acompanante.cuenta = ?
+
+            ) AS persona
 
             INNER JOIN Espacios es
-                ON es.id_espacio = r.id_espacio
+                ON es.id_espacio =
+                   persona.id_espacio
 
-            LEFT JOIN Reserva_Acompanantes ra
-                ON ra.id_reserva = r.id_reserva
-                AND ra.confirmado = 1
+            LEFT JOIN Asistencia a
+                ON a.id_reserva =
+                   persona.id_reserva
+                AND a.id_estudiante =
+                    persona.id_estudiante
 
-            LEFT JOIN Estudiantes acompanante
-                ON acompanante.id_estudiante = ra.id_estudiante
+          ORDER BY
 
-           WHERE r.fecha = CURDATE()
-                    AND r.estado = 'aprobada'
-                    AND (
-                     titular.cuenta = ?
-                         OR acompanante.cuenta = ?
-                        )
+    /* 1. Reservas activas */
+    CASE
+        WHEN CURTIME() >= persona.hora_inicio
+         AND CURTIME() <= persona.hora_fin
+        THEN 1
 
-            ORDER BY r.fecha DESC, r.hora_inicio DESC`,
+        /* 2. Reservas próximas */
+        WHEN CURTIME() < persona.hora_inicio
+        THEN 2
+
+        /* 3. Reservas vencidas */
+        ELSE 3
+    END,
+
+    /* Activas y próximas: la más cercana primero */
+    CASE
+        WHEN CURTIME() <= persona.hora_fin
+        THEN persona.hora_inicio
+    END ASC,
+
+    /* Vencidas: la más reciente primero */
+    CASE
+        WHEN CURTIME() > persona.hora_fin
+        THEN persona.hora_fin
+    END DESC`,
 
             [
-                cuenta,
                 cuenta,
                 cuenta
             ]
@@ -163,28 +288,33 @@ router.get('/buscar', async (req, res) => {
         if (rows.length === 0) {
             return res.status(404).json({
                 ok: false,
-                mensaje: "No se encontró ninguna reserva con ese número de cuenta."
+                mensaje: "No se encontró una persona autorizada con ese número de cuenta para las reservas de hoy."
             });
         }
 
-        res.json({
+        return res.json({
             ok: true,
+            total: rows.length,
+
+            // Se conserva el nombre "reservas"
+            // para no romper el frontend actual
             reservas: rows
         });
 
     } catch (error) {
 
-        console.error("ERROR BUSCANDO RESERVA POR CUENTA:", error);
+        console.error(
+            "ERROR BUSCANDO PERSONA POR CUENTA:",
+            error
+        );
 
-        res.status(500).json({
+        return res.status(500).json({
             ok: false,
             mensaje: "Error del servidor."
         });
     }
 
 });
-
-
 
 // =======================================
 // GUARDIA - Detalle de una reserva

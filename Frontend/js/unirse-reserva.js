@@ -126,6 +126,21 @@ formulario.addEventListener(
                 .value
                 .trim();
 
+        // Solo permitir letras y espacios
+const expresionNombre =
+    /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
+
+if (!expresionNombre.test(nombre)) {
+
+    mostrarResultado(
+        "El nombre solo puede contener letras y espacios.",
+        "error"
+    );
+
+    return;
+} 
+
+
         const cuenta =
             document
                 .getElementById("cuenta")

@@ -93,7 +93,7 @@ router.get("/:id/qr", async (req, res) => {
             `http://localhost/JR/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
 
 
-        // UTILIZAR ESTA RUTA NO LA MIA
+        // UTILIZAR ESTA RUTA, NO LA MIA
          // const enlaceRegistro =
         //`http://localhost/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
 
@@ -312,9 +312,34 @@ router.post("/unirse", async (req, res) => {
             });
         }
 
-        const tokenLimpio = String(token).trim();
-        const cuentaLimpia = String(cuenta).trim();
-        const nombreLimpio = String(nombre).trim();
+       const tokenLimpio =
+         String(token).trim();
+
+        const cuentaLimpia =
+         String(cuenta).trim();
+
+            // Normalizar el nombre para comparar
+            const nombreLimpio =
+            String(nombre)
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ");
+
+        // Validar que el nombre solo contenga letras y espacios
+        const expresionNombre =
+    /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
+
+    if (!expresionNombre.test(nombreLimpio)) {
+
+    return res.status(400).json({
+        ok: false,
+        mensaje:
+            "El nombre solo puede contener letras y espacios."
+    });
+
+}
 
         conexion = await db.getConnection();
 
@@ -473,8 +498,30 @@ router.post("/unirse", async (req, res) => {
             });
 
         }
-
         const estudiante = estudiantes[0];
+
+// Normalizar el nombre guardado
+const nombreBaseDatos =
+    String(estudiante.nombre)
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ");
+
+// Verificar que el nombre corresponda
+// al número de cuenta ingresado
+if (nombreBaseDatos !== nombreLimpio) {
+
+    await conexion.rollback();
+
+    return res.status(400).json({
+        ok: false,
+        mensaje:
+            "El nombre y el número de cuenta no corresponden al mismo estudiante. Verifique sus datos."
+    });
+
+}         
 
         if (Number(estudiante.activo) !== 1) {
 

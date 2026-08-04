@@ -141,6 +141,7 @@
                             type="text"
                             id="nombre"
                             placeholder="Escribe tu nombre completo"
+                            oninput="this.value=this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g,'')"
                             autocomplete="name"
                             required
                         >
@@ -162,7 +163,7 @@
                         <input
                             type="text"
                             id="cuenta"
-                            placeholder="Ejemplo: 20231001001"
+                            placeholder="Ejemplo: 44554455"
                             inputmode="numeric"
                             autocomplete="off"
                             required
@@ -205,7 +206,7 @@
 
     </main>
 
-    <script src="../js/unirse-reserva.js"></script>
+    <script src="../js/unirse-reserva.js?v=11"></script>
 
 </body>
 

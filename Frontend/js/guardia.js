@@ -2,6 +2,7 @@ const API_URL = "http://localhost:3000";
 
 let reservasDelDia = [];
 let reservaSeleccionada = null;
+let personaEncontrada = null;
 let modalReserva = null;
 
 
@@ -227,15 +228,22 @@ function prepararBuscador() {
             const texto = normalizarTexto(valor);
 
             // Si el buscador está vacío, mostrar reservas del día
-            if (!valor) {
+           if (!valor) {
 
-                renderizarReservas(reservasDelDia);
+                 // Ocultar la tarjeta de la persona encontrada
+                    ocultarPersonaEncontrada();
+
+                // Volver a mostrar resumen y listado general
+                    cambiarVistaBusqueda(false);
+
+                 // Mostrar nuevamente todas las reservas del día
+                    renderizarReservas(reservasDelDia);
 
                 mensaje.textContent =
-                    "No hay reservas registradas para el día de hoy.";
+                 "No hay reservas registradas para el día de hoy.";
 
-                return;
-            }
+    return;
+}
 
             // Verificar si escribió únicamente números
             const esNumeroCuenta = /^\d+$/.test(valor);
@@ -247,6 +255,9 @@ function prepararBuscador() {
 
                 return;
             }
+
+            // Si escribió texto, ocultar la tarjeta individual
+             ocultarPersonaEncontrada();
 
             // Si escribió texto, conservar la búsqueda actual
             const filtradas = reservasDelDia.filter(reserva => {
@@ -283,6 +294,8 @@ function prepararBuscador() {
 
         buscador.value = "";
 
+        ocultarPersonaEncontrada();
+
         renderizarReservas(reservasDelDia);
 
         mensaje.textContent =
@@ -297,7 +310,7 @@ function prepararBuscador() {
 
 
 // =======================================
-// BUSCAR RESERVA POR NÚMERO DE CUENTA
+// BUSCAR PERSONA POR NÚMERO DE CUENTA
 // =======================================
 
 async function buscarReservaPorCuenta(cuenta) {
@@ -316,19 +329,21 @@ async function buscarReservaPorCuenta(cuenta) {
 
         const data = await respuesta.json();
 
-        // Si no se encontró ninguna reserva
+        // No se encontró una persona autorizada
         if (respuesta.status === 404) {
 
+            personaEncontrada = null;
+            ocultarPersonaEncontrada();
             renderizarReservas([]);
 
             mensaje.textContent =
                 data.mensaje ||
-                "No se encontró una reserva con ese número de cuenta.";
+                "No se encontró una persona con ese número de cuenta.";
 
             return;
         }
 
-        // Si la sesión venció
+        // La sesión ya no está activa
         if (respuesta.status === 401) {
 
             window.location.href =
@@ -340,11 +355,9 @@ async function buscarReservaPorCuenta(cuenta) {
         // Otros errores
         if (!respuesta.ok || !data.ok) {
 
+            personaEncontrada = null;
+            ocultarPersonaEncontrada();
             renderizarReservas([]);
-
-            mensaje.textContent =
-                data.mensaje ||
-                "No se pudo realizar la búsqueda.";
 
             mostrarToast(
                 data.mensaje ||
@@ -355,15 +368,28 @@ async function buscarReservaPorCuenta(cuenta) {
             return;
         }
 
-        const reservasEncontradas =
+        const resultados =
             Array.isArray(data.reservas)
                 ? data.reservas
                 : [];
 
-        renderizarReservas(reservasEncontradas);
+        if (!resultados.length) {
 
-        mensaje.textContent =
-            "No se encontró una reserva con ese número de cuenta.";
+            personaEncontrada = null;
+            ocultarPersonaEncontrada();
+            renderizarReservas([]);
+
+            mensaje.textContent =
+                "No se encontró una persona con ese número de cuenta.";
+
+            return;
+        }
+
+     // Mostrar todas las reservas relacionadas con la cuenta
+        mostrarPersonasEncontradas(resultados); 
+
+        // También mostramos la reserva relacionada
+        renderizarReservas(resultados);
 
     } catch (error) {
 
@@ -372,21 +398,451 @@ async function buscarReservaPorCuenta(cuenta) {
             error
         );
 
+        personaEncontrada = null;
+        ocultarPersonaEncontrada();
         renderizarReservas([]);
-
-        mensaje.textContent =
-            "No se pudo conectar con el servidor.";
 
         mostrarToast(
             "No se pudo conectar con el servidor.",
             "danger"
         );
+    }
+}
 
+// =======================================
+// MOSTRAR TODAS LAS RESERVAS ENCONTRADAS
+// =======================================
+
+function mostrarPersonasEncontradas(resultados) {
+
+    const contenedor =
+        document.getElementById("resultado-persona");
+
+    if (!contenedor) {
+        console.error(
+            "No existe #resultado-persona en el HTML."
+        );
+        return;
     }
 
+    // Limpiar la tarjeta anterior
+    contenedor.innerHTML = "";
+
+    resultados.forEach(persona => {
+
+        const estadoHorario =
+            calcularEstadoHorario(persona);
+
+        const asistio =
+            Number(persona.asistio) === 1;
+
+        const puedeMarcar =
+            estadoHorario.codigo === "activo" &&
+            !asistio;
+
+        const tarjeta =
+            document.createElement("article");
+
+        tarjeta.className =
+            "resultado-persona-item";
+
+        tarjeta.innerHTML = `
+            <div class="resultado-persona-avatar">
+                ${escaparHTML(
+                    obtenerIniciales(persona.nombre)
+                )}
+            </div>
+
+            <div class="resultado-persona-info">
+
+                <div class="resultado-persona-superior">
+                    <div>
+                        <span class="resultado-etiqueta">
+                            ${
+                                persona.tipo_asistencia === "titular"
+                                    ? "Titular"
+                                    : "Acompañante"
+                            }
+                        </span>
+
+                        <h3>
+                            ${escaparHTML(persona.nombre)}
+                        </h3>
+                    </div>
+
+                    <span class="resultado-estado ${
+                        asistio
+                            ? "registrado"
+                            : estadoHorario.clase
+                    }">
+                        ${
+                            asistio
+                                ? "Registrado"
+                                : estadoHorario.texto
+                        }
+                    </span>
+                </div>
+
+                <p>
+                    <i class="bi bi-person-vcard"></i>
+                    Cuenta:
+                    <strong>
+                        ${escaparHTML(persona.cuenta)}
+                    </strong>
+                </p>
+
+                <p>
+                    <i class="bi bi-ticket-perforated"></i>
+                    Reserva:
+                    <strong>
+                        ${escaparHTML(persona.id_reserva)}
+                    </strong>
+                </p>
+
+                <p>
+                    <i class="bi bi-geo-alt"></i>
+                    ${escaparHTML(persona.espacio || "Espacio")}
+                    <span class="resultado-separador">·</span>
+                    ${formatearHora(persona.hora_inicio)}
+                    -
+                    ${formatearHora(persona.hora_fin)}
+                </p>
+            </div>
+
+            <div class="resultado-persona-acciones">
+
+                <button
+                    type="button"
+                    class="btn-ver-reserva"
+                >
+                    <i class="bi bi-eye"></i>
+                    Ver reserva
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-marcar-persona"
+                    ${puedeMarcar ? "" : "disabled"}
+                >
+                    <i class="bi ${
+                        asistio
+                            ? "bi-check-circle-fill"
+                            : estadoHorario.codigo === "activo"
+                                ? "bi-check2-circle"
+                                : "bi-clock"
+                    }"></i>
+
+                    ${
+                        asistio
+                            ? "Registrado"
+                            : estadoHorario.texto
+                    }
+                </button>
+            </div>
+        `;
+
+        const botonVer =
+            tarjeta.querySelector(
+                ".btn-ver-reserva"
+            );
+
+        const botonMarcar =
+            tarjeta.querySelector(
+                ".btn-marcar-persona"
+            );
+
+        // Abrir esta reserva específica
+        botonVer.addEventListener(
+            "click",
+            () => {
+                abrirDetalleReserva(
+                    persona.id_reserva
+                );
+            }
+        );
+
+        // Marcar en esta reserva específica
+        if (puedeMarcar) {
+
+            botonMarcar.addEventListener(
+                "click",
+                () => {
+                    marcarAsistenciaEncontrada(
+                        persona,
+                        botonMarcar
+                    );
+                }
+            );
+        }
+
+        contenedor.appendChild(tarjeta);
+    });
+
+    cambiarVistaBusqueda(true);
+
+    contenedor.hidden = false;
 }
 
 
+
+// =======================================
+// MOSTRAR PERSONA ENCONTRADA
+// =======================================
+
+function mostrarPersonaEncontrada(persona) {
+
+    const contenedor =
+        document.getElementById("resultado-persona");
+
+    if (!contenedor) {
+        console.error(
+            "No existe #resultado-persona en el HTML."
+        );
+        return;
+    }
+
+    const estadoHorario =
+        calcularEstadoHorario(persona);
+
+    const asistio =
+        Number(persona.asistio) === 1;
+
+    document.getElementById(
+        "resultado-persona-avatar"
+    ).textContent =
+        obtenerIniciales(persona.nombre);
+
+    document.getElementById(
+        "resultado-tipo"
+    ).textContent =
+        persona.tipo_asistencia === "titular"
+            ? "Titular"
+            : "Acompañante";
+
+    document.getElementById(
+        "resultado-nombre"
+    ).textContent =
+        persona.nombre || "Estudiante";
+
+    document.getElementById(
+        "resultado-cuenta"
+    ).textContent =
+        persona.cuenta || "—";
+
+    document.getElementById(
+        "resultado-reserva"
+    ).textContent =
+        persona.id_reserva || "—";
+
+    document.getElementById(
+        "resultado-espacio"
+    ).textContent =
+        persona.espacio || "Espacio";
+
+    document.getElementById(
+        "resultado-horario"
+    ).textContent =
+        `${formatearHora(persona.hora_inicio)} - ${formatearHora(persona.hora_fin)}`;
+
+    const estadoElemento =
+        document.getElementById("resultado-estado");
+
+    estadoElemento.textContent =
+        asistio
+            ? "Registrado"
+            : estadoHorario.texto;
+
+    estadoElemento.className =
+        asistio
+            ? "resultado-estado registrado"
+            : `resultado-estado ${estadoHorario.clase}`;
+
+    configurarBotonesPersona(
+        persona,
+        estadoHorario,
+        asistio
+    );
+   
+   cambiarVistaBusqueda(true);
+
+    contenedor.hidden = false;
+
+}
+
+// =======================================
+// CONFIGURAR BOTONES DEL RESULTADO
+// =======================================
+
+function configurarBotonesPersona(
+    persona,
+    estadoHorario,
+    asistio
+) {
+
+    const botonVer =
+        document.getElementById(
+            "btn-ver-reserva-encontrada"
+        );
+
+    const botonMarcar =
+        document.getElementById(
+            "btn-marcar-persona"
+        );
+
+    // Abrir el detalle completo de la reserva
+    botonVer.onclick = () => {
+        abrirDetalleReserva(
+            persona.id_reserva
+        );
+    };
+
+    // Si ya se registró, deshabilitar el botón
+    if (asistio) {
+
+        botonMarcar.disabled = true;
+
+        botonMarcar.innerHTML = `
+            <i class="bi bi-check-circle-fill"></i>
+            Registrado
+        `;
+
+        return;
+    }
+
+    // Solo se registra dentro del horario activo
+    if (estadoHorario.codigo !== "activo") {
+
+        botonMarcar.disabled = true;
+
+        botonMarcar.innerHTML = `
+            <i class="bi bi-clock"></i>
+            ${estadoHorario.texto}
+        `;
+
+        return;
+    }
+
+    botonMarcar.disabled = false;
+
+    botonMarcar.innerHTML = `
+        <i class="bi bi-check2-circle"></i>
+        Marcar asistencia
+    `;
+
+    botonMarcar.onclick = () => {
+        marcarAsistenciaEncontrada();
+    };
+}
+// =======================================
+// MARCAR ASISTENCIA DESDE LA BÚSQUEDA
+// =======================================
+
+async function marcarAsistenciaEncontrada(
+    persona,
+    boton
+) {
+
+    if (!persona || !boton) {
+
+        mostrarToast(
+            "No se pudo identificar la persona.",
+            "warning"
+        );
+
+        return;
+    }
+
+    boton.disabled = true;
+
+    boton.innerHTML = `
+        <span
+            class="spinner-border spinner-border-sm"
+            aria-hidden="true"
+        ></span>
+        Guardando...
+    `;
+
+    try {
+
+        const respuesta = await fetch(
+            `${API_URL}/api/guardias/${encodeURIComponent(persona.id_reserva)}/asistencia`,
+            {
+                method: "PUT",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    personas: [
+                        {
+                            id_estudiante:
+                                Number(persona.id_estudiante),
+
+                            tipo_asistencia:
+                                persona.tipo_asistencia
+                        }
+                    ]
+                })
+            }
+        );
+
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.ok) {
+
+            mostrarToast(
+                data.mensaje ||
+                "No se pudo registrar la asistencia.",
+                "danger"
+            );
+
+            const cuenta =
+                document
+                    .getElementById("buscador-reservas")
+                    .value
+                    .trim();
+
+            await buscarReservaPorCuenta(cuenta);
+
+            return;
+        }
+
+        mostrarToast(
+            data.mensaje ||
+            "Asistencia registrada correctamente.",
+            "success"
+        );
+
+        // Volver a consultar todas las reservas
+        const cuenta =
+            document
+                .getElementById("buscador-reservas")
+                .value
+                .trim();
+
+        await buscarReservaPorCuenta(cuenta);
+        await cargarReservasHoy();
+
+    } catch (error) {
+
+        console.error(
+            "Error marcando asistencia:",
+            error
+        );
+
+        mostrarToast(
+            "No se pudo registrar la asistencia.",
+            "danger"
+        );
+
+        boton.disabled = false;
+
+        boton.innerHTML = `
+            <i class="bi bi-check2-circle"></i>
+            Marcar asistencia
+        `;
+    }
+}
 
 // =======================================
 // ABRIR DETALLE
@@ -904,6 +1360,95 @@ function escaparHTML(valor = "") {
         .replaceAll("'", "&#039;");
 
 }
+// Oculta y limpia el resultado de la búsqueda
+function ocultarPersonaEncontrada() {
+
+    const contenedor =
+        document.getElementById(
+            "resultado-persona"
+        );
+
+    if (contenedor) {
+        contenedor.hidden = true;
+    }
+
+    personaEncontrada = null;
+
+    cambiarVistaBusqueda(false);
+}
+
+// =======================================
+// MOSTRAR U OCULTAR CONTENIDO GENERAL
+// =======================================
+
+function cambiarVistaBusqueda(mostrandoPersona) {
+
+    const resumen =
+        document.querySelector(".resumen-dia");
+
+    const lista =
+        document.getElementById("lista-reservas");
+
+    const sinResultados =
+        document.getElementById("sin-resultados");
+
+    // Cuando aparece una persona exacta,
+    // ocultamos el resumen y las reservas.
+    if (resumen) {
+        resumen.hidden = mostrandoPersona;
+    }
+
+    if (lista) {
+        lista.hidden = mostrandoPersona;
+    }
+
+    // Evita mostrar el mensaje vacío
+    // mientras existe una persona encontrada.
+    if (sinResultados && mostrandoPersona) {
+        sinResultados.hidden = true;
+    }
+}
+
+const botonSeleccionarTodos =
+    document.getElementById("btn-seleccionar-todos");
+
+botonSeleccionarTodos.addEventListener("click", () => {
+
+    const checkboxes = [
+        ...document.querySelectorAll(
+            ".checkbox-asistencia:not(:disabled)"
+        )
+    ];
+
+    if (!checkboxes.length) {
+        return;
+    }
+
+    // Verifica si todos ya están seleccionados
+    const todosSeleccionados =
+        checkboxes.every(check => check.checked);
+
+    // Si todos están seleccionados, los desmarca.
+    // Si no, los selecciona todos.
+    checkboxes.forEach(check => {
+        check.checked = !todosSeleccionados;
+    });
+
+    actualizarContadorSeleccionados();
+
+    // Cambiar el texto del botón
+    botonSeleccionarTodos.innerHTML =
+        todosSeleccionados
+            ? `
+                <i class="bi bi-check2-square"></i>
+                Seleccionar todos
+              `
+            : `
+                <i class="bi bi-x-square"></i>
+                Deseleccionar todos
+              `;
+});
+
 
 
 // =======================================
