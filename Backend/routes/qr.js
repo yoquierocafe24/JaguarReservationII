@@ -99,9 +99,9 @@ router.get("/:id/qr", async (req, res) => {
             enlaceRegistro,
             {
                 type: "png",
-                width: 300,
-                margin: 2,
-                errorCorrectionLevel: "M"
+                width: 1000,
+                margin: 4,
+                errorCorrectionLevel: "H"
             }
         );
 
