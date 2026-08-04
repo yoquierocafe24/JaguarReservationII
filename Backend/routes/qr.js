@@ -90,8 +90,7 @@ router.get("/:id/qr", async (req, res) => {
         // Esta ruta cambiará cuando el sistema esté publicado.
         // NO BORRAR MI RUTA 
         const enlaceRegistro =
-            `http://localhost/JR/JaguarReservation/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
-
+            `/Frontend/usuario/unirse-reserva.html?token=${reserva.qr_token}`;
 
         // UTILIZAR ESTA RUTA, NO LA MIA
          // const enlaceRegistro =
@@ -163,10 +162,10 @@ router.get("/publica/:token", async (req, res) => {
 
             FROM reservas r
 
-            INNER JOIN Espacios es
+            INNER JOIN espacios es
                 ON es.id_espacio = r.id_espacio
 
-            LEFT JOIN Inventario i
+            LEFT JOIN inventario i
                 ON i.id_item = r.id_item
 
             WHERE r.qr_token = ?`,
@@ -581,7 +580,7 @@ const [conflictoHorario] = await conexion.query(
 
      FROM reservas r
 
-     LEFT JOIN Reserva_Acompanantes ra
+     LEFT JOIN reserva_acompanantes ra
         ON ra.id_reserva = r.id_reserva
 
      WHERE r.fecha = ?
