@@ -444,23 +444,38 @@ router.get('/:id', async (req, res) => {
             ]
         );
 
-        // Saber si todavía se puede guardar asistencia
         const [vigencia] = await db.query(
 
-            `SELECT
-                CASE
-                    WHEN fecha = CURDATE()
-                     AND CURTIME() <= hora_fin
-                     AND estado NOT IN ('cancelada', 'rechazada')
-                    THEN 1
-                    ELSE 0
-                END AS puede_registrar
+    `SELECT
+        CASE
+            WHEN fecha =
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
 
-            FROM reservas
-            WHERE id_reserva = ?`,
+             AND TIME(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                ) BETWEEN hora_inicio AND hora_fin
 
-            [req.params.id]
-        );
+             AND estado NOT IN ('cancelada', 'rechazada')
+
+            THEN 1
+            ELSE 0
+        END AS puede_registrar
+
+    FROM reservas
+    WHERE id_reserva = ?`,
+
+    [req.params.id]
+);
 
         res.json({
             ok: true,
