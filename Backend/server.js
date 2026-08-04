@@ -32,19 +32,54 @@ const app = express();
 app.use(express.json());
 
 // Permite comunicación con el Frontend
+//app.use(cors({
+  //  origin: true,
+  //  credentials: true
+//}));
+
+//probando a ver
+app.set("trust proxy", 1);
+
 app.use(cors({
-    origin: true,
+    origin: [
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5500"
+    ],
     credentials: true
 }));
 
 // Manejo de sesiones
-app.use(session({
+/* app.use(session({
     secret: process.env.SESSION_SECRET || 'jaguar_secreto',
     resave: false,
     saveUninitialized: false,
     cookie: {
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 4 // 4 horas
+    }
+})); */
+
+//Probando a ver
+app.use(session({
+    secret:
+        process.env.SESSION_SECRET ||
+        "jaguar_secreto",
+
+    resave: false,
+    saveUninitialized: false,
+
+    cookie: {
+        httpOnly: true,
+
+        // Necesario porque Railway usa HTTPS
+        secure: true,
+
+        // Permite enviar la cookie entre
+        // localhost y Railway
+        sameSite: "none",
+
+        maxAge: 1000 * 60 * 60 * 4
     }
 }));
 
