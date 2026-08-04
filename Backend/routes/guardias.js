@@ -46,7 +46,7 @@ router.get('/hoy', async (req, res) => {
             INNER JOIN estudiantes e
                 ON r.id_estudiante=e.id_estudiante
 
-            INNER JOIN Espacios es
+            INNER JOIN espacios es
                 ON r.id_espacio=es.id_espacio
 
             WHERE r.fecha = CURDATE()
@@ -227,7 +227,7 @@ router.get('/buscar', async (req, res) => {
 
                 FROM reservas r
 
-                INNER JOIN Reserva_Acompanantes ra
+                INNER JOIN reserva_acompanantes ra
                     ON ra.id_reserva = r.id_reserva
                     AND ra.confirmado = 1
 
@@ -241,11 +241,11 @@ router.get('/buscar', async (req, res) => {
 
             ) AS persona
 
-            INNER JOIN Espacios es
+            INNER JOIN espacios es
                 ON es.id_espacio =
                    persona.id_espacio
 
-            LEFT JOIN Asistencia a
+            LEFT JOIN asistencia a
                 ON a.id_reserva =
                    persona.id_reserva
                 AND a.id_estudiante =
@@ -355,7 +355,7 @@ router.get('/:id', async (req, res) => {
 
             FROM reservas r
 
-            INNER JOIN Espacios es
+            INNER JOIN espacios es
                 ON es.id_espacio = r.id_espacio
 
             LEFT JOIN Inventario i
@@ -426,7 +426,7 @@ router.get('/:id', async (req, res) => {
 
             ) AS lista
 
-            LEFT JOIN Asistencia a
+            LEFT JOIN asistencia a
                 ON a.id_reserva = ?
                 AND a.id_estudiante = lista.id_estudiante
 
