@@ -3,10 +3,12 @@ const API_URL = 'http://localhost:3000';
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SM = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const TODAY   = new Date();
+const RESERVAS_POR_PAGINA = 6;
 
 // Ultimas reservas traidas del backend. La busqueda por nombre filtra
 // sobre esto en el navegador; estado/espacio/fecha los filtra el servidor.
 let reservas = [];
+let paginaActual = 1;
 
 
 // ── Topbar fecha ──
@@ -213,6 +215,8 @@ function obtenerIniciales(nombre='') {
 // ── CARGAR ──
 async function cargarReservas() {
 
+  paginaActual = 1;
+
   const params = new URLSearchParams();
 
   const estado  = document.getElementById('filtro-estado').value;
@@ -264,6 +268,63 @@ function renderResumen() {
 }
 
 
+// ── PAGINACIÓN ──
+function renderPaginacion(totalPaginas) {
+  const contenedor = document.getElementById('paginacion-reservas');
+
+  if (!contenedor) return;
+
+  if (totalPaginas <= 1) {
+    contenedor.innerHTML = '';
+    contenedor.style.display = 'none';
+    return;
+  }
+
+  const botones = [];
+
+  botones.push(`
+    <button
+      type="button"
+      class="paginacion-btn"
+      onclick="cambiarPagina(${Math.max(1, paginaActual - 1)})"
+      ${paginaActual === 1 ? 'disabled' : ''}
+    >
+      <i class="bi bi-chevron-left"></i>
+    </button>
+  `);
+
+  for (let i = 1; i <= totalPaginas; i += 1) {
+    botones.push(`
+      <button
+        type="button"
+        class="paginacion-btn ${i === paginaActual ? 'activa' : ''}"
+        onclick="cambiarPagina(${i})"
+      >
+        ${i}
+      </button>
+    `);
+  }
+
+  botones.push(`
+    <button
+      type="button"
+      class="paginacion-btn"
+      onclick="cambiarPagina(${Math.min(totalPaginas, paginaActual + 1)})"
+      ${paginaActual === totalPaginas ? 'disabled' : ''}
+    >
+      <i class="bi bi-chevron-right"></i>
+    </button>
+  `);
+
+  contenedor.innerHTML = botones.join('');
+  contenedor.style.display = 'flex';
+}
+
+function cambiarPagina(pagina) {
+  paginaActual = Math.max(1, pagina);
+  renderTabla();
+}
+
 // ── TABLA ──
 function renderTabla() {
 
@@ -278,9 +339,6 @@ function renderTabla() {
     ? reservas.filter(r => {
         const codigo =
           String(r.id_reserva || '').toLowerCase();
-
-           console.log(visibles[0]);
-  
 
         const nombre =
           String(
@@ -304,6 +362,19 @@ function renderTabla() {
       })
     : reservas;
 
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(visibles.length / RESERVAS_POR_PAGINA)
+  );
+
+  paginaActual = Math.min(paginaActual, totalPaginas);
+
+  const inicio = (paginaActual - 1) * RESERVAS_POR_PAGINA;
+  const paginaActualItems = visibles.slice(
+    inicio,
+    inicio + RESERVAS_POR_PAGINA
+  );
+
   const body =
     document.getElementById('tabla-body');
 
@@ -313,7 +384,7 @@ function renderTabla() {
   vacia.style.display =
     visibles.length ? 'none' : 'block';
 
-  body.innerHTML = visibles.map(r => {
+  body.innerHTML = paginaActualItems.map(r => {
     const estadoVisual =
       obtenerEstadoVisual(r);
 
@@ -396,6 +467,8 @@ function renderTabla() {
       </tr>
     `;
   }).join('');
+
+  renderPaginacion(totalPaginas);
 }
 
 
@@ -608,6 +681,8 @@ function obtenerNombreEspacio(id) {
 
 // ── FILTROS ──
 function limpiarFiltros() {
+
+  paginaActual = 1;
 
   document.getElementById('filtro-estado').value  = '';
   document.getElementById('filtro-espacio').value = '';

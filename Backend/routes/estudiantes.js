@@ -8,6 +8,72 @@ const upload = multer({
     dest: "uploads/"
 });
 
+// ========================================
+// HELPERS DE PERIODOS
+// ========================================
+
+function formatearFecha(fecha) {
+
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+
+    return `${anio}-${mes}-${dia}`;
+}
+
+function construirNombrePeriodo(fecha) {
+
+    const anio = fecha.getFullYear();
+    const semestre = fecha.getMonth() + 1 <= 6 ? '1' : '2';
+
+    return `${anio}-${semestre}`;
+}
+
+async function crearNuevoPeriodo() {
+
+    const fechaInicio = new Date();
+    const fechaFin = new Date();
+    fechaFin.setMonth(fechaFin.getMonth() + 3); // Añadir 3 meses al inicio para obtener la fecha de fin
+
+    const nombre = construirNombrePeriodo(fechaInicio);
+
+    const [resultado] = await db.query(
+
+        `INSERT INTO Periodo_Academico (nombre, fecha_inicio, fecha_fin, estado)
+         VALUES (?, ?, ?, 'Activo')`,
+
+        [nombre, formatearFecha(fechaInicio), formatearFecha(fechaFin)]
+
+    );
+
+    return {
+        id_periodo: resultado.insertId,
+        nombre,
+        fecha_inicio: formatearFecha(fechaInicio),
+        fecha_fin: formatearFecha(fechaFin),
+        estado: 'Activo'
+    };
+}
+
+async function obtenerPeriodoActivo() {
+
+    const [rows] = await db.query(
+
+        `SELECT id_periodo
+         FROM periodo_academico
+         WHERE estado='Activo'
+         LIMIT 1`
+
+    );
+
+    return rows.length > 0 ? rows[0].id_periodo : null;
+
+}
+
+// ========================================
+// SUBIR EXCEL DE ESTUDIANTES (por periodo)
+// ========================================
+
 router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => {
 
     try {
@@ -21,6 +87,21 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
 
         }
 
+        let id_periodo = req.body.id_periodo;
+
+        if (!id_periodo) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+            });
+
+        }
+
         const workbook = XLSX.readFile(req.file.path);
 
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -29,7 +110,7 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
             header: 1
         });
 
-        const cuentasExcel = [];
+        const idsEstudiantesExcel = [];
 
         for (let i = 1; i < datos.length; i++) {
 
@@ -45,29 +126,71 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
             if (!cuenta || !nombre || !dni)
                 continue;
 
-            cuentasExcel.push(cuenta);
+            // 1. Upsert en Estudiantes (datos fijos del alumno)
 
-            const [existe] = await db.query(
+            const [existeEstudiante] = await db.query(
 
-                "SELECT id_estudiante FROM Estudiantes WHERE cuenta=?",
+                "SELECT id_estudiante FROM estudiantes WHERE cuenta=?",
                 [cuenta]
 
             );
 
-            if (existe.length > 0) {
+            let id_estudiante;
+
+            if (existeEstudiante.length > 0) {
+
+                id_estudiante = existeEstudiante[0].id_estudiante;
 
                 await db.query(
 
-                    `UPDATE Estudiantes
+                    `UPDATE estudiantes
                      SET nombre=?,
                          dni=?,
-                         correo=?,
-                         carrera=?,
+                         correo=?
+                     WHERE id_estudiante=?`,
+
+                    [nombre, dni, correo, id_estudiante]
+
+                );
+
+            } else {
+
+                const [resultado] = await db.query(
+
+                    `INSERT INTO estudiantes
+                    (nombre,dni,cuenta,correo)
+                    VALUES (?,?,?,?)`,
+
+                    [nombre, dni, cuenta, correo]
+
+                );
+
+                id_estudiante = resultado.insertId;
+
+            }
+
+            // 2. Upsert en Estudiante_Periodo (datos del alumno para ese periodo)
+
+            const [existePeriodo] = await db.query(
+
+                `SELECT id FROM estudiante_periodo
+                 WHERE id_estudiante=? AND id_periodo=?`,
+
+                [id_estudiante, id_periodo]
+
+            );
+
+            if (existePeriodo.length > 0) {
+
+                await db.query(
+
+                    `UPDATE estudiante_periodo
+                     SET carrera=?,
                          tipo_ingreso=?,
                          activo=1
-                     WHERE cuenta=?`,
+                     WHERE id=?`,
 
-                    [nombre, dni, correo, carrera, tipo_ingreso, cuenta]
+                    [carrera, tipo_ingreso, existePeriodo[0].id]
 
                 );
 
@@ -75,29 +198,31 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
 
                 await db.query(
 
-                    `INSERT INTO Estudiantes
-                    (nombre,dni,cuenta,correo,carrera,tipo_ingreso,activo)
-                    VALUES (?,?,?,?,?,?,1)`,
+                    `INSERT INTO estudiante_periodo
+                    (id_estudiante,id_periodo,carrera,tipo_ingreso,activo)
+                    VALUES (?,?,?,?,1)`,
 
-                    [nombre, dni, cuenta, correo, carrera, tipo_ingreso]
+                    [id_estudiante, id_periodo, carrera, tipo_ingreso]
 
                 );
 
             }
 
+            idsEstudiantesExcel.push(id_estudiante);
+
         }
 
-        if (cuentasExcel.length > 0) {
+        if (idsEstudiantesExcel.length > 0) {
 
-            const placeholders = cuentasExcel.map(() => "?").join(",");
+            const placeholders = idsEstudiantesExcel.map(() => "?").join(",");
 
             await db.query(
 
-                `UPDATE Estudiantes
+                `UPDATE estudiante_periodo
                  SET activo=0
-                 WHERE cuenta NOT IN (${placeholders})`,
+                 WHERE id_periodo=? AND id_estudiante NOT IN (${placeholders})`,
 
-                cuentasExcel
+                [id_periodo, ...idsEstudiantesExcel]
 
             );
 
@@ -106,7 +231,8 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
         res.json({
 
             ok: true,
-            estudiantesProcesados: cuentasExcel.length
+            id_periodo,
+            estudiantesProcesados: idsEstudiantesExcel.length
 
         });
 
@@ -126,30 +252,130 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
 });
 
 // ========================================
-// OBTENER TODOS LOS ESTUDIANTES
+// OBTENER PERIODOS ACADÉMICOS
+// ========================================
+
+router.get("/estudiantes/periodos", async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+
+            `SELECT id_periodo, nombre, fecha_inicio, fecha_fin, estado
+             FROM periodo_academico
+             ORDER BY fecha_inicio DESC, id_periodo DESC`
+
+        );
+
+        const [activoRows] = await db.query(
+
+            `SELECT id_periodo
+             FROM periodo_academico
+             WHERE estado='Activo'
+             LIMIT 1`
+
+        );
+
+        res.json({
+            ok: true,
+            periodos: rows,
+            periodoActivo: activoRows[0]?.id_periodo || null
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: error.message
+        });
+
+    }
+
+});
+
+// ========================================
+// OBTENER TODOS LOS ESTUDIANTES (de un periodo)
 // ========================================
 
 router.get("/estudiantes", async (req, res) => {
 
     try {
 
-        const [rows] = await db.query(
+        let id_periodo = req.query.id_periodo;
 
-            `SELECT
-                id_estudiante,
-                cuenta,
-                nombre,
-                correo,
-                carrera,
-                tipo_ingreso,
-                activo
-            FROM Estudiantes
-            ORDER BY nombre`
+        const mostrarTodos =
+            req.query.todos === '1' ||
+            req.query.todos === 'true' ||
+            id_periodo === 'todos' ||
+            id_periodo === 'all';
 
-        );
+        if (!id_periodo && !mostrarTodos) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo && !mostrarTodos) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+            });
+
+        }
+
+        let rows;
+
+        if (mostrarTodos) {
+
+            [rows] = await db.query(
+
+                `SELECT
+                    e.id_estudiante,
+                    e.cuenta,
+                    e.nombre,
+                    e.correo,
+                    ep.carrera,
+                    ep.tipo_ingreso,
+                    ep.activo,
+                    ep.id_periodo,
+                    pa.nombre AS periodo_nombre
+                FROM estudiantes e
+                INNER JOIN estudiante_periodo ep
+                    ON ep.id_estudiante = e.id_estudiante
+                INNER JOIN periodo_academico pa
+                    ON pa.id_periodo = ep.id_periodo
+                ORDER BY pa.fecha_inicio DESC, e.nombre`
+
+            );
+
+        } else {
+
+            [rows] = await db.query(
+
+                `SELECT
+                    e.id_estudiante,
+                    e.cuenta,
+                    e.nombre,
+                    e.correo,
+                    ep.carrera,
+                    ep.tipo_ingreso,
+                    ep.activo
+                FROM estudiantes e
+                INNER JOIN estudiante_periodo ep
+                    ON ep.id_estudiante = e.id_estudiante
+                WHERE ep.id_periodo = ?
+                ORDER BY e.nombre`,
+
+                [id_periodo]
+
+            );
+
+        }
 
         res.json({
             ok: true,
+            id_periodo,
             estudiantes: rows
         });
 
@@ -174,18 +400,64 @@ router.put("/estudiantes/cerrar-trimestre", async (req, res) => {
 
     try {
 
+        let id_periodo = req.body.id_periodo;
+
+        if (!id_periodo) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+            });
+
+        }
+
+        if (!id_periodo) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo) {
+            const nuevoPeriodo = await crearNuevoPeriodo();
+
+            return res.json({
+                ok: true,
+                mensaje: "Se inició un nuevo periodo académico.",
+                id_periodo: nuevoPeriodo.id_periodo,
+                periodo_nuevo: nuevoPeriodo
+            });
+        }
+
         const [resultado] = await db.query(
 
-            `UPDATE Estudiantes
-             SET activo = 0`
+            `UPDATE estudiante_periodo
+             SET activo = 0
+             WHERE id_periodo = ?`,
+
+            [id_periodo]
 
         );
+
+        await db.query(
+
+            `UPDATE periodo_academico
+             SET estado = 'Finalizado'
+             WHERE id_periodo = ?`,
+
+            [id_periodo]
+
+        );
+
+        const periodoNuevo = await crearNuevoPeriodo();
 
         res.json({
 
             ok: true,
-            mensaje: "Trimestre cerrado correctamente.",
-
+            mensaje: "Trimestre cerrado correctamente. Se inició un nuevo periodo académico.",
+            id_periodo,
+            periodo_nuevo: periodoNuevo,
             estudiantesActualizados: resultado.affectedRows
 
         });
@@ -206,39 +478,63 @@ router.put("/estudiantes/cerrar-trimestre", async (req, res) => {
 });
 
 // ========================================
-// ESTADISTICAS
+// ESTADISTICAS (de un periodo)
 // ========================================
 
 router.get("/estudiantes/resumen", async (req, res) => {
 
     try {
 
+        let id_periodo = req.query.id_periodo;
+
+        if (!id_periodo) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+            });
+
+        }
+
         const [[total]] = await db.query(
 
             `SELECT COUNT(*) total
-             FROM Estudiantes`
+             FROM estudiante_periodo
+             WHERE id_periodo=?`,
+
+            [id_periodo]
 
         );
 
         const [[activos]] = await db.query(
 
             `SELECT COUNT(*) activos
-             FROM Estudiantes
-             WHERE activo=1`
+             FROM estudiante_periodo
+             WHERE id_periodo=? AND activo=1`,
+
+            [id_periodo]
 
         );
 
         const [[inactivos]] = await db.query(
 
             `SELECT COUNT(*) inactivos
-             FROM Estudiantes
-             WHERE activo=0`
+             FROM estudiante_periodo
+             WHERE id_periodo=? AND activo=0`,
+
+            [id_periodo]
 
         );
 
         res.json({
 
             ok:true,
+
+            id_periodo,
 
             total: total.total,
 
