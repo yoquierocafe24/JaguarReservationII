@@ -136,7 +136,16 @@ const elements = {
     statusMessage: document.getElementById('status-message'),
     uploadForm: document.getElementById('upload-form'),
     refreshBtn: document.getElementById('refresh-btn'),
-    closeTrimesterBtn: document.getElementById('close-trimester-btn')
+    closeTrimesterBtn: document.getElementById('close-trimester-btn'),
+    periodoFilter: document.getElementById('periodo-filter'),
+    estadoFilter: document.getElementById('estado-filter'),
+    searchInput: document.getElementById('student-search')
+};
+
+const state = {
+    periodos: [],
+    estudiantes: [],
+    periodoActivo: ''
 };
 
 function escapeHtml(value = '') {
@@ -154,11 +163,51 @@ function setStatus(message, isError = false) {
     elements.statusMessage.style.color = isError ? '#b91c1c' : '#6b7280';
 }
 
+function getPeriodoSeleccionado() {
+    const valor = elements.periodoFilter?.value || '';
+    return valor;
+}
+
+async function cargarPeriodos() {
+    try {
+        const response = await fetch(`${API_BASE}/estudiantes/periodos`);
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudieron cargar los periodos');
+        }
+
+        state.periodos = data.periodos || [];
+        state.periodoActivo = data.periodoActivo || '';
+
+        if (elements.periodoFilter) {
+            elements.periodoFilter.innerHTML = `
+                <option value="">Periodo actual</option>
+                ${state.periodos.map((periodo) => `
+                    <option value="${periodo.id_periodo}" ${String(periodo.id_periodo) === String(state.periodoActivo) ? 'selected' : ''}>
+                        ${escapeHtml(periodo.nombre || `Periodo ${periodo.id_periodo}`)}
+                    </option>
+                `).join('')}
+            `;
+
+            if (!elements.periodoFilter.value) {
+                elements.periodoFilter.value = state.periodoActivo || '';
+            }
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
 async function loadDashboard() {
     try {
         setStatus('Cargando estadística de estudiantes...');
-        const resumenRes = await fetch(`${API_BASE}/estudiantes/resumen`);
-        const estudiantesRes = await fetch(`${API_BASE}/estudiantes`);
+        const periodoSeleccionado = getPeriodoSeleccionado();
+
+        const [resumenRes, estudiantesRes] = await Promise.all([
+            fetch(`${API_BASE}/estudiantes/resumen${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`),
+            fetch(`${API_BASE}/estudiantes${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`)
+        ]);
 
         if (!resumenRes.ok || !estudiantesRes.ok) {
             throw new Error('No se pudo obtener la información del servidor');
@@ -167,13 +216,32 @@ async function loadDashboard() {
         const resumen = await resumenRes.json();
         const estudiantes = await estudiantesRes.json();
 
+        state.estudiantes = estudiantes.estudiantes || [];
         renderStats(resumen);
-        renderStudents(estudiantes.estudiantes || []);
+        aplicarFiltros();
         setStatus(`Última actualización: ${new Date().toLocaleString()}`);
     } catch (error) {
         console.error(error);
         setStatus('No fue posible cargar los datos. Asegúrate de que el backend esté corriendo.', true);
     }
+}
+
+function aplicarFiltros() {
+    const textoBusqueda = (elements.searchInput?.value || '').trim().toLowerCase();
+    const estadoFiltro = (elements.estadoFilter?.value || '').toLowerCase();
+
+    const estudiantesFiltrados = state.estudiantes.filter((estudiante) => {
+        const nombre = String(estudiante.nombre || '').toLowerCase();
+        const cuenta = String(estudiante.cuenta || '').toLowerCase();
+        const activo = (estudiante.activo === 1 || estudiante.activo === true) ? 'activo' : 'inactivo';
+
+        const coincideBusqueda = !textoBusqueda || nombre.includes(textoBusqueda) || cuenta.includes(textoBusqueda);
+        const coincideEstado = !estadoFiltro || activo === estadoFiltro;
+
+        return coincideBusqueda && coincideEstado;
+    });
+
+    renderStudents(estudiantesFiltrados);
 }
 
 function renderStats(resumen) {
@@ -188,7 +256,7 @@ function renderStudents(estudiantes) {
     if (!elements.tableBody) return;
 
     if (!estudiantes.length) {
-        elements.tableBody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay estudiantes registrados todavía.</td></tr>';
+        elements.tableBody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay estudiantes que coincidan con los filtros seleccionados.</td></tr>';
         return;
     }
 
@@ -254,7 +322,13 @@ async function handleCloseTrimester() {
         }
 
         setStatus(data.mensaje || 'Trimestre cerrado correctamente.');
-        loadDashboard();
+        await cargarPeriodos();
+
+        if (data.periodo_nuevo?.id_periodo) {
+            elements.periodoFilter.value = data.periodo_nuevo.id_periodo;
+        }
+
+        await loadDashboard();
     } catch (error) {
         console.error(error);
         setStatus(error.message || 'Ocurrió un error al cerrar el trimestre.', true);
@@ -279,7 +353,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     elements.refreshBtn?.addEventListener(
         'click',
-        loadDashboard
+        async () => {
+            await cargarPeriodos();
+            await loadDashboard();
+        }
     );
 
     elements.closeTrimesterBtn?.addEventListener(
@@ -287,5 +364,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         handleCloseTrimester
     );
 
+    elements.periodoFilter?.addEventListener(
+        'change',
+        async () => {
+            await loadDashboard();
+        }
+    );
+
+    elements.estadoFilter?.addEventListener(
+        'change',
+        aplicarFiltros
+    );
+
+    elements.searchInput?.addEventListener(
+        'input',
+        aplicarFiltros
+    );
+
+    await cargarPeriodos();
     await loadDashboard();
 });

@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <link rel="stylesheet" href="../css/admin.css">
-    <link rel="stylesheet" href="../css/estudiantes-admin.css">
+    <link rel="stylesheet" href="../css/estudiantes-admin.css?v=12">
 </head>
 
 <body>
@@ -154,6 +154,27 @@
                     Esperando datos...
                 </div>
 
+                <div class="filters-panel">
+                    <div class="filter-group">
+                        <label for="periodo-filter">Periodo académico</label>
+                        <select id="periodo-filter"></select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="estado-filter">Estado</label>
+                        <select id="estado-filter">
+                            <option value="">Todos</option>
+                            <option value="activo">Activos</option>
+                            <option value="inactivo">Inactivos</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group filter-group-search">
+                        <label for="student-search">Buscar</label>
+                        <input type="text" id="student-search" placeholder="Nombre o número de cuenta">
+                    </div>
+                </div>
+
                 <div class="stats-grid">
 
                     <article class="stat-card">
@@ -212,7 +233,7 @@
 
 </div>
 
-<script src="../js/estudiantes.js"></script>
+<script src="../js/estudiantes.js?v=12"></script>
 
 </body>
 </html>

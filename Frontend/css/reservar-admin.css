@@ -286,6 +286,50 @@
 
 
 /* ======================================
+        PAGINACIÓN
+====================================== */
+
+.paginacion-reservas{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:8px;
+    margin-top:14px;
+}
+
+.paginacion-btn{
+    width:36px;
+    height:36px;
+    border:1px solid var(--borde);
+    border-radius:10px;
+    background:var(--blanco);
+    color:var(--texto);
+    font-family:'Poppins',sans-serif;
+    font-size:13px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    transition:.2s;
+}
+
+.paginacion-btn:hover:not(:disabled){
+    border-color:var(--crimson);
+    color:var(--crimson);
+}
+
+.paginacion-btn.activa{
+    background:var(--crimson);
+    border-color:var(--crimson);
+    color:var(--blanco);
+}
+
+.paginacion-btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+/* ======================================
         VACIO Y CARGA
 ====================================== */
 
