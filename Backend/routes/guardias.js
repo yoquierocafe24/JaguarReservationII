@@ -43,7 +43,7 @@ router.get('/hoy', async (req, res) => {
 
             FROM reservas r
 
-            INNER JOIN Estudiantes e
+            INNER JOIN estudiantes e
                 ON r.id_estudiante=e.id_estudiante
 
             INNER JOIN Espacios es
@@ -199,7 +199,7 @@ router.get('/buscar', async (req, res) => {
 
                 FROM reservas r
 
-                INNER JOIN Estudiantes titular
+                INNER JOIN estudiantes titular
                     ON titular.id_estudiante =
                        r.id_estudiante
 
@@ -231,7 +231,7 @@ router.get('/buscar', async (req, res) => {
                     ON ra.id_reserva = r.id_reserva
                     AND ra.confirmado = 1
 
-                INNER JOIN Estudiantes acompanante
+                INNER JOIN estudiantes acompanante
                     ON acompanante.id_estudiante =
                        ra.id_estudiante
 
@@ -402,7 +402,7 @@ router.get('/:id', async (req, res) => {
 
                 FROM reservas r
 
-                INNER JOIN Estudiantes e
+                INNER JOIN estudiantes e
                     ON e.id_estudiante = r.id_estudiante
 
                 WHERE r.id_reserva = ?
@@ -418,7 +418,7 @@ router.get('/:id', async (req, res) => {
 
                 FROM reserva_acompanantes ra
 
-                INNER JOIN Estudiantes e
+                INNER JOIN estudiantes e
                     ON e.id_estudiante = ra.id_estudiante
 
                 WHERE ra.id_reserva = ?
