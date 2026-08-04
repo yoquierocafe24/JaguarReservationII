@@ -452,27 +452,51 @@ router.post("/unirse", async (req, res) => {
         // =======================================
         // Validar vigencia
         // =======================================
+const [vigencia] = await conexion.query(
 
-        const [vigencia] = await conexion.query(
+    `SELECT
+        CASE
 
-            `SELECT
-                CASE
-                    WHEN fecha > CURDATE() THEN 1
+            WHEN fecha >
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
+            THEN 1
 
-                    WHEN fecha = CURDATE()
-                     AND CURTIME() <= hora_fin
-                    THEN 1
+            WHEN fecha =
+                DATE(
+                    CONVERT_TZ(
+                        NOW(),
+                        '+00:00',
+                        '-06:00'
+                    )
+                )
 
-                    ELSE 0
-                END AS vigente
+            AND TIME(
+                CONVERT_TZ(
+                    NOW(),
+                    '+00:00',
+                    '-06:00'
+                )
+            ) <= hora_fin
 
-            FROM reservas
+            THEN 1
 
-            WHERE id_reserva = ?`,
+            ELSE 0
 
-            [reserva.id_reserva]
+        END AS vigente
 
-        );
+    FROM reservas
+
+    WHERE id_reserva = ?`,
+
+    [reserva.id_reserva]
+
+);
 
         if (!vigencia[0]?.vigente) {
 
@@ -716,7 +740,7 @@ if (conflictoHorario.length > 0) {
 
         await conexion.query(
 
-            `INSERT INTO Reserva_Acompanantes (
+            `INSERT INTO reserva_acompanantes (
                 id_reserva,
                 id_estudiante,
                 confirmado,
