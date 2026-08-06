@@ -393,10 +393,7 @@ function renderTabla() {
       reservaEstaVencida(r);
 
     return `
-      <tr class="${vencida ? 'fila-vencida' : ''}">
-        <td class="celda-id">
-          ${escapar(r.id_reserva)}
-        </td>
+      <tr>
 
         <td class="celda-persona">
           <strong>

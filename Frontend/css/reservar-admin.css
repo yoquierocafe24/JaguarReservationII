@@ -428,6 +428,7 @@
     color:#6b7280;
 }
 
+/*
 .tabla-reservas tbody tr.fila-vencida{
     background:#f7f8fa;
 }
@@ -439,6 +440,7 @@
 .tabla-reservas tbody tr.fila-vencida:hover{
     background:#f1f3f6;
 }
+    */
 
 @media(max-width:600px){
     .page-content{
