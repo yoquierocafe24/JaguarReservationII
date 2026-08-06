@@ -140,13 +140,28 @@ const elements = {
     closeTrimesterBtn: document.getElementById('close-trimester-btn'),
     periodoFilter: document.getElementById('periodo-filter'),
     estadoFilter: document.getElementById('estado-filter'),
-    searchInput: document.getElementById('student-search')
+    searchInput: document.getElementById('student-search'),
+    paginationControls: document.getElementById('pagination-controls'),
+    paginationInfo: document.getElementById('pagination-info'),
+    paginationPage: document.getElementById('pagination-page'),
+    paginationPrevBtn: document.getElementById('pagination-prev'),
+    paginationNextBtn: document.getElementById('pagination-next'),
+    confirmModal: document.getElementById('confirm-modal'),
+    confirmModalMessage: document.getElementById('confirm-modal-message'),
+    confirmModalTitle: document.getElementById('confirm-modal-title'),
+    confirmModalConfirmBtn: document.querySelector('#confirm-modal [data-action="confirm"]'),
+    confirmModalCancelBtn: document.querySelector('#confirm-modal [data-action="cancel"]'),
+    confirmModalCloseBtn: document.querySelector('#confirm-modal .modal-close-btn'),
+    confirmModalBackdrop: document.querySelector('#confirm-modal .custom-modal-backdrop')
 };
 
 const state = {
     periodos: [],
     estudiantes: [],
-    periodoActivo: ''
+    periodoActivo: '',
+    confirmAction: null,
+    currentPage: 1,
+    pageSize: 5
 };
 
 function escapeHtml(value = '') {
@@ -162,6 +177,36 @@ function setStatus(message, isError = false) {
     if (!elements.statusMessage) return;
     elements.statusMessage.textContent = message;
     elements.statusMessage.style.color = isError ? '#b91c1c' : '#6b7280';
+}
+
+function abrirModalConfirmacion({ title, message, confirmText = 'Confirmar', onConfirm }) {
+    if (!elements.confirmModal) return;
+
+    if (elements.confirmModalTitle) {
+        elements.confirmModalTitle.textContent = title || 'Confirmar acción';
+    }
+
+    if (elements.confirmModalMessage) {
+        elements.confirmModalMessage.textContent = message || '¿Deseas continuar?';
+    }
+
+    if (elements.confirmModalConfirmBtn) {
+        elements.confirmModalConfirmBtn.textContent = confirmText;
+    }
+
+    state.confirmAction = typeof onConfirm === 'function' ? onConfirm : null;
+    elements.confirmModal.classList.remove('hidden');
+    elements.confirmModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+}
+
+function cerrarModalConfirmacion() {
+    if (!elements.confirmModal) return;
+
+    elements.confirmModal.classList.add('hidden');
+    elements.confirmModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    state.confirmAction = null;
 }
 
 function getPeriodoSeleccionado() {
@@ -227,20 +272,71 @@ async function loadDashboard() {
     }
 }
 
-function aplicarFiltros() {
+function esActivo(estudiante) {
+    const valor = estudiante?.activo;
+
+    if (valor === true || valor === 1 || valor === '1' || valor === 'true') {
+        return true;
+    }
+
+    if (valor === false || valor === 0 || valor === '0' || valor === 'false') {
+        return false;
+    }
+
+    return Boolean(valor);
+}
+
+function resetearPaginacion() {
+    state.currentPage = 1;
+}
+
+function renderPagination(totalItems) {
+    if (!elements.paginationControls || !elements.paginationInfo || !elements.paginationPage) return;
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / state.pageSize));
+    const startIndex = totalItems === 0 ? 0 : (state.currentPage - 1) * state.pageSize + 1;
+    const endIndex = totalItems === 0 ? 0 : Math.min(state.currentPage * state.pageSize, totalItems);
+
+    if (totalItems <= state.pageSize) {
+        elements.paginationControls.hidden = true;
+        return;
+    }
+
+    elements.paginationControls.hidden = false;
+    elements.paginationInfo.textContent = `Mostrando ${startIndex}-${endIndex} de ${totalItems} estudiantes`;
+    elements.paginationPage.textContent = `Página ${state.currentPage} de ${totalPages}`;
+
+    if (elements.paginationPrevBtn) {
+        elements.paginationPrevBtn.disabled = state.currentPage <= 1;
+    }
+
+    if (elements.paginationNextBtn) {
+        elements.paginationNextBtn.disabled = state.currentPage >= totalPages;
+    }
+}
+
+function obtenerEstudiantesFiltrados() {
     const textoBusqueda = (elements.searchInput?.value || '').trim().toLowerCase();
     const estadoFiltro = (elements.estadoFilter?.value || '').toLowerCase();
 
-    const estudiantesFiltrados = state.estudiantes.filter((estudiante) => {
+    return state.estudiantes.filter((estudiante) => {
         const nombre = String(estudiante.nombre || '').toLowerCase();
         const cuenta = String(estudiante.cuenta || '').toLowerCase();
-        const activo = (estudiante.activo === 1 || estudiante.activo === true) ? 'activo' : 'inactivo';
+        const activo = esActivo(estudiante) ? 'activo' : 'inactivo';
 
         const coincideBusqueda = !textoBusqueda || nombre.includes(textoBusqueda) || cuenta.includes(textoBusqueda);
         const coincideEstado = !estadoFiltro || activo === estadoFiltro;
 
         return coincideBusqueda && coincideEstado;
     });
+}
+
+function aplicarFiltros(resetPage = true) {
+    const estudiantesFiltrados = obtenerEstudiantesFiltrados();
+
+    if (resetPage) {
+        resetearPaginacion();
+    }
 
     renderStudents(estudiantesFiltrados);
 }
@@ -256,14 +352,29 @@ function renderStats(resumen) {
 function renderStudents(estudiantes) {
     if (!elements.tableBody) return;
 
-    if (!estudiantes.length) {
-        elements.tableBody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay estudiantes que coincidan con los filtros seleccionados.</td></tr>';
+    const totalItems = Array.isArray(estudiantes) ? estudiantes.length : 0;
+    const totalPages = Math.max(1, Math.ceil(totalItems / state.pageSize));
+
+    if (state.currentPage > totalPages) {
+        state.currentPage = totalPages;
+    }
+
+    const startIndex = totalItems === 0 ? 0 : (state.currentPage - 1) * state.pageSize;
+    const estudiantesPagina = totalItems === 0 ? [] : estudiantes.slice(startIndex, startIndex + state.pageSize);
+
+    if (!estudiantesPagina.length) {
+        elements.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay estudiantes que coincidan con los filtros seleccionados.</td></tr>';
+        renderPagination(0);
         return;
     }
 
-    elements.tableBody.innerHTML = estudiantes.map((estudiante) => {
-        const estado = estudiante.activo === 1 || estudiante.activo === true ? 'Activo' : 'Inactivo';
-        const badgeClass = estudiante.activo === 1 || estudiante.activo === true ? 'active' : 'inactive';
+    elements.tableBody.innerHTML = estudiantesPagina.map((estudiante) => {
+        const activo = esActivo(estudiante);
+        const estado = activo ? 'Activo' : 'Inactivo';
+        const badgeClass = activo ? 'active' : 'inactive';
+        const accionHtml = activo
+            ? `<button type="button" class="action-btn" data-id="${escapeHtml(String(estudiante.id_estudiante))}">Inactivar</button>`
+            : `<button type="button" class="action-btn is-disabled" data-id="${escapeHtml(String(estudiante.id_estudiante))}" disabled>Inactivo</button>`;
 
         return `
             <tr>
@@ -272,9 +383,67 @@ function renderStudents(estudiantes) {
                 <td>${escapeHtml(estudiante.carrera || '—')}</td>
                 <td>${escapeHtml(estudiante.correo || '—')}</td>
                 <td><span class="badge ${badgeClass}">${escapeHtml(estado)}</span></td>
+                <td>${accionHtml}</td>
             </tr>
         `;
     }).join('');
+
+    renderPagination(totalItems);
+}
+
+async function inactivarEstudiante(idEstudiante) {
+    try {
+        const periodoSeleccionado = getPeriodoSeleccionado();
+
+        setStatus('Inactivando estudiante...');
+
+        const response = await fetch(`${API_URL}/estudiantes/${encodeURIComponent(idEstudiante)}/inactivar`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(periodoSeleccionado ? { id_periodo: periodoSeleccionado } : {})
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo inactivar el estudiante');
+        }
+
+        setStatus(data.mensaje || 'Estudiante inactivado correctamente.');
+        await loadDashboard();
+    } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Ocurrió un error al inactivar el estudiante.', true);
+    }
+}
+
+function solicitarConfirmacionInactivacion(idEstudiante) {
+    abrirModalConfirmacion({
+        title: 'Inactivar estudiante',
+        message: '¿Deseas inactivar este estudiante en el periodo seleccionado?',
+        confirmText: 'Inactivar',
+        onConfirm: async () => {
+            await inactivarEstudiante(idEstudiante);
+        }
+    });
+}
+
+function manejarClicTabla(event) {
+    const boton = event.target.closest('.action-btn');
+
+    if (!boton) {
+        return;
+    }
+
+    const idEstudiante = boton.dataset.id;
+
+    if (!idEstudiante) {
+        return;
+    }
+
+    solicitarConfirmacionInactivacion(idEstudiante);
 }
 
 async function handleUpload(event) {
@@ -335,6 +504,18 @@ async function handleCloseTrimester() {
         setStatus(error.message || 'Ocurrió un error al cerrar el trimestre.', true);
     }
 }
+
+function solicitarConfirmacionCierreTrimestre() {
+    abrirModalConfirmacion({
+        title: 'Cerrar trimestre',
+        message: '¿Deseas cerrar el trimestre actual y crear uno nuevo?',
+        confirmText: 'Cerrar trimestre',
+        onConfirm: async () => {
+            await handleCloseTrimester();
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
 
      updateDateTime();
@@ -362,7 +543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     elements.closeTrimesterBtn?.addEventListener(
         'click',
-        handleCloseTrimester
+        solicitarConfirmacionCierreTrimestre
     );
 
     elements.periodoFilter?.addEventListener(
@@ -381,6 +562,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         'input',
         aplicarFiltros
     );
+
+    elements.tableBody?.addEventListener(
+        'click',
+        manejarClicTabla
+    );
+
+    elements.paginationPrevBtn?.addEventListener('click', () => {
+        if (state.currentPage > 1) {
+            state.currentPage -= 1;
+            renderStudents(obtenerEstudiantesFiltrados());
+        }
+    });
+
+    elements.paginationNextBtn?.addEventListener('click', () => {
+        const estudiantesFiltrados = obtenerEstudiantesFiltrados();
+        const totalPages = Math.max(1, Math.ceil(estudiantesFiltrados.length / state.pageSize));
+
+        if (state.currentPage < totalPages) {
+            state.currentPage += 1;
+            renderStudents(estudiantesFiltrados);
+        }
+    });
+
+    elements.confirmModalCancelBtn?.addEventListener('click', cerrarModalConfirmacion);
+    elements.confirmModalCloseBtn?.addEventListener('click', cerrarModalConfirmacion);
+    elements.confirmModalBackdrop?.addEventListener('click', cerrarModalConfirmacion);
+    elements.confirmModalConfirmBtn?.addEventListener('click', async () => {
+        const accionConfirmada = state.confirmAction;
+
+        if (typeof accionConfirmada === 'function') {
+            cerrarModalConfirmacion();
+            await accionConfirmada();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && elements.confirmModal && !elements.confirmModal.classList.contains('hidden')) {
+            cerrarModalConfirmacion();
+        }
+    });
 
     await cargarPeriodos();
     await loadDashboard();

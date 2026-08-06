@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <link rel="stylesheet" href="../css/admin.css">
-    <link rel="stylesheet" href="../css/estudiantes-admin.css?v=12">
+    <link rel="stylesheet" href="../css/estudiantes-admin.css?v=17">
 </head>
 
 <body>
@@ -212,17 +212,27 @@
                                 <th>Carrera</th>
                                 <th>Correo</th>
                                 <th>Estado</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
 
                         <tbody id="students-table-body">
                             <tr>
-                                <td colspan="5" class="empty-state">
+                                <td colspan="6" class="empty-state">
                                     Cargando estudiantes...
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div id="pagination-controls" class="pagination-controls" hidden>
+                    <span id="pagination-info" class="pagination-info">Mostrando 0 de 0 estudiantes</span>
+                    <div class="pagination-buttons">
+                        <button type="button" id="pagination-prev" class="pagination-btn">Anterior</button>
+                        <span id="pagination-page" class="pagination-page">Página 1</span>
+                        <button type="button" id="pagination-next" class="pagination-btn">Siguiente</button>
+                    </div>
                 </div>
 
             </section>
@@ -233,7 +243,26 @@
 
 </div>
 
-<script src="../js/estudiantes.js?v=15"></script>
+<div id="confirm-modal" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close"></div>
+    <div class="custom-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <div class="custom-modal-header">
+            <h3 id="confirm-modal-title">Confirmar acción</h3>
+            <button type="button" class="modal-close-btn" data-action="close" aria-label="Cerrar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="custom-modal-body">
+            <p id="confirm-modal-message">¿Deseas continuar?</p>
+        </div>
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary" data-action="cancel">Cancelar</button>
+            <button type="button" class="btn-primary" data-action="confirm">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script src="../js/estudiantes.js?v=18"></script>
 
 </body>
 </html>

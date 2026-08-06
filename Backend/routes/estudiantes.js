@@ -24,16 +24,30 @@ function formatearFecha(fecha) {
 function construirNombrePeriodo(fecha) {
 
     const anio = fecha.getFullYear();
-    const semestre = fecha.getMonth() + 1 <= 6 ? '1' : '2';
+    const mes = fecha.getMonth() + 1;
 
-    return `${anio}-${semestre}`;
+    let trimestre;
+
+    if (mes >= 1 && mes <= 3) {
+        trimestre = 1;
+    } else if (mes >= 4 && mes <= 6) {
+        trimestre = 2;
+    } else if (mes >= 7 && mes <= 9) {
+        trimestre = 3;
+    } else {
+        trimestre = 4;
+    }
+
+    return `${anio}-T${trimestre}`;
 }
 
 async function crearNuevoPeriodo() {
 
     const fechaInicio = new Date();
-    const fechaFin = new Date();
-    fechaFin.setMonth(fechaFin.getMonth() + 3); // Añadir 3 meses al inicio para obtener la fecha de fin
+
+    const fechaFin = new Date(fechaInicio);
+    fechaFin.setMonth(fechaFin.getMonth() + 3);
+    fechaFin.setDate(fechaFin.getDate() - 1); // Para que termine un día antes del siguiente trimestre
 
     const nombre = construirNombrePeriodo(fechaInicio);
 
@@ -42,7 +56,11 @@ async function crearNuevoPeriodo() {
         `INSERT INTO periodo_academico (nombre, fecha_inicio, fecha_fin, estado)
          VALUES (?, ?, ?, 'Activo')`,
 
-        [nombre, formatearFecha(fechaInicio), formatearFecha(fechaFin)]
+        [
+            nombre,
+            formatearFecha(fechaInicio),
+            formatearFecha(fechaFin)
+        ]
 
     );
 
@@ -61,7 +79,7 @@ async function obtenerPeriodoActivo() {
 
         `SELECT id_periodo
          FROM periodo_academico
-         WHERE estado='Activo'
+         WHERE estado = 'Activo'
          LIMIT 1`
 
     );
@@ -471,6 +489,65 @@ router.put("/estudiantes/cerrar-trimestre", async (req, res) => {
             ok: false,
             mensaje: error.message
 
+        });
+
+    }
+
+});
+
+// ========================================
+// INACTIVAR ESTUDIANTE INDIVIDUALMENTE
+// ========================================
+
+router.put("/estudiantes/:id_estudiante/inactivar", async (req, res) => {
+
+    try {
+
+        const id_estudiante = req.params.id_estudiante;
+        let id_periodo = req.body.id_periodo || req.query.id_periodo;
+
+        if (!id_periodo) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+            });
+        }
+
+        const [resultado] = await db.query(
+
+            `UPDATE estudiante_periodo
+             SET activo = 0
+             WHERE id_estudiante = ? AND id_periodo = ?`,
+
+            [id_estudiante, id_periodo]
+
+        );
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "No se encontró el estudiante en el periodo seleccionado"
+            });
+        }
+
+        res.json({
+            ok: true,
+            mensaje: "Estudiante inactivado correctamente",
+            id_estudiante,
+            id_periodo
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: error.message
         });
 
     }
