@@ -388,13 +388,14 @@ function renderTabla() {
   body.innerHTML = paginaActualItems.map(r => {
     const estadoVisual =
       obtenerEstadoVisual(r);
-
+      
+//borrar luego 
     const vencida =
       reservaEstaVencida(r);
 
     return `
       <tr>
-      
+
         <td class="celda-id">
           ${escapar(r.id_reserva)}
         </td>
