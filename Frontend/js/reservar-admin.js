@@ -394,6 +394,10 @@ function renderTabla() {
 
     return `
       <tr>
+      
+        <td class="celda-id">
+          ${escapar(r.id_reserva)}
+        </td>
 
         <td class="celda-persona">
           <strong>
