@@ -372,9 +372,16 @@ function renderStudents(estudiantes) {
         const activo = esActivo(estudiante);
         const estado = activo ? 'Activo' : 'Inactivo';
         const badgeClass = activo ? 'active' : 'inactive';
-        const accionHtml = activo
-            ? `<button type="button" class="action-btn" data-id="${escapeHtml(String(estudiante.id_estudiante))}">Inactivar</button>`
-            : `<button type="button" class="action-btn is-disabled" data-id="${escapeHtml(String(estudiante.id_estudiante))}" disabled>Inactivo</button>`;
+        const accionHtml = `
+        <button
+        type="button"
+        class="action-btn ${activo ? '' : 'activar'}"
+        data-id="${escapeHtml(String(estudiante.id_estudiante))}"
+        data-activo="${activo ? '1' : '0'}"
+    >
+        ${activo ? 'Inactivar' : 'Activar'}
+    </button>
+`;
 
         return `
             <tr>
@@ -391,61 +398,122 @@ function renderStudents(estudiantes) {
     renderPagination(totalItems);
 }
 
-async function inactivarEstudiante(idEstudiante) {
+async function cambiarEstadoEstudiante(idEstudiante, nuevoEstado) {
+
     try {
-        const periodoSeleccionado = getPeriodoSeleccionado();
 
-        setStatus('Inactivando estudiante...');
+        const periodoSeleccionado =
+            getPeriodoSeleccionado();
 
-        const response = await fetch(`${API_URL}/estudiantes/${encodeURIComponent(idEstudiante)}/inactivar`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(periodoSeleccionado ? { id_periodo: periodoSeleccionado } : {})
-        });
+        setStatus(
+            nuevoEstado === 1
+                ? 'Activando estudiante...'
+                : 'Inactivando estudiante...'
+        );
+
+        const response = await fetch(
+            `${API_URL}/estudiantes/${encodeURIComponent(idEstudiante)}/estado`,
+            {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    activo: nuevoEstado,
+                    ...(periodoSeleccionado
+                        ? { id_periodo: periodoSeleccionado }
+                        : {})
+                })
+            }
+        );
 
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-            throw new Error(data.mensaje || 'No se pudo inactivar el estudiante');
+            throw new Error(
+                data.mensaje ||
+                'No se pudo actualizar el estudiante'
+            );
         }
 
-        setStatus(data.mensaje || 'Estudiante inactivado correctamente.');
+        setStatus(
+            data.mensaje ||
+            'Estado actualizado correctamente.'
+        );
+
         await loadDashboard();
+
     } catch (error) {
+
         console.error(error);
-        setStatus(error.message || 'Ocurrió un error al inactivar el estudiante.', true);
+
+        setStatus(
+            error.message ||
+            'Ocurrió un error al actualizar el estudiante.',
+            true
+        );
     }
 }
 
-function solicitarConfirmacionInactivacion(idEstudiante) {
+function solicitarConfirmacionEstado(
+    idEstudiante,
+    estaActivo
+) {
+
+    const nuevoEstado =
+        estaActivo ? 0 : 1;
+
     abrirModalConfirmacion({
-        title: 'Inactivar estudiante',
-        message: '¿Deseas inactivar este estudiante en el periodo seleccionado?',
-        confirmText: 'Inactivar',
+
+        title:
+            estaActivo
+                ? 'Inactivar estudiante'
+                : 'Activar estudiante',
+
+        message:
+            estaActivo
+                ? '¿Deseas inactivar este estudiante en el periodo seleccionado? No podrá iniciar sesión hasta que vuelva a ser activado.'
+                : '¿Deseas activar este estudiante? Podrá volver a iniciar sesión y utilizar el sistema.',
+
+        confirmText:
+            estaActivo
+                ? 'Inactivar'
+                : 'Activar',
+
         onConfirm: async () => {
-            await inactivarEstudiante(idEstudiante);
+            await cambiarEstadoEstudiante(
+                idEstudiante,
+                nuevoEstado
+            );
         }
+
     });
 }
 
 function manejarClicTabla(event) {
-    const boton = event.target.closest('.action-btn');
+
+    const boton =
+        event.target.closest('.action-btn');
 
     if (!boton) {
         return;
     }
 
-    const idEstudiante = boton.dataset.id;
+    const idEstudiante =
+        boton.dataset.id;
+
+    const estaActivo =
+        boton.dataset.activo === '1';
 
     if (!idEstudiante) {
         return;
     }
 
-    solicitarConfirmacionInactivacion(idEstudiante);
+    solicitarConfirmacionEstado(
+        idEstudiante,
+        estaActivo
+    );
 }
-
 async function handleUpload(event) {
     event.preventDefault();
 

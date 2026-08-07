@@ -499,22 +499,28 @@ router.put(
 );
 
 // ========================================
-// INACTIVAR ESTUDIANTE INDIVIDUALMENTE
+// ACTIVAR / INACTIVAR ESTUDIANTE
 // ========================================
 
 router.put(
-    "/estudiantes/:id_estudiante/inactivar",
+    "/estudiantes/:id_estudiante/estado",
     async (req, res) => {
 
         try {
 
-            const id_estudiante =
-                req.params.id_estudiante;
+            // Obtener el estudiante y el periodo
+            const id_estudiante = req.params.id_estudiante;
 
             let id_periodo =
                 req.body.id_periodo ||
                 req.query.id_periodo;
 
+            // Estado recibido:
+            // 1 = Activo
+            // 0 = Inactivo
+            const activo = Number(req.body.activo);
+
+            // Si no se envía un periodo, usar el periodo activo
             if (!id_periodo) {
                 id_periodo =
                     await obtenerPeriodoActivo();
@@ -528,45 +534,61 @@ router.put(
                 });
             }
 
-            // 1. Inactivar al estudiante en el período
-            const [resultadoPeriodo] =
+            // Validar que únicamente se permita 0 o 1
+            if (![0, 1].includes(activo)) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje:
+                        "El estado enviado no es válido."
+                });
+            }
+
+            // Actualizar el estado del estudiante en el periodo
+            const [resultado] =
                 await db.query(
 
                     `UPDATE estudiante_periodo
-                     SET activo = 0
+                     SET activo = ?
                      WHERE id_estudiante = ?
                      AND id_periodo = ?`,
 
                     [
+                        activo,
                         id_estudiante,
                         id_periodo
                     ]
                 );
 
-            if (
-                resultadoPeriodo.affectedRows === 0
-            ) {
+            if (resultado.affectedRows === 0) {
                 return res.status(404).json({
                     ok: false,
                     mensaje:
-                        "No se encontró el estudiante en el periodo seleccionado"
+                        "No se encontró el estudiante en el periodo seleccionado."
                 });
             }
 
-            // 2. Inactivar también en la tabla general
+            // Actualizar también el estado general del estudiante
+            // para permitir o bloquear el inicio de sesión
             await db.query(
 
                 `UPDATE estudiantes
-                 SET activo = 0
+                 SET activo = ?
                  WHERE id_estudiante = ?`,
 
-                [id_estudiante]
+                [
+                    activo,
+                    id_estudiante
+                ]
             );
 
+            // Respuesta exitosa
             return res.json({
                 ok: true,
                 mensaje:
-                    "Estudiante inactivado correctamente",
+                    activo === 1
+                        ? "Estudiante activado correctamente."
+                        : "Estudiante inactivado correctamente.",
+                activo,
                 id_estudiante,
                 id_periodo
             });
