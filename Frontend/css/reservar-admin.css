@@ -451,23 +451,24 @@
 }
 
 .acompanante-registrado{
-    color:#111827;
-    font-size:1rem;
-    font-weight:600;
-    line-height:1.6;
+    color:var(--texto);
+    font-size:14px;
+    font-weight:500;
+    line-height:1.5;
 }
 
 .acompanante-registrado::before{
     content:"•";
-    margin-right:10px;
-    color:#111827;
-    font-weight:700;
+    margin-right:8px;
+    color:var(--texto);
+    font-weight:600;
 }
 
 .sin-registros{
-    color:#6b7280;
+    color:var(--subtexto);
     font-style:italic;
-    font-size:1rem;
+    font-size:14px;
+    font-weight:400;
 }
 
 @media(max-width:600px){
