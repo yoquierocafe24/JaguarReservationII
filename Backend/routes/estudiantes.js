@@ -414,86 +414,83 @@ router.get("/estudiantes", async (req, res) => {
 // CERRAR TRIMESTRE
 // ========================================
 
-router.put("/estudiantes/cerrar-trimestre", async (req, res) => {
+router.put(
+    "/estudiantes/cerrar-trimestre",
+    async (req, res) => {
 
-    try {
+        try {
 
-        let id_periodo = req.body.id_periodo;
+            let id_periodo =
+                req.body.id_periodo;
 
-        if (!id_periodo) {
-            id_periodo = await obtenerPeriodoActivo();
-        }
+            if (!id_periodo) {
+                id_periodo =
+                    await obtenerPeriodoActivo();
+            }
 
-        if (!id_periodo) {
+            if (!id_periodo) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje:
+                        "No hay un periodo académico activo ni se especificó id_periodo"
+                });
+            }
 
-            return res.status(400).json({
-                ok: false,
-                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
-            });
+            // 1. Inactivar estudiantes en ese período
+            const [resultado] =
+                await db.query(
+                    `UPDATE estudiante_periodo
+                     SET activo = 0
+                     WHERE id_periodo = ?`,
+                    [id_periodo]
+                );
 
-        }
+            // 2. Inactivar los mismos estudiantes
+            // en la tabla general
+            await db.query(
+                `UPDATE estudiantes e
+                 INNER JOIN estudiante_periodo ep
+                    ON ep.id_estudiante =
+                       e.id_estudiante
+                 SET e.activo = 0
+                 WHERE ep.id_periodo = ?`,
+                [id_periodo]
+            );
 
-        if (!id_periodo) {
-            id_periodo = await obtenerPeriodoActivo();
-        }
+            // 3. Finalizar período
+            await db.query(
+                `UPDATE periodo_academico
+                 SET estado = 'Finalizado'
+                 WHERE id_periodo = ?`,
+                [id_periodo]
+            );
 
-        if (!id_periodo) {
-            const nuevoPeriodo = await crearNuevoPeriodo();
+            // 4. Crear nuevo período activo
+            const periodoNuevo =
+                await crearNuevoPeriodo();
 
             return res.json({
                 ok: true,
-                mensaje: "Se inició un nuevo periodo académico.",
-                id_periodo: nuevoPeriodo.id_periodo,
-                periodo_nuevo: nuevoPeriodo
+                mensaje:
+                    "Trimestre cerrado correctamente. Se inició un nuevo periodo académico.",
+                id_periodo,
+                periodo_nuevo:
+                    periodoNuevo,
+                estudiantesActualizados:
+                    resultado.affectedRows
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            return res.status(500).json({
+                ok: false,
+                mensaje: error.message
             });
         }
-
-        const [resultado] = await db.query(
-
-            `UPDATE estudiante_periodo
-             SET activo = 0
-             WHERE id_periodo = ?`,
-
-            [id_periodo]
-
-        );
-
-        await db.query(
-
-            `UPDATE periodo_academico
-             SET estado = 'Finalizado'
-             WHERE id_periodo = ?`,
-
-            [id_periodo]
-
-        );
-
-        const periodoNuevo = await crearNuevoPeriodo();
-
-        res.json({
-
-            ok: true,
-            mensaje: "Trimestre cerrado correctamente. Se inició un nuevo periodo académico.",
-            id_periodo,
-            periodo_nuevo: periodoNuevo,
-            estudiantesActualizados: resultado.affectedRows
-
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-
-            ok: false,
-            mensaje: error.message
-
-        });
-
     }
-
-});
+);
 
 // ========================================
 // INACTIVAR ESTUDIANTE INDIVIDUALMENTE
