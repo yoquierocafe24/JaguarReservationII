@@ -443,29 +443,31 @@
     */
 
 
-    .lista-acompanantes {
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+ .lista-acompanantes{
+    margin-top:6px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
 }
 
-.acompanante-registrado {
-  padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f9fafb;
+.acompanante-registrado{
+    color:#111827;
+    font-size:1rem;
+    font-weight:600;
+    line-height:1.6;
 }
 
-.acompanante-registrado::before {
-  content: "•";
-  margin-right: 8px;
-  font-weight: 700;
+.acompanante-registrado::before{
+    content:"•";
+    margin-right:10px;
+    color:#111827;
+    font-weight:700;
 }
 
-.sin-registros {
-  color: #6b7280;
-  font-style: italic;
+.sin-registros{
+    color:#6b7280;
+    font-style:italic;
+    font-size:1rem;
 }
 
 @media(max-width:600px){

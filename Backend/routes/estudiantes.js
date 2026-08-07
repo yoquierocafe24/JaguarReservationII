@@ -499,60 +499,86 @@ router.put("/estudiantes/cerrar-trimestre", async (req, res) => {
 // INACTIVAR ESTUDIANTE INDIVIDUALMENTE
 // ========================================
 
-router.put("/estudiantes/:id_estudiante/inactivar", async (req, res) => {
+router.put(
+    "/estudiantes/:id_estudiante/inactivar",
+    async (req, res) => {
 
-    try {
+        try {
 
-        const id_estudiante = req.params.id_estudiante;
-        let id_periodo = req.body.id_periodo || req.query.id_periodo;
+            const id_estudiante =
+                req.params.id_estudiante;
 
-        if (!id_periodo) {
-            id_periodo = await obtenerPeriodoActivo();
-        }
+            let id_periodo =
+                req.body.id_periodo ||
+                req.query.id_periodo;
 
-        if (!id_periodo) {
-            return res.status(400).json({
+            if (!id_periodo) {
+                id_periodo =
+                    await obtenerPeriodoActivo();
+            }
+
+            if (!id_periodo) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje:
+                        "No hay un periodo académico activo ni se especificó id_periodo"
+                });
+            }
+
+            // 1. Inactivar al estudiante en el período
+            const [resultadoPeriodo] =
+                await db.query(
+
+                    `UPDATE estudiante_periodo
+                     SET activo = 0
+                     WHERE id_estudiante = ?
+                     AND id_periodo = ?`,
+
+                    [
+                        id_estudiante,
+                        id_periodo
+                    ]
+                );
+
+            if (
+                resultadoPeriodo.affectedRows === 0
+            ) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje:
+                        "No se encontró el estudiante en el periodo seleccionado"
+                });
+            }
+
+            // 2. Inactivar también en la tabla general
+            await db.query(
+
+                `UPDATE estudiantes
+                 SET activo = 0
+                 WHERE id_estudiante = ?`,
+
+                [id_estudiante]
+            );
+
+            return res.json({
+                ok: true,
+                mensaje:
+                    "Estudiante inactivado correctamente",
+                id_estudiante,
+                id_periodo
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            return res.status(500).json({
                 ok: false,
-                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+                mensaje: error.message
             });
         }
-
-        const [resultado] = await db.query(
-
-            `UPDATE estudiante_periodo
-             SET activo = 0
-             WHERE id_estudiante = ? AND id_periodo = ?`,
-
-            [id_estudiante, id_periodo]
-
-        );
-
-        if (resultado.affectedRows === 0) {
-            return res.status(404).json({
-                ok: false,
-                mensaje: "No se encontró el estudiante en el periodo seleccionado"
-            });
-        }
-
-        res.json({
-            ok: true,
-            mensaje: "Estudiante inactivado correctamente",
-            id_estudiante,
-            id_periodo
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            ok: false,
-            mensaje: error.message
-        });
-
     }
-
-});
+);
 
 // ========================================
 // ESTADISTICAS (de un periodo)
