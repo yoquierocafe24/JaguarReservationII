@@ -630,44 +630,180 @@ async function cancelar(id) {
 
 
 // ── DETALLE ──
-function verDetalle(id) {
+async function verDetalle(id) {
 
-  const r = reservas.find(x => x.id_reserva === id);
+  const r = reservas.find(
+    x => x.id_reserva === id
+  );
 
   if (!r) return;
 
-  const estadoVisual =
-  obtenerEstadoVisual(r);
+  try {
 
- const campos = [
-  ['Código', r.id_reserva],
-  ['Estado', estadoVisual.texto],
-  ['Estudiante', r.estudiante_nombre || r.nombre_estudiante || '—'],
-  ['Cuenta', r.estudiante_cuenta || r.cuenta || '—'],
-  ['Correo', r.estudiante_correo || r.correo || '—'],
-  ['Teléfono', r.telefono || '—'],
-  ['Espacio', r.espacio_nombre || obtenerNombreEspacio(r.id_espacio)],
-  ['Juego', r.item_nombre || '—'],
-  ['Fecha', formatearFecha(r.fecha)],
-  ['Hora', `${formatear12h(r.hora_inicio.substring(0,5))} – ${formatear12h(r.hora_fin.substring(0,5))}`],
-  ['Acompañantes', r.cant_acompanantes || 0],
-  ['Cancelado por', r.cancelado_por || '—']
-];
+    const respuesta = await fetch(
+      `${API_URL}/api/reservas/${encodeURIComponent(id)}/acompanantes`,
+      {
+        method: "GET",
+        credentials: "include"
+      }
+    );
 
-  document.getElementById('detalle-body').innerHTML =
-    campos.map(([etiqueta, valor]) => `
-      <div class="detalle-item">
-        <span>${etiqueta}</span>
-        <strong>${escapar(String(valor))}</strong>
-      </div>
-    `).join('') + `
-      <div class="detalle-item ancho">
-        <span>Solicitud especial</span>
-        <strong>${escapar(r.solicitud_especial || '—')}</strong>
-      </div>`;
+    const datos = await respuesta.json();
 
-  new bootstrap.Modal(document.getElementById('modalDetalle')).show();
+    if (!respuesta.ok || !datos.ok) {
+      throw new Error(
+        datos.mensaje ||
+        "No se pudieron consultar los acompañantes."
+      );
+    }
 
+    const estadoVisual =
+      obtenerEstadoVisual(r);
+
+    const cantidadPermitida =
+      Number(
+        datos.cantidad_permitida ??
+        r.cant_acompanantes ??
+        0
+      );
+
+    const acompanantes =
+      datos.acompanantes || [];
+
+    let listaAcompanantes;
+
+    if (cantidadPermitida === 0) {
+
+      listaAcompanantes = `
+        <span class="sin-registros">
+          No aplica
+        </span>
+      `;
+
+    } else if (acompanantes.length === 0) {
+
+      listaAcompanantes = `
+        <span class="sin-registros">
+          Sin registros todavía
+        </span>
+      `;
+
+    } else {
+
+      listaAcompanantes =
+        acompanantes.map(persona => `
+          <div class="acompanante-registrado">
+            ${escapar(persona.nombre)}
+            —
+            ${escapar(persona.cuenta)}
+          </div>
+        `).join("");
+    }
+
+    const campos = [
+      ['Código', r.id_reserva],
+      ['Estado', estadoVisual.texto],
+      [
+        'Estudiante',
+        r.estudiante_nombre ||
+        r.nombre_estudiante ||
+        '—'
+      ],
+      [
+        'Cuenta',
+        r.estudiante_cuenta ||
+        r.cuenta ||
+        '—'
+      ],
+      [
+        'Correo',
+        r.estudiante_correo ||
+        r.correo ||
+        '—'
+      ],
+      ['Teléfono', r.telefono || '—'],
+      [
+        'Espacio',
+        r.espacio_nombre ||
+        obtenerNombreEspacio(r.id_espacio)
+      ],
+      ['Juego', r.item_nombre || '—'],
+      ['Fecha', formatearFecha(r.fecha)],
+      [
+        'Hora',
+        `${formatear12h(
+          r.hora_inicio.substring(0, 5)
+        )} – ${formatear12h(
+          r.hora_fin.substring(0, 5)
+        )}`
+      ],
+      [
+        'Acompañantes permitidos',
+        cantidadPermitida
+      ],
+      [
+        'Cancelado por',
+        r.cancelado_por || '—'
+      ]
+    ];
+
+    document.getElementById(
+      'detalle-body'
+    ).innerHTML =
+
+      campos.map(([etiqueta, valor]) => `
+        <div class="detalle-item">
+          <span>${etiqueta}</span>
+          <strong>
+            ${escapar(String(valor))}
+          </strong>
+        </div>
+      `).join('')
+
+      +
+
+      `
+        <div class="detalle-item ancho">
+          <span>
+            Acompañantes registrados
+          </span>
+
+          <div class="lista-acompanantes">
+            ${listaAcompanantes}
+          </div>
+        </div>
+
+        <div class="detalle-item ancho">
+          <span>
+            Solicitud especial
+          </span>
+
+          <strong>
+            ${escapar(
+              r.solicitud_especial || '—'
+            )}
+          </strong>
+        </div>
+      `;
+
+    new bootstrap.Modal(
+      document.getElementById(
+        'modalDetalle'
+      )
+    ).show();
+
+  } catch (error) {
+
+    console.error(
+      "Error cargando detalle:",
+      error
+    );
+
+    mostrarToast(
+      error.message,
+      "danger"
+    );
+  }
 }
 
 function obtenerNombreEspacio(id) {

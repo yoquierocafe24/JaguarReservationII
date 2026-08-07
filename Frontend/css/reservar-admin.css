@@ -442,6 +442,32 @@
 }
     */
 
+
+    .lista-acompanantes {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.acompanante-registrado {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.acompanante-registrado::before {
+  content: "•";
+  margin-right: 8px;
+  font-weight: 700;
+}
+
+.sin-registros {
+  color: #6b7280;
+  font-style: italic;
+}
+
 @media(max-width:600px){
     .page-content{
         padding:16px;

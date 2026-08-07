@@ -523,7 +523,92 @@ router.get('/', async (req, res) => {
     }
 });
 
+// =======================================
+// ADMIN - Detalle de acompañantes
+// GET /api/reservas/:id/acompanantes
+// =======================================
 
+router.get('/:id/acompanantes', async (req, res) => {
+
+    try {
+
+        // Validar sesión
+        if (!req.session.usuario) {
+            return res.status(401).json({
+                ok: false,
+                mensaje: "Debe iniciar sesión."
+            });
+        }
+
+        // Solo administradores
+        if (req.session.usuario.rol !== "admin") {
+            return res.status(403).json({
+                ok: false,
+                mensaje: "No tiene permisos."
+            });
+        }
+
+        const idReserva = req.params.id;
+
+        // Consultar la cantidad permitida
+        const [reservas] = await db.query(
+            `SELECT
+                id_reserva,
+                cant_acompanantes
+             FROM reservas
+             WHERE id_reserva = ?`,
+            [idReserva]
+        );
+
+        if (reservas.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Reserva no encontrada."
+            });
+        }
+
+        // Consultar quienes llenaron el QR
+        const [acompanantes] = await db.query(
+            `SELECT
+                e.id_estudiante,
+                e.nombre,
+                e.cuenta,
+                ra.fecha_registro
+             FROM reserva_acompanantes ra
+             INNER JOIN estudiantes e
+                ON e.id_estudiante = ra.id_estudiante
+             WHERE ra.id_reserva = ?
+             AND ra.confirmado = 1
+             ORDER BY ra.fecha_registro ASC`,
+            [idReserva]
+        );
+
+        return res.json({
+            ok: true,
+
+            cantidad_permitida:
+                Number(reservas[0].cant_acompanantes || 0),
+
+            total_registrados:
+                acompanantes.length,
+
+            acompanantes
+        });
+
+    } catch (error) {
+
+        console.error(
+            "ERROR CONSULTANDO ACOMPAÑANTES:",
+            error
+        );
+
+        return res.status(500).json({
+            ok: false,
+            mensaje:
+                "No se pudieron consultar los acompañantes."
+        });
+    }
+});
 
 // =======================================
 // Obtener horarios ocupados
