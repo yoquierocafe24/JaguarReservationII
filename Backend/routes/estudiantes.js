@@ -155,29 +155,35 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
 
             let id_estudiante;
 
-            if (existeEstudiante.length > 0) {
+           if (existeEstudiante.length > 0) {
 
-                id_estudiante = existeEstudiante[0].id_estudiante;
+    id_estudiante = existeEstudiante[0].id_estudiante;
 
-                await db.query(
+    await db.query(
 
-                    `UPDATE estudiantes
-                     SET nombre=?,
-                         dni=?,
-                         correo=?
-                     WHERE id_estudiante=?`,
+        `UPDATE estudiantes
+         SET nombre = ?,
+             dni = ?,
+             correo = ?,
+             activo = 1
+         WHERE id_estudiante = ?`,
 
-                    [nombre, dni, correo, id_estudiante]
+        [
+            nombre,
+            dni,
+            correo,
+            id_estudiante
+        ]
 
-                );
+    );
 
-            } else {
+} else {
 
                 const [resultado] = await db.query(
 
                     `INSERT INTO estudiantes
-                    (nombre,dni,cuenta,correo)
-                    VALUES (?,?,?,?)`,
+                    (nombre,dni,cuenta,correo,activo)
+                    VALUES (?,?,?,?,1)`,
 
                     [nombre, dni, cuenta, correo]
 
