@@ -1,0 +1,542 @@
+/* ======================================
+   ASISTENCIA — ADMINISTRADOR
+
+   Depende de admin.css para:
+   - Colores institucionales
+   - Sidebar
+   - Topbar
+   - Tipografía general
+====================================== */
+
+
+/* ======================================
+   CONTENIDO
+====================================== */
+
+.page-content {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+
+/* ======================================
+   TÍTULO
+====================================== */
+
+.page-title {
+    margin-bottom: 20px;
+}
+
+.page-title h2 {
+    margin: 0 0 4px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--texto);
+}
+
+.page-title p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--subtexto);
+}
+
+
+/* ======================================
+   TARJETAS DE RESUMEN
+====================================== */
+
+.resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.resumen-item {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 16px;
+    padding: 18px 20px;
+}
+
+.resumen-item span {
+    display: block;
+    margin-bottom: 2px;
+
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--subtexto);
+
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+.resumen-item strong {
+    display: block;
+
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--texto);
+}
+
+.resumen-item small {
+    display: block;
+    margin-top: 3px;
+
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--subtexto);
+}
+
+
+/* Resaltar únicamente el total principal */
+.resumen-item:first-child strong {
+    color: var(--crimson);
+}
+
+
+/* ======================================
+   TARJETA GENERAL
+====================================== */
+
+.card-jaguar {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 16px;
+
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+
+/* ======================================
+   FILTROS
+====================================== */
+
+.filtros-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+
+/* Buscar ocupa más espacio */
+.filtro-busqueda {
+    grid-column: span 2;
+}
+
+
+.filtro label {
+    display: block;
+    margin-bottom: 6px;
+
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--subtexto);
+}
+
+
+.filtro select,
+.filtro input {
+    width: 100%;
+
+    padding: 11px 14px;
+
+    border: 1.5px solid var(--borde);
+    border-radius: 12px;
+
+    background: var(--fondo);
+
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--texto);
+
+    transition:
+        border-color .2s,
+        background .2s;
+}
+
+
+.filtro select:focus,
+.filtro input:focus {
+    outline: none;
+    border-color: var(--crimson);
+    background: var(--blanco);
+}
+
+
+.filtro input::placeholder {
+    color: var(--subtexto);
+}
+
+
+/* ======================================
+   BOTÓN LIMPIAR FILTROS
+====================================== */
+
+.filtros-acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+
+
+.btn-limpiar {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 8px 16px;
+
+    border: 1.5px solid var(--borde);
+    border-radius: 10px;
+
+    background: none;
+
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--subtexto);
+
+    cursor: pointer;
+
+    transition: .2s;
+}
+
+
+.btn-limpiar:hover {
+    border-color: var(--crimson);
+    color: var(--crimson);
+}
+
+
+/* ======================================
+   TABLA
+====================================== */
+
+.tabla-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+
+.tabla-asistencia {
+    width: 100%;
+    min-width: 900px;
+
+    border-collapse: collapse;
+
+    font-family: 'Poppins', sans-serif;
+}
+
+
+/* Encabezados */
+
+.tabla-asistencia thead th {
+    padding: 0 14px 12px;
+
+    border-bottom: 1px solid var(--borde);
+
+    text-align: left;
+
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--subtexto);
+
+    text-transform: uppercase;
+    letter-spacing: .5px;
+
+    white-space: nowrap;
+}
+
+
+/* Celdas */
+
+.tabla-asistencia tbody td {
+    padding: 14px;
+
+    border-bottom: 1px solid var(--gris);
+
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--texto);
+
+    vertical-align: middle;
+}
+
+
+.tabla-asistencia tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+.tabla-asistencia tbody tr:hover {
+    background: var(--fondo);
+}
+
+
+/* ======================================
+   PERSONA
+====================================== */
+
+.celda-persona strong {
+    display: block;
+
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--texto);
+}
+
+
+.celda-persona small {
+    display: block;
+
+    margin-top: 1px;
+
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--subtexto);
+}
+
+
+/* ======================================
+   HORA
+====================================== */
+
+.celda-hora {
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+
+/* ======================================
+   CÓDIGO DE RESERVA
+====================================== */
+
+.celda-id {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+
+/* ======================================
+   TIPO DE INGRESO
+====================================== */
+
+.badge-ingreso {
+    display: inline-block;
+
+    padding: 5px 12px;
+
+    border-radius: 50px;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+
+/* Ingreso relacionado con una reserva */
+.badge-ingreso.reserva {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+
+/* Ingreso libre mediante QR */
+.badge-ingreso.libre {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+
+/* ======================================
+   PAGINACIÓN
+====================================== */
+
+.paginacion-asistencia {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+
+    gap: 8px;
+    margin-top: 14px;
+}
+
+
+.paginacion-btn {
+    width: 36px;
+    height: 36px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+
+    background: var(--blanco);
+
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--texto);
+
+    cursor: pointer;
+
+    transition: .2s;
+}
+
+
+.paginacion-btn:hover:not(:disabled) {
+    border-color: var(--crimson);
+    color: var(--crimson);
+}
+
+
+.paginacion-btn.activa {
+    background: var(--crimson);
+    border-color: var(--crimson);
+    color: var(--blanco);
+}
+
+
+.paginacion-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+
+/* ======================================
+   TABLA VACÍA
+====================================== */
+
+.tabla-vacia {
+    padding: 44px 20px;
+
+    text-align: center;
+
+    font-size: 14px;
+    color: var(--subtexto);
+}
+
+
+.tabla-vacia i {
+    display: block;
+
+    margin-bottom: 10px;
+
+    font-size: 32px;
+    color: var(--borde);
+}
+
+
+/* ======================================
+   SCROLL DE TABLA
+====================================== */
+
+.tabla-wrap::-webkit-scrollbar {
+    height: 7px;
+}
+
+.tabla-wrap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tabla-wrap::-webkit-scrollbar-thumb {
+    background: var(--borde);
+    border-radius: 10px;
+}
+
+
+/* ======================================
+   RESPONSIVE — TABLET
+====================================== */
+
+@media (max-width: 992px) {
+
+    .resumen-grid {
+        grid-template-columns:
+            repeat(3, 1fr);
+    }
+
+    .filtros-grid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .filtro-busqueda {
+        grid-column: span 2;
+    }
+
+}
+
+
+/* ======================================
+   RESPONSIVE — MÓVIL
+====================================== */
+
+@media (max-width: 600px) {
+
+    .page-content {
+        padding: 16px;
+    }
+
+
+    .page-title h2 {
+        font-size: 21px;
+    }
+
+
+    .resumen-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+
+    .resumen-item {
+        padding: 15px 16px;
+    }
+
+
+    .resumen-item strong {
+        font-size: 24px;
+    }
+
+
+    .card-jaguar {
+        padding: 18px 16px;
+    }
+
+
+    .filtros-grid {
+        grid-template-columns: 1fr;
+    }
+
+
+    .filtro-busqueda {
+        grid-column: auto;
+    }
+
+
+    .filtros-acciones {
+        justify-content: stretch;
+    }
+
+
+    .btn-limpiar {
+        width: 100%;
+        justify-content: center;
+    }
+
+
+    .paginacion-asistencia {
+        justify-content: center;
+    }
+
+}
