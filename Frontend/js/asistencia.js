@@ -282,7 +282,7 @@ async function cargarAsistencias() {
   try {
 
     const res = await fetch(
-      `${API_URL}/asistencia?${parametros.toString()}`,
+      `${API_URL}/api/asistencia?${parametros.toString()}`,
       {
         credentials: 'include'
       }
@@ -334,7 +334,7 @@ async function cargarResumen() {
   try {
 
     const res = await fetch(
-      `${API_URL}/asistencia/resumen?fecha=${encodeURIComponent(fecha)}`,
+      `${API_URL}/api/asistencia/resumen?fecha=${encodeURIComponent(fecha)}`,
       {
         credentials: 'include'
       }
