@@ -308,7 +308,6 @@ router.get('/resumen', async (req, res) => {
 
     try {
 
-        // Verificar sesión
         if (!req.session.usuario) {
             return res.status(401).json({
                 ok: false,
@@ -316,7 +315,6 @@ router.get('/resumen', async (req, res) => {
             });
         }
 
-        // Solo administrador
         if (req.session.usuario.rol !== 'admin') {
             return res.status(403).json({
                 ok: false,
@@ -333,73 +331,48 @@ router.get('/resumen', async (req, res) => {
             });
         }
 
-
-        // Total de asistencias registradas
-        const [[total]] =
-            await db.query(
-
-                `SELECT
-                    COUNT(*) AS total
-                 FROM asistencia
-                 WHERE fecha_entrada = ?
-                 AND id_reserva IS NOT NULL`,
-
-                [fecha]
-            );
-
+        // Total de personas presentes en reservas de esa fecha
+        const [[total]] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM asistencia a
+             INNER JOIN reservas r
+                ON r.id_reserva = a.id_reserva
+             WHERE r.fecha = ?
+             AND r.estado = 'aprobada'`,
+            [fecha]
+        );
 
         // Titulares presentes
-        const [[titulares]] =
-            await db.query(
-
-                `SELECT
-                    COUNT(*) AS total
-                 FROM asistencia
-                 WHERE fecha_entrada = ?
-                 AND id_reserva IS NOT NULL
-                 AND tipo_asistencia = 'titular'`,
-
-                [fecha]
-            );
-
+        const [[titulares]] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM asistencia a
+             INNER JOIN reservas r
+                ON r.id_reserva = a.id_reserva
+             WHERE r.fecha = ?
+             AND r.estado = 'aprobada'
+             AND a.tipo_asistencia = 'titular'`,
+            [fecha]
+        );
 
         // Acompañantes presentes
-        const [[acompanantes]] =
-            await db.query(
-
-                `SELECT
-                    COUNT(*) AS total
-                 FROM asistencia
-                 WHERE fecha_entrada = ?
-                 AND id_reserva IS NOT NULL
-                 AND tipo_asistencia = 'acompanante'`,
-
-                [fecha]
-            );
-
+        const [[acompanantes]] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM asistencia a
+             INNER JOIN reservas r
+                ON r.id_reserva = a.id_reserva
+             WHERE r.fecha = ?
+             AND r.estado = 'aprobada'
+             AND a.tipo_asistencia = 'acompanante'`,
+            [fecha]
+        );
 
         return res.json({
-
             ok: true,
-
             fecha,
-
             resumen: {
-
-                asistencias:
-                    Number(
-                        total.total || 0
-                    ),
-
-                titulares_presentes:
-                    Number(
-                        titulares.total || 0
-                    ),
-
-                acompanantes_presentes:
-                    Number(
-                        acompanantes.total || 0
-                    )
+                asistencias: Number(total.total || 0),
+                titulares_presentes: Number(titulares.total || 0),
+                acompanantes_presentes: Number(acompanantes.total || 0)
             }
         });
 
@@ -412,8 +385,7 @@ router.get('/resumen', async (req, res) => {
 
         return res.status(500).json({
             ok: false,
-            mensaje:
-                'No se pudo obtener el resumen de asistencia.'
+            mensaje: 'No se pudo obtener el resumen de asistencia.'
         });
     }
 

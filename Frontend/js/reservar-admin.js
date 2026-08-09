@@ -918,5 +918,6 @@ document.addEventListener(
 
 actualizarFechaTopbar();
 setInterval(actualizarFechaTopbar, 30000);
+
 // Auto-actualizar cada 30 segundos
 setInterval(cargarReservas, 30000);
