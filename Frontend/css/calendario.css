@@ -1,6 +1,6 @@
 /* ======================================
-   CALENDARIO — estilos específicos
-   (usa las variables definidas en estilo.css)
+   CALENDARIO — ESTILOS ESPECÍFICOS
+   Usa variables definidas en admin.css
 ====================================== */
 
 :root{
@@ -9,8 +9,115 @@
     --pendiente:#b45309;
     --pendiente-bg:rgba(180,83,9,.12);
     --cancelada-bg:rgba(107,114,128,.15);
-    --sombra: 0 4px 15px rgba(0,0,0,.08);
-    --radio: 14px;
+    --sombra:0 4px 15px rgba(0,0,0,.08);
+    --radio:14px;
+}
+
+/* ======================================
+   AJUSTE DEL LAYOUT CON ADMIN.CSS
+====================================== */
+
+.main-content{
+    min-width:0;
+    min-height:100vh;
+    margin-left:250px;
+    flex:1;
+}
+
+.topbar{
+    min-height:62px;
+    padding:10px 24px;
+    position:sticky;
+    top:0;
+    z-index:900;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--blanco);
+    border-bottom:1px solid var(--borde);
+}
+
+.topbar-left,
+.topbar-right{
+    display:flex;
+    align-items:center;
+}
+
+.topbar-left{
+    gap:10px;
+}
+
+.topbar-right{
+    gap:20px;
+}
+
+.topbar-title{
+    font-size:16px;
+    font-weight:600;
+}
+
+.menu-btn{
+    display:none;
+    border:none;
+    background:transparent;
+    color:var(--texto);
+    font-size:24px;
+    cursor:pointer;
+}
+
+.topbar-fecha{
+    font-size:11px;
+    color:var(--subtexto);
+}
+
+.usuario-info{
+    text-align:right;
+}
+
+.usuario-info span{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+}
+
+.usuario-info small{
+    display:block;
+    font-size:10px;
+    color:var(--subtexto);
+}
+
+.avatar{
+    width:36px;
+    height:36px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    background:var(--carmine);
+    color:var(--blanco);
+    font-size:11px;
+    font-weight:600;
+}
+
+.page-content{
+    padding:28px 24px;
+}
+
+.page-title{
+    margin-bottom:22px;
+}
+
+.page-title h2{
+    margin:0;
+    font-size:28px;
+    font-weight:700;
+    color:var(--texto);
+}
+
+.page-title p{
+    margin:4px 0 0;
+    font-size:14px;
+    color:var(--subtexto);
 }
 
 /* ======================================
@@ -127,7 +234,7 @@
 
 .calendar-layout{
     display:grid;
-    grid-template-columns:1fr 340px;
+    grid-template-columns:minmax(0,1fr) 340px;
     gap:20px;
     align-items:start;
 }
@@ -526,15 +633,42 @@ body.modal-open{
    RESPONSIVE
 ====================================== */
 
-@media (max-width:992px){
+@media(max-width:992px){
 
     .calendar-layout{
         grid-template-columns:1fr;
     }
-
 }
 
-@media (max-width:600px){
+@media(max-width:900px){
+
+    .main-content{
+        margin-left:0;
+    }
+
+    .menu-btn{
+        display:block;
+    }
+}
+
+@media(max-width:600px){
+
+    .topbar{
+        padding:10px 15px;
+    }
+
+    .topbar-fecha,
+    .usuario-info{
+        display:none;
+    }
+
+    .topbar-right{
+        gap:8px;
+    }
+
+    .page-content{
+        padding:18px 15px;
+    }
 
     .calendar-toolbar{
         flex-direction:column;
@@ -542,7 +676,13 @@ body.modal-open{
     }
 
     .calendar-filtros{
-        justify-content:space-between;
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .calendar-filtros select,
+    .btn-jaguar-inline{
+        width:100%;
     }
 
     .form-row{
@@ -552,5 +692,4 @@ body.modal-open{
     .calendar-day{
         min-height:64px;
     }
-
 }
