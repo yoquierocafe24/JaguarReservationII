@@ -20,6 +20,7 @@ const inventarioRoutes = require('./routes/inventario');
 const guardiasRoutes = require('./routes/guardias');
 const qrRoutes = require('./routes/qr');
 const asistenciaRoutes = require('./routes/asistencia');
+const calendarioRoutes = require('./routes/calendario');
 
 
 
@@ -109,6 +110,8 @@ app.use('/api/inventario', inventarioRoutes);
 app.use('/api/guardias', guardiasRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/asistencia', asistenciaRoutes);
+app.use('/api/calendario', calendarioRoutes);
+
 
 
 // =======================

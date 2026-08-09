@@ -11,7 +11,7 @@
     <link   href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"   rel="stylesheet">
     <link  href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" >
     <link   rel="stylesheet" href="../css/admin.css" >
-    <link   rel="stylesheet"  href="../css/dashboard.css">
+    <link   rel="stylesheet"  href="../css/calendario.css">
 </head>
 <body>
     <div class="admin-layout">
@@ -79,7 +79,269 @@
             id="sidebar-overlay"
             onclick="cerrarMenu()"
         ></div>
-    
+
+        <!-- ÁREA PRINCIPAL -->
+    <div class="main-content">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+
+            <div class="topbar-left">
+                <button type="button" class="menu-btn" onclick="abrirMenu()" aria-label="Abrir menú">
+                    <i class="bi bi-list"></i>
+                </button>
+
+                <span class="topbar-title">Calendario</span>
+            </div>
+
+            <div class="topbar-right">
+                <span class="topbar-fecha" id="topbar-date">Cargando fecha...</span>
+
+                <div class="usuario-info">
+                    <span id="admin-name">Administradora</span>
+                    <small>Administrador</small>
+                </div>
+
+                <div class="avatar" id="admin-avatar">A</div>
+            </div>
+
+        </header>
+
+        <!-- CONTENIDO -->
+        <div class="page-content">
+
+            <div class="page-title">
+                <h2>Calendario</h2>
+                <p>Reservas próximas y cierres del polideportivo</p>
+            </div>
+
+            <div class="calendar-toolbar">
+
+                <div class="calendar-nav">
+                    <button type="button" id="mes-anterior" class="icon-btn" aria-label="Mes anterior">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+
+                    <span id="mes-actual-label">—</span>
+
+                    <button type="button" id="mes-siguiente" class="icon-btn" aria-label="Mes siguiente">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="calendar-filtros">
+
+                    <select id="espacio-filter">
+                        <option value="">Todos los espacios</option>
+                    </select>
+
+                    <button type="button" id="btn-nuevo-bloqueo" class="btn-jaguar-inline">
+                        <i class="bi bi-lock"></i>
+                        Cerrar día u horario
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div id="calendar-status" class="calendar-status">Cargando calendario...</div>
+
+            <div class="calendar-layout">
+
+                <!-- GRID DEL MES -->
+                <section class="calendar-panel">
+
+                    <div class="calendar-weekdays">
+                        <span>Dom</span>
+                        <span>Lun</span>
+                        <span>Mar</span>
+                        <span>Mié</span>
+                        <span>Jue</span>
+                        <span>Vie</span>
+                        <span>Sáb</span>
+                    </div>
+
+                    <div id="calendar-grid" class="calendar-grid"></div>
+
+                </section>
+
+                <!-- PANEL LATERAL -->
+                <aside class="day-panel">
+
+                    <div id="day-panel-default">
+
+                        <h3>Próximas reservas</h3>
+                        <p class="day-panel-hint">Selecciona un día en el calendario para ver el detalle y gestionarlo.</p>
+
+                        <div id="proximas-reservas-list" class="agenda-list">
+                            <p class="empty-state">Cargando reservas próximas...</p>
+                        </div>
+
+                    </div>
+
+                    <div id="day-panel-detalle" hidden>
+
+                        <div class="day-panel-header">
+                            <h3 id="dia-seleccionado-titulo">—</h3>
+                            <button type="button" id="btn-cerrar-detalle" class="icon-btn" aria-label="Cerrar detalle">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <button type="button" id="btn-bloquear-dia" class="btn-secondary-jaguar">
+                            <i class="bi bi-lock"></i>
+                            Cerrar este día
+                        </button>
+
+                        <div class="day-panel-section">
+                            <h4>Bloqueos</h4>
+                            <div id="bloqueos-dia-list" class="agenda-list">
+                                <p class="empty-state">Sin bloqueos.</p>
+                            </div>
+                        </div>
+
+                        <div class="day-panel-section">
+                            <h4>Reservas</h4>
+                            <div id="reservas-dia-list" class="agenda-list">
+                                <p class="empty-state">Sin reservas.</p>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </aside>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- MODAL: NUEVO BLOQUEO -->
+<div id="modal-bloqueo" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close"></div>
+
+    <div class="custom-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-bloqueo-title">
+
+        <div class="custom-modal-header">
+            <h3 id="modal-bloqueo-title">Cerrar día u horario</h3>
+            <button type="button" class="modal-close-btn" data-action="close" aria-label="Cerrar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <form id="form-bloqueo" class="custom-modal-body">
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="bloqueo-fecha-inicio">Desde</label>
+                    <input type="date" id="bloqueo-fecha-inicio" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="bloqueo-fecha-fin">Hasta</label>
+                    <input type="date" id="bloqueo-fecha-fin">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de cierre</label>
+
+                <div class="tipo-cierre-toggle">
+                    <label>
+                        <input type="radio" name="tipo-cierre" value="dia" checked>
+                        Día completo
+                    </label>
+
+                    <label>
+                        <input type="radio" name="tipo-cierre" value="horas">
+                        Solo ciertas horas
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-row" id="bloqueo-horas-row" hidden>
+                <div class="form-group">
+                    <label for="bloqueo-hora-inicio">Hora inicio</label>
+                    <input type="time" id="bloqueo-hora-inicio">
+                </div>
+
+                <div class="form-group">
+                    <label for="bloqueo-hora-fin">Hora fin</label>
+                    <input type="time" id="bloqueo-hora-fin">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="bloqueo-espacio">Espacio</label>
+                <select id="bloqueo-espacio">
+                    <option value="">Todos los espacios</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="bloqueo-motivo">Motivo</label>
+                <input type="text" id="bloqueo-motivo" maxlength="255" placeholder="Ej: Mantenimiento de cancha">
+            </div>
+
+            <div id="bloqueo-conflicto" class="bloqueo-conflicto" hidden>
+
+                <p class="bloqueo-conflicto-texto">
+                    Hay <strong id="bloqueo-conflicto-cantidad">0</strong> reserva(s) existente(s) en ese horario.
+                </p>
+
+                <div id="bloqueo-conflicto-lista" class="agenda-list"></div>
+
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="bloqueo-cancelar-reservas">
+                    Cancelar esas reservas y cerrar de todas formas
+                </label>
+
+            </div>
+
+            <div id="bloqueo-form-status" class="calendar-status"></div>
+
+        </form>
+
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary-jaguar" data-action="close">Cancelar</button>
+            <button type="submit" form="form-bloqueo" class="btn-jaguar-inline" id="btn-guardar-bloqueo">Cerrar horario</button>
+        </div>
+
+    </div>
+</div>
+
+<!-- MODAL: CONFIRMAR CANCELACIÓN DE RESERVA -->
+<div id="modal-cancelar" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close-cancelar"></div>
+
+    <div class="custom-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-cancelar-title">
+
+        <div class="custom-modal-header">
+            <h3 id="modal-cancelar-title">Cancelar reserva</h3>
+            <button type="button" class="modal-close-btn" data-action="close-cancelar" aria-label="Cerrar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="custom-modal-body">
+            <div class="form-group">
+                <label for="cancelar-motivo">Motivo de la cancelación</label>
+                <input type="text" id="cancelar-motivo" maxlength="250" placeholder="Ej: Cancelado por administración">
+            </div>
+        </div>
+
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary-jaguar" data-action="close-cancelar">Volver</button>
+            <button type="button" class="btn-jaguar-inline" id="btn-confirmar-cancelar">Cancelar reserva</button>
+        </div>
+
+    </div>
+</div>
+
 </body>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/calendario.js"></script>
 </html>
