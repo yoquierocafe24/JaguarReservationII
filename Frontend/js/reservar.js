@@ -175,10 +175,21 @@ function renderCal() {
 
 }
 
-function cambiarMes(dir) {
+async function cambiarMes(dir) {
   currentMonth += dir;
-  if(currentMonth < 0)  { currentMonth = 11; currentYear--; }
-  if(currentMonth > 11) { currentMonth = 0;  currentYear++; }
+
+  if (currentMonth < 0) {
+    currentMonth = 11;
+    currentYear--;
+  }
+
+  if (currentMonth > 11) {
+    currentMonth = 0;
+    currentYear++;
+  }
+
+  fechaSel = null;
+  horaSel = null;
 
   await cargarBloqueosCalendario();
   renderCal();
