@@ -653,6 +653,40 @@ function verDetalleReserva(idReserva) {
             reserva.solicitud_especial ||
             "Ninguna";
 
+
+    // ======================================
+    // Datos de cancelación
+    // ======================================
+
+    const grupoCanceladoPor =
+        document.getElementById(
+            "grupo-cancelado-por"
+        );
+
+    const grupoMotivo =
+        document.getElementById(
+            "grupo-motivo-cancelacion"
+        );
+
+    if (reserva.estado === "cancelada") {
+
+        grupoMotivo.hidden = false;
+
+        document
+            .getElementById(
+                "detalle-motivo-cancelacion"
+            )
+            .textContent =
+                reserva.motivo_cancelacion ||
+                "Sin motivo registrado";
+
+    } else {
+
+        grupoMotivo.hidden = true;
+
+    }
+
+
     const modal =
         new bootstrap.Modal(
             document.getElementById(
@@ -662,8 +696,6 @@ function verDetalleReserva(idReserva) {
 
     modal.show();
 }
-
-
 // ======================================
 // Mostrar QR
 // ======================================

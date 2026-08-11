@@ -816,52 +816,101 @@ async function verDetalle(id) {
         `).join("");
     }
 
+
+    // =======================================
+    // CAMPOS DEL DETALLE
+    // =======================================
+
     const campos = [
       ['Código', r.id_reserva],
+
       ['Estado', estadoVisual.texto],
+
       [
         'Estudiante',
         r.estudiante_nombre ||
         r.nombre_estudiante ||
         '—'
       ],
+
       [
         'Cuenta',
         r.estudiante_cuenta ||
         r.cuenta ||
         '—'
       ],
+
       [
         'Correo',
         r.estudiante_correo ||
         r.correo ||
         '—'
       ],
-      ['Teléfono', r.telefono || '—'],
+
+      [
+        'Teléfono',
+        r.telefono || '—'
+      ],
+
       [
         'Espacio',
         r.espacio_nombre ||
         obtenerNombreEspacio(r.id_espacio)
       ],
-      ['Juego', r.item_nombre || '—'],
-      ['Fecha', formatearFecha(r.fecha)],
+
+      [
+        'Juego',
+        r.item_nombre || '—'
+      ],
+
+      [
+        'Fecha',
+        formatearFecha(r.fecha)
+      ],
+
       [
         'Hora',
         `${formatear12h(
-          r.hora_inicio.substring(0, 5)
+          obtenerSoloHora(r.hora_inicio)
         )} – ${formatear12h(
-          r.hora_fin.substring(0, 5)
+          obtenerSoloHora(r.hora_fin)
         )}`
       ],
+
       [
         'Acompañantes permitidos',
         cantidadPermitida
-      ],
-      [
-        'Cancelado por',
-        r.cancelado_por || '—'
       ]
     ];
+
+
+    // =======================================
+    // SOLO SI ESTÁ CANCELADA
+    // =======================================
+
+    if (r.estado === 'cancelada') {
+
+      campos.push(
+        [
+          'Cancelado por',
+          r.cancelado_por === 'admin'
+            ? 'Administrador'
+            : r.cancelado_por === 'estudiante'
+              ? 'Estudiante'
+              : r.cancelado_por || '—'
+        ],
+
+        [
+          'Motivo de cancelación',
+          r.motivo_cancelacion || '—'
+        ]
+      );
+    }
+
+
+    // =======================================
+    // MOSTRAR DETALLE
+    // =======================================
 
     document.getElementById(
       'detalle-body'
@@ -870,6 +919,7 @@ async function verDetalle(id) {
       campos.map(([etiqueta, valor]) => `
         <div class="detalle-item">
           <span>${etiqueta}</span>
+
           <strong>
             ${escapar(String(valor))}
           </strong>
@@ -902,6 +952,7 @@ async function verDetalle(id) {
         </div>
       `;
 
+
     new bootstrap.Modal(
       document.getElementById(
         'modalDetalle'
@@ -916,11 +967,14 @@ async function verDetalle(id) {
     );
 
     mostrarToast(
-      error.message,
+      error.message ||
+      "No se pudo cargar el detalle de la reserva.",
       "danger"
     );
+
   }
 }
+
 
 function obtenerNombreEspacio(id) {
   const espacios = {
