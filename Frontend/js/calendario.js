@@ -423,6 +423,7 @@ function renderProximasReservas() {
                 <span class="chip ${r.estado}">${r.estado}</span>
             </div>
             <div class="agenda-item-sub">${escapeHtml(r.espacio_nombre)} · ${escapeHtml(r.estudiante_nombre)}</div>
+
         </div>
     `).join('');
 }
@@ -490,36 +491,52 @@ if (elements.btnBloquearDia) {
     }
 
     // Reservas del día
-    if (reservasDia.length === 0) {
-        elements.reservasDiaList.innerHTML = '<p class="empty-state">Sin reservas.</p>';
-    } else {
-        elements.reservasDiaList.innerHTML = reservasDia.map(r => `
-            <div class="agenda-item">
-                <div class="agenda-item-top">
-                    <div>
-                        <div class="agenda-item-hora">${formatearHora(r.hora_inicio)} – ${formatearHora(r.hora_fin)}</div>
-                        <div class="agenda-item-fecha">${escapeHtml(r.espacio_nombre)}</div>
+if (reservasDia.length === 0) {
+    elements.reservasDiaList.innerHTML =
+        '<p class="empty-state">Sin reservas.</p>';
+} else {
+    elements.reservasDiaList.innerHTML = reservasDia.map(r => `
+        <div class="agenda-item">
+
+            <div class="agenda-item-top">
+                <div>
+                    <div class="agenda-item-hora">
+                        ${formatearHora(r.hora_inicio)} – ${formatearHora(r.hora_fin)}
                     </div>
-                    <span class="chip ${r.estado}">${r.estado}</span>
+
+                    <div class="agenda-item-fecha">
+                        ${escapeHtml(r.espacio_nombre)}
+                    </div>
                 </div>
-                <div class="agenda-item-sub">${escapeHtml(r.estudiante_nombre)}</div>
-            </div><div class="agenda-item-acciones">
-    ${
-        fechaPasada
-            ? ''
-            : `
-                <button
-                    type="button"
-                    class="link-btn"
-                    data-cancelar-reserva="${r.id_reserva}"
-                >
-                    Cancelar reserva
-                </button>
-            `
-    }
-</div>
-        `).join('');
-    }
+
+                <span class="chip ${r.estado}">
+                    ${r.estado}
+                </span>
+            </div>
+
+            <div class="agenda-item-sub">
+                ${escapeHtml(r.estudiante_nombre)}
+            </div>
+
+            ${
+                fechaPasada
+                    ? ''
+                    : `
+                        <div class="agenda-item-acciones">
+                            <button
+                                type="button"
+                                class="link-btn"
+                                data-cancelar-reserva="${r.id_reserva}"
+                            >
+                                Cancelar reserva
+                            </button>
+                        </div>
+                    `
+            }
+
+        </div>
+    `).join('');
+}
 
     elements.bloqueosDiaList.querySelectorAll('[data-eliminar-bloqueo]').forEach(btn => {
         btn.addEventListener('click', () => eliminarBloqueo(btn.dataset.eliminarBloqueo));
