@@ -174,18 +174,26 @@ function toISODate(date) {
     return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+function obtenerSoloFecha(fecha) {
+    if (!fecha) return '';
+    return String(fecha).substring(0, 10);
+}
+
 function esFechaPasada(iso) {
     const hoy = toISODate(new Date());
     return iso < hoy;
 }
 
 function tieneBloqueoCompleto(iso) {
-    return state.bloqueos.some(b =>
-        Number(b.dia_completo) === 1 &&
-        iso >= b.fecha_inicio &&
-        iso <= b.fecha_fin &&
-        !b.id_espacio
-    );
+    return state.bloqueos.some(b => {
+        const inicio = obtenerSoloFecha(b.fecha_inicio);
+        const fin = obtenerSoloFecha(b.fecha_fin);
+
+        return Number(b.dia_completo) === 1 &&
+               iso >= inicio &&
+               iso <= fin &&
+               !b.id_espacio;
+    });
 }
 
 
@@ -347,7 +355,12 @@ function renderCalendario() {
         }
 
         const reservasDia = state.reservas.filter(r => r.fecha?.startsWith(celda.iso));
-        const bloqueosDia = state.bloqueos.filter(b => celda.iso >= b.fecha_inicio && celda.iso <= b.fecha_fin);
+        const bloqueosDia = state.bloqueos.filter(b => {
+        const inicio = obtenerSoloFecha(b.fecha_inicio);
+        const fin = obtenerSoloFecha(b.fecha_fin);
+
+     return celda.iso >= inicio && celda.iso <= fin;
+    });
 
         const clasesExtra = [];
         if (celda.iso === hoyIso) clasesExtra.push('hoy');
@@ -443,7 +456,12 @@ if (elements.btnBloquearDia) {
     }
 }
 
-    const bloqueosDia = state.bloqueos.filter(b => iso >= b.fecha_inicio && iso <= b.fecha_fin);
+    const bloqueosDia = state.bloqueos.filter(b => {
+    const inicio = obtenerSoloFecha(b.fecha_inicio);
+    const fin = obtenerSoloFecha(b.fecha_fin);
+
+    return iso >= inicio && iso <= fin;
+});
     const reservasDia = state.reservas
         .filter(r => r.fecha?.startsWith(iso))
         .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
