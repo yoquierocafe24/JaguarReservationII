@@ -174,6 +174,22 @@ function toISODate(date) {
     return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+function esFechaPasada(iso) {
+    const hoy = toISODate(new Date());
+    return iso < hoy;
+}
+
+function tieneBloqueoCompleto(iso) {
+    return state.bloqueos.some(b =>
+        Number(b.dia_completo) === 1 &&
+        iso >= b.fecha_inicio &&
+        iso <= b.fecha_fin &&
+        !b.id_espacio
+    );
+}
+
+
+
 function formatearFechaLarga(iso) {
     const fecha = new Date(`${iso}T00:00:00`);
     const texto = fecha.toLocaleDateString('es-HN', {
@@ -406,6 +422,27 @@ function renderDetalleDia(iso) {
     elements.panelDetalle.hidden = false;
     elements.diaTitulo.textContent = formatearFechaLarga(iso);
 
+
+    const fechaPasada = esFechaPasada(iso);
+const diaBloqueadoCompleto = tieneBloqueoCompleto(iso);
+
+// No permitir cerrar días pasados ni volver a cerrar
+// un día que ya está bloqueado completamente.
+if (elements.btnBloquearDia) {
+
+    elements.btnBloquearDia.disabled =
+        fechaPasada || diaBloqueadoCompleto;
+
+    if (fechaPasada) {
+        elements.btnBloquearDia.textContent = 'Fecha finalizada';
+    } else if (diaBloqueadoCompleto) {
+        elements.btnBloquearDia.textContent = 'Día bloqueado';
+    } else {
+        elements.btnBloquearDia.innerHTML =
+            '<i class="bi bi-lock"></i> Cerrar este día';
+    }
+}
+
     const bloqueosDia = state.bloqueos.filter(b => iso >= b.fecha_inicio && iso <= b.fecha_fin);
     const reservasDia = state.reservas
         .filter(r => r.fecha?.startsWith(iso))
@@ -451,7 +488,21 @@ function renderDetalleDia(iso) {
                 <div class="agenda-item-acciones">
                     <button type="button" class="link-btn" data-cancelar-reserva="${r.id_reserva}">Cancelar reserva</button>
                 </div>
-            </div>
+            </div><div class="agenda-item-acciones">
+    ${
+        fechaPasada
+            ? ''
+            : `
+                <button
+                    type="button"
+                    class="link-btn"
+                    data-cancelar-reserva="${r.id_reserva}"
+                >
+                    Cancelar reserva
+                </button>
+            `
+    }
+</div>
         `).join('');
     }
 
@@ -517,6 +568,11 @@ async function confirmarCancelarReserva() {
 // =======================================
 function abrirModalBloqueo(fechaPrellenada) {
     elements.formBloqueo.reset();
+
+    const hoy = toISODate(new Date());
+
+elements.bloqueoFechaInicio.min = hoy;
+elements.bloqueoFechaFin.min = hoy;
     elements.bloqueoHorasRow.hidden = true;
     elements.bloqueoConflicto.hidden = true;
     elements.bloqueoCancelarReservas.checked = false;
@@ -654,6 +710,8 @@ function cerrarModal(modalEl) {
     modalEl.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
 }
+
+
 
 // =======================================
 // Inicialización

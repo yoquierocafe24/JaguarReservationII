@@ -312,6 +312,22 @@ router.post('/bloqueos', requiereSesion, requiereAdmin, async (req, res) => {
 
         }
 
+        // ---------- No permitir bloqueos en fechas pasadas ----------
+
+        const hoyHonduras = new Intl.DateTimeFormat('en-CA', {
+             timeZone: 'America/Tegucigalpa',
+             year: 'numeric',
+             month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+
+        if (fecha_inicio < hoyHonduras) {
+        return res.status(400).json({
+         ok: false,
+        mensaje: "No se pueden crear bloqueos en fechas pasadas."
+    });
+}
+
         // Normaliza dia_completo a booleano/entero (1 o 0)
         const esDiaCompleto = dia_completo === false || dia_completo === 0
             ? 0
@@ -367,6 +383,52 @@ router.post('/bloqueos', requiereSesion, requiereAdmin, async (req, res) => {
             id_espacio = null; // bloqueo general, aplica a todos los espacios
 
         }
+
+         // ---------- Evitar bloqueos duplicados de día completo ----------
+
+if (esDiaCompleto === 1) {
+
+    let consultaDuplicado = `
+        SELECT id_bloqueo
+        FROM calendario_bloqueos
+        WHERE dia_completo = 1
+        AND fecha_inicio <= ?
+        AND fecha_fin >= ?
+    `;
+
+    const valoresDuplicado = [
+        fecha_fin,
+        fecha_inicio
+    ];
+
+    if (id_espacio) {
+        consultaDuplicado += `
+            AND (
+                id_espacio = ?
+                OR id_espacio IS NULL
+            )
+        `;
+        valoresDuplicado.push(id_espacio);
+    } else {
+        consultaDuplicado += `
+            AND id_espacio IS NULL
+        `;
+    }
+
+    consultaDuplicado += ` LIMIT 1`;
+
+    const [bloqueosDuplicados] = await db.query(
+        consultaDuplicado,
+        valoresDuplicado
+    );
+
+    if (bloqueosDuplicados.length > 0) {
+        return res.status(409).json({
+            ok: false,
+            mensaje: "Ese día o rango de fechas ya se encuentra bloqueado."
+        });
+    }
+}
 
         // ---------- Buscar reservas que quedarían afectadas ----------
 
