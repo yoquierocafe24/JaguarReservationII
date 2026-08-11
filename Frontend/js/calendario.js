@@ -722,7 +722,7 @@ function mostrarConflicto(reservasAfectadas) {
             <div class="agenda-item-top">
                 <div>
                     <div class="agenda-item-hora">${formatearHora(r.hora_inicio)} – ${formatearHora(r.hora_fin)}</div>
-                    <div class="agenda-item-fecha">${r.fecha}</div>
+                   <div class="agenda-item-fecha">${formatearFechaLarga(r.fecha)}</div>
                 </div>
                 <span class="chip ${r.estado}">${r.estado}</span>
             </div>
@@ -816,6 +816,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await cargarEspacios();
     await cargarEventosDelMes();
+
+     // Actualizar calendario automáticamente cada 30 segundos
+    setInterval(cargarEventosDelMes, 30000);
 
     elements.mesAnterior?.addEventListener('click', () => {
         state.mesVisible = new Date(state.mesVisible.getFullYear(), state.mesVisible.getMonth() - 1, 1);
