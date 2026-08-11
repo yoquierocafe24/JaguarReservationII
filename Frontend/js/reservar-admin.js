@@ -705,6 +705,46 @@ function cerrarModal(modal) {
   document.body.classList.remove('modal-open');
 }
 
+// ── CERRAR MODAL DE CANCELACIÓN ──
+document.addEventListener('click', (event) => {
+
+  const botonCerrar =
+    event.target.closest(
+      '[data-action="close-cancelar-reserva"]'
+    );
+
+  if (!botonCerrar) return;
+
+  const modal =
+    document.getElementById(
+      'modal-cancelar-reserva'
+    );
+
+  cerrarModal(modal);
+
+  reservaIdParaCancelar = null;
+
+  const motivo =
+    document.getElementById(
+      'motivo-cancelacion-admin'
+    );
+
+  const status =
+    document.getElementById(
+      'cancelacion-status'
+    );
+
+  if (motivo) {
+    motivo.value = '';
+  }
+
+  if (status) {
+    status.textContent = '';
+    status.classList.remove('error');
+  }
+
+});
+
 // ── DETALLE ──
 async function verDetalle(id) {
 
