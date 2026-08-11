@@ -471,6 +471,156 @@
     font-weight:400;
 }
 
+/* ======================================
+   MODAL CANCELAR RESERVA
+====================================== */
+
+.custom-modal{
+    position:fixed;
+    inset:0;
+    z-index:1100;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+}
+
+.custom-modal.hidden{
+    display:none;
+}
+
+.custom-modal-backdrop{
+    position:absolute;
+    inset:0;
+    background:rgba(15,23,42,.55);
+}
+
+.custom-modal-dialog{
+    position:relative;
+    width:min(100%,460px);
+    max-height:90vh;
+    overflow-y:auto;
+    background:var(--blanco);
+    border-radius:20px;
+    box-shadow:0 20px 50px rgba(15,23,42,.25);
+    border:1px solid rgba(147,6,30,.16);
+}
+
+.custom-modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 20px;
+    border-bottom:1px solid var(--borde);
+}
+
+.custom-modal-header h3{
+    margin:0;
+    font-size:1.05rem;
+    color:var(--carmine);
+}
+
+.modal-close-btn{
+    border:none;
+    background:transparent;
+    color:var(--subtexto);
+    font-size:1rem;
+    cursor:pointer;
+}
+
+.custom-modal-body{
+    padding:18px 20px 6px;
+}
+
+.custom-modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:16px 20px 20px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom:14px;
+}
+
+.form-group label{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--carmine);
+    text-transform:uppercase;
+    letter-spacing:.02em;
+}
+
+.form-group textarea{
+    width:100%;
+    resize:vertical;
+    min-height:100px;
+    border:1px solid var(--borde);
+    border-radius:10px;
+    padding:10px 12px;
+    font-family:'Poppins',sans-serif;
+    color:var(--texto);
+    background:var(--blanco);
+}
+
+.form-group textarea:focus{
+    outline:none;
+    border-color:var(--crimson);
+    box-shadow:0 0 0 3px rgba(223,27,59,.12);
+}
+
+.btn-jaguar-inline,
+.btn-secondary-jaguar{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:10px 16px;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.btn-jaguar-inline{
+    border:none;
+    background:var(--crimson);
+    color:var(--blanco);
+}
+
+.btn-jaguar-inline:hover{
+    background:var(--carmine);
+}
+
+.btn-secondary-jaguar{
+    border:1px solid var(--borde);
+    background:var(--blanco);
+    color:var(--carmine);
+}
+
+.btn-secondary-jaguar:hover{
+    background:var(--gris);
+}
+
+.calendar-status{
+    min-height:18px;
+    margin-top:4px;
+    font-size:13px;
+    color:var(--subtexto);
+}
+
+.calendar-status.error{
+    color:var(--crimson);
+}
+
+body.modal-open{
+    overflow:hidden;
+}
+
 @media(max-width:600px){
     .page-content{
         padding:16px;
@@ -508,5 +658,18 @@
     .detalle-grid{
         grid-template-columns:1fr;
     }
+
+    .custom-modal{
+    padding:14px;
+}
+
+.custom-modal-actions{
+    flex-direction:column-reverse;
+}
+
+.btn-jaguar-inline,
+.btn-secondary-jaguar{
+    width:100%;
+}
 
 }

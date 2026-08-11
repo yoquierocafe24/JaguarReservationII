@@ -875,15 +875,13 @@ router.put('/:id/cancelar', async (req, res) => {
         }
 
         if (
-            req.session.usuario.rol === "estudiante" &&
+             ["estudiante", "admin"].includes(req.session.usuario.rol) &&
             motivoCancelacion.length < 5
-        ) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "El motivo debe tener al menos 5 caracteres."
-            });
-
+        )       {
+         return res.status(400).json({
+        ok: false,
+        mensaje: "El motivo debe tener al menos 5 caracteres."
+        });
         }
 
         if (

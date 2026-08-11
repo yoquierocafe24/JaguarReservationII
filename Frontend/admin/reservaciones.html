@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="../css/admin.css">
-  <link rel="stylesheet" href="../css/reservar-admin.css?v=13">
+  <link rel="stylesheet" href="../css/reservar-admin.css?v=14">
 </head>
 
 <body>
@@ -280,6 +280,45 @@
 
 </div>
 
+<!-- MODAL: CANCELAR RESERVA -->
+<div id="modal-cancelar-reserva" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close-cancelar-reserva"></div>
+
+    <div class="custom-modal-dialog">
+        <div class="custom-modal-header">
+            <h3>Cancelar reserva</h3>
+
+            <button type="button" class="modal-close-btn" data-action="close-cancelar-reserva">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="custom-modal-body">
+            <div class="form-group">
+                <label for="motivo-cancelacion-admin">Motivo de la cancelación</label>
+                <textarea
+                    id="motivo-cancelacion-admin"
+                    maxlength="250"
+                    rows="4"
+                    placeholder="Indique brevemente el motivo"
+                ></textarea>
+            </div>
+
+            <div id="cancelacion-status" class="calendar-status"></div>
+        </div>
+
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary-jaguar" data-action="close-cancelar-reserva">
+                Volver
+            </button>
+
+            <button type="button" class="btn-jaguar-inline" id="btn-confirmar-cancelacion-admin">
+                Cancelar reserva
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div
   class="position-fixed top-0 start-50 translate-middle-x p-3"
@@ -291,6 +330,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="../js/reservar-admin.js?v=13"></script>
+<script src="../js/reservar-admin.js?v=14"></script>
 </body>
 </html>

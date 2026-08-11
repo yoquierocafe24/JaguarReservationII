@@ -10,6 +10,7 @@ const RESERVAS_POR_PAGINA = 6;
 // sobre esto en el navegador; estado/espacio/fecha los filtra el servidor.
 let reservas = [];
 let paginaActual = 1;
+let reservaIdParaCancelar = null;
 
 
 // ── Topbar fecha ──
@@ -567,65 +568,124 @@ async function resolver(id, accion) {
 }
 
 
-async function cancelar(id) {
-  const reserva =
-    reservas.find(r => r.id_reserva === id);
-
-  if (!reserva) {
-    mostrarToast(
-      'No se encontró la reserva.',
-      'danger'
-    );
-    return;
-  }
-
-  if (!reservaPuedeCancelarse(reserva)) {
-    mostrarToast(
-      'La reserva ya comenzó o venció y no puede cancelarse.',
-      'warning'
-    );
-    return;
-  }
-
-  try {
-    const res = await fetch(
-      `${API_URL}/api/reservas/${encodeURIComponent(id)}/cancelar`,
-      {
-        method:'PUT',
-        credentials:'include'
-      }
+function cancelar(id) {
+    const reserva = reservas.find(
+        r => r.id_reserva === id
     );
 
-    const data = await res.json();
-
-    if (!res.ok || !data.ok) {
-      mostrarToast(
-        data.mensaje ||
-        'No se pudo cancelar la reserva.',
-        'danger'
-      );
-      return;
+    if (!reserva) {
+        mostrarToast(
+            'No se encontró la reserva.',
+            'danger'
+        );
+        return;
     }
 
-    mostrarToast(
-      data.mensaje ||
-      'Reserva cancelada correctamente.',
-      'success'
-    );
+    if (!reservaPuedeCancelarse(reserva)) {
+        mostrarToast(
+            'La reserva ya comenzó o venció y no puede cancelarse.',
+            'warning'
+        );
+        return;
+    }
 
-    await cargarReservas();
+    reservaIdParaCancelar = id;
 
-  } catch(error) {
-    console.error(
-      'Error cancelando reserva:',
-      error
-    );
+    document.getElementById(
+        'motivo-cancelacion-admin'
+    ).value = '';
 
-    mostrarToast(
-      'No se pudo conectar con el servidor.',
-      'danger'
+    document.getElementById(
+        'cancelacion-status'
+    ).textContent = '';
+
+    abrirModal(
+        document.getElementById(
+            'modal-cancelar-reserva'
+        )
     );
-  }
+}
+
+
+async function confirmarCancelacionAdmin() {
+
+    if (!reservaIdParaCancelar) return;
+
+    const motivo =
+        document.getElementById(
+            'motivo-cancelacion-admin'
+        ).value.trim();
+
+    const status =
+        document.getElementById(
+            'cancelacion-status'
+        );
+
+    status.classList.remove('error');
+    status.textContent = '';
+
+    if (!motivo) {
+        status.textContent =
+            'Debe indicar el motivo de la cancelación.';
+        status.classList.add('error');
+        return;
+    }
+
+    if (motivo.length < 5) {
+        status.textContent =
+            'El motivo debe tener al menos 5 caracteres.';
+        status.classList.add('error');
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/api/reservas/${encodeURIComponent(reservaIdParaCancelar)}/cancelar`,
+            {
+                method: 'PUT',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    motivo_cancelacion: motivo
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.mensaje ||
+                'No se pudo cancelar la reserva.'
+            );
+        }
+
+        cerrarModal(
+            document.getElementById(
+                'modal-cancelar-reserva'
+            )
+        );
+
+        reservaIdParaCancelar = null;
+
+        await cargarReservas();
+
+    } catch (error) {
+
+        console.error(
+            'Error cancelando reserva:',
+            error
+        );
+
+        status.textContent =
+            error.message ||
+            'Ocurrió un error al cancelar la reserva.';
+
+        status.classList.add('error');
+    }
 }
 
 
@@ -892,7 +952,6 @@ async function cerrarSesion() {
 
 }
 
-
 // ── INICIO ──
 document.addEventListener(
   'DOMContentLoaded',
@@ -913,11 +972,19 @@ document.addEventListener(
     }
 
     await cargarReservas();
+
+    document
+      .getElementById('btn-confirmar-cancelacion-admin')
+      ?.addEventListener(
+        'click',
+        confirmarCancelacionAdmin
+      );
+
+    // Auto-actualizar reservas cada 30 segundos
+    setInterval(
+      cargarReservas,
+      30000
+    );
+
   }
 );
-
-actualizarFechaTopbar();
-setInterval(actualizarFechaTopbar, 30000);
-
-// Auto-actualizar cada 30 segundos
-setInterval(cargarReservas, 30000);
