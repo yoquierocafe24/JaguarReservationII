@@ -744,7 +744,7 @@ router.put('/:id/aprobar', async (req, res) => {
         }
 
         await db.query(
-            `UPDATE Reservas
+            `UPDATE reservas
              SET estado = 'aprobada'
              WHERE id_reserva = ?`,
             [req.params.id]
