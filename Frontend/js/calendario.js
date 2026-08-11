@@ -90,26 +90,34 @@ function obtenerIniciales(nombre = '') {
         .toUpperCase() || 'A';
 }
 
-function logout() {
-    fetch(`${API_URL}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include'
-    }).finally(() => {
-        window.location.href = '../../login.html';
-    });
-}
+async function cerrarSesion() {
+    try {
+        const response = await fetch(`${API_URL}/api/auth/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
 
+        const data = await response.json();
+
+        if (response.ok && data.ok) {
+            window.location.href = '../../login.html';
+        }
+
+    } catch (error) {
+        console.error('Error cerrando sesión:', error);
+    }
+}
 // =======================================
 // Menú responsive (sidebar / overlay)
 // =======================================
 function abrirMenu() {
-    document.querySelector('.sidebar')?.classList.add('activo');
-    document.querySelector('.overlay')?.classList.add('activo');
+    document.querySelector('.sidebar-admin')?.classList.add('activo');
+    document.querySelector('.sidebar-overlay')?.classList.add('activo');
 }
 
 function cerrarMenu() {
-    document.querySelector('.sidebar')?.classList.remove('activo');
-    document.querySelector('.overlay')?.classList.remove('activo');
+    document.querySelector('.sidebar-admin')?.classList.remove('activo');
+    document.querySelector('.sidebar-overlay')?.classList.remove('activo');
 }
 
 // =======================================
