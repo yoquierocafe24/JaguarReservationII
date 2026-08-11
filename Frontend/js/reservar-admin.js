@@ -688,6 +688,22 @@ async function confirmarCancelacionAdmin() {
     }
 }
 
+// ── MODALES ──
+function abrirModal(modal) {
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+function cerrarModal(modal) {
+  if (!modal) return;
+
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+}
 
 // ── DETALLE ──
 async function verDetalle(id) {
