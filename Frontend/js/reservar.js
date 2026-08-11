@@ -8,6 +8,7 @@ let currentYear  = TODAY.getFullYear();
 let currentMonth = TODAY.getMonth();
 let fechaSel     = null;
 let horaSel      = null;
+let bloqueosCalendario = [];
 
 // ── Espacio seleccionado desde inicio.html ──
 const espacioLabels = {
@@ -39,7 +40,72 @@ document.getElementById('topbar-fecha').textContent =
   DIAS_SM[TODAY.getDay()] + ' ' + TODAY.getDate() + ' de ' + MESES[TODAY.getMonth()] + ' ' + TODAY.getFullYear();
 
 
+  
+function obtenerSoloFecha(fecha) {
+  if (!fecha) return '';
+  return String(fecha).substring(0, 10);
+}
 
+async function cargarBloqueosCalendario() {
+
+  try {
+
+    const primerDia =
+      `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-01`;
+
+    const ultimoDiaMes =
+      new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    const ultimoDia =
+      `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-${String(ultimoDiaMes).padStart(2,'0')}`;
+
+    const idEspacio = espacios[espacio];
+
+    const url =
+      `${API_URL}/api/calendario/bloqueos?fecha_inicio=${primerDia}&fecha_fin=${ultimoDia}&espacio=${idEspacio}`;
+
+    const res = await fetch(url, {
+      credentials: 'include'
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.mensaje || 'No se pudieron consultar los bloqueos.'
+      );
+    }
+
+    bloqueosCalendario = data.bloqueos || [];
+
+  } catch (error) {
+
+    console.error(
+      'Error cargando bloqueos del calendario:',
+      error
+    );
+
+    bloqueosCalendario = [];
+  }
+}
+
+function esDiaBloqueadoCompleto(fecha) {
+
+  return bloqueosCalendario.some(bloqueo => {
+
+    const inicio =
+      obtenerSoloFecha(bloqueo.fecha_inicio);
+
+    const fin =
+      obtenerSoloFecha(bloqueo.fecha_fin);
+
+    return (
+      Number(bloqueo.dia_completo) === 1 &&
+      fecha >= inicio &&
+      fecha <= fin
+    );
+  });
+}
 // ── CALENDARIO ──
 function renderCal() {
 
@@ -81,14 +147,17 @@ function renderCal() {
     const esDomingo =
       fecha.getDay() === 0;
 
+      const esBloqueado =
+  esDiaBloqueadoCompleto(fechaActual);
+
     // Comparación correcta
     const esSel = fechaSel === fechaActual;
 
     cell.className = 'cal-dia';
 
-    if (esPasado || esDomingo) {
-      cell.classList.add('bloqueado');
-    } else if (esSel) {
+    if (esPasado || esDomingo || esBloqueado) {
+  cell.classList.add('bloqueado');
+} else if (esSel) {
       cell.classList.add('selected');
     } else if (esHoy) {
       cell.classList.add('hoy');
@@ -96,9 +165,10 @@ function renderCal() {
 
     cell.textContent = d;
 
-    if (!esPasado && !esDomingo) {
-      cell.onclick = () => seleccionarFecha(currentYear, currentMonth, d);
-    }
+    if (!esPasado && !esDomingo && !esBloqueado) {
+  cell.onclick = () =>
+    seleccionarFecha(currentYear, currentMonth, d);
+}
 
     grid.appendChild(cell);
   }
@@ -109,6 +179,8 @@ function cambiarMes(dir) {
   currentMonth += dir;
   if(currentMonth < 0)  { currentMonth = 11; currentYear--; }
   if(currentMonth > 11) { currentMonth = 0;  currentYear++; }
+
+  await cargarBloqueosCalendario();
   renderCal();
 }
 
@@ -595,7 +667,12 @@ document.getElementById('campo-telefono').addEventListener('input', function(e) 
 
 
 // Iniciar calendario
-renderCal();
+async function iniciarCalendario() {
+  await cargarBloqueosCalendario();
+  renderCal();
+}
+
+iniciarCalendario();
 
 // Inicializar Choices.js en el select de juego y cargar los juegos
 let choicesJuego = null;
