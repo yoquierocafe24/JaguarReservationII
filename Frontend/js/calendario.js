@@ -485,9 +485,6 @@ if (elements.btnBloquearDia) {
                     <span class="chip ${r.estado}">${r.estado}</span>
                 </div>
                 <div class="agenda-item-sub">${escapeHtml(r.estudiante_nombre)}</div>
-                <div class="agenda-item-acciones">
-                    <button type="button" class="link-btn" data-cancelar-reserva="${r.id_reserva}">Cancelar reserva</button>
-                </div>
             </div><div class="agenda-item-acciones">
     ${
         fechaPasada
