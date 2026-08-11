@@ -106,6 +106,44 @@ function esDiaBloqueadoCompleto(fecha) {
     );
   });
 }
+
+function esHorarioBloqueado(fecha, horario) {
+
+  const [inicioHorario, finHorario] = horario.split('–');
+
+  return bloqueosCalendario.some(bloqueo => {
+
+    const fechaInicio = obtenerSoloFecha(bloqueo.fecha_inicio);
+    const fechaFin = obtenerSoloFecha(bloqueo.fecha_fin);
+
+    // El bloqueo no corresponde a este día
+    if (fecha < fechaInicio || fecha > fechaFin) {
+      return false;
+    }
+
+    // Si es día completo, todo está bloqueado
+    if (Number(bloqueo.dia_completo) === 1) {
+      return true;
+    }
+
+    const inicioBloqueo =
+      String(bloqueo.hora_inicio || '').substring(0, 5);
+
+    const finBloqueo =
+      String(bloqueo.hora_fin || '').substring(0, 5);
+
+    if (!inicioBloqueo || !finBloqueo) {
+      return false;
+    }
+
+    // Detectar si los horarios se cruzan
+    return (
+      inicioHorario < finBloqueo &&
+      finHorario > inicioBloqueo
+    );
+  });
+}
+
 // ── CALENDARIO ──
 function renderCal() {
 
@@ -322,21 +360,41 @@ try {
 
     const yaPaso = esHoy && finMinutos <= horaActualMinutos;
     const estaOcupada = horasOcupadas.includes(h);
+    const estaBloqueada = esHorarioBloqueado(fechaSel, h);
 
     // Texto visible con AM/PM
     const textoVisible = `${formatear12h(horaInicioStr)} – ${formatear12h(horaFinStr)}`;
 
-    if (yaPaso) {
-      return `<button class="hora-chip pasada" disabled>${textoVisible}</button>`;
-    }
+   if (yaPaso) {
+  return `
+    <button class="hora-chip pasada" disabled>
+      ${textoVisible}
+    </button>
+  `;
+}
 
-    if (estaOcupada) {
-      return `<button class="hora-chip ocupada" disabled>${textoVisible}</button>`;
-    }
+if (estaBloqueada) {
+  return `
+    <button class="hora-chip ocupada" disabled title="Horario bloqueado por administración">
+      ${textoVisible}
+    </button>
+  `;
+}
 
-    return `<button class="hora-chip" onclick="seleccionarHora(this,'${h}')">${textoVisible}</button>`;
+if (estaOcupada) {
+  return `
+    <button class="hora-chip ocupada" disabled>
+      ${textoVisible}
+    </button>
+  `;
+}
 
-  }).join('');
+return `
+  <button class="hora-chip" onclick="seleccionarHora(this,'${h}')">
+    ${textoVisible}
+  </button>`;
+
+}).join('');
 }
 function seleccionarHora(boton, hora) {
 
