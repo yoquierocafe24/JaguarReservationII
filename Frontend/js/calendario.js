@@ -159,7 +159,9 @@ const elements = {
 
     modalCancelar: document.getElementById('modal-cancelar'),
     cancelarMotivo: document.getElementById('cancelar-motivo'),
-    btnConfirmarCancelar: document.getElementById('btn-confirmar-cancelar')
+    btnConfirmarCancelar: document.getElementById('btn-confirmar-cancelar'),
+    modalEliminarBloqueo: document.getElementById('modal-eliminar-bloqueo'),
+btnConfirmarEliminarBloqueo: document.getElementById('btn-confirmar-eliminar-bloqueo'),
 };
 
 const state = {
@@ -498,9 +500,21 @@ if (elements.btnBloquearDia) {
                     <span class="chip bloqueo">bloqueo</span>
                 </div>
                 ${b.motivo ? `<div class="agenda-item-sub">${escapeHtml(b.motivo)}</div>` : ''}
-                <div class="agenda-item-acciones">
-                    <button type="button" class="link-btn" data-eliminar-bloqueo="${b.id_bloqueo}">Eliminar bloqueo</button>
-                </div>
+                ${
+    fechaPasada
+        ? ''
+        : `
+            <div class="agenda-item-acciones">
+                <button
+                    type="button"
+                    class="link-btn"
+                    data-eliminar-bloqueo="${b.id_bloqueo}"
+                >
+                    Eliminar bloqueo
+                </button>
+            </div>
+        `
+}
             </div>
         `).join('');
     }
@@ -720,28 +734,57 @@ function mostrarConflicto(reservasAfectadas) {
 // =======================================
 // Eliminar bloqueo
 // =======================================
-async function eliminarBloqueo(idBloqueo) {
-    if (!confirm('¿Reabrir este horario? Se eliminará el bloqueo.')) return;
+
+let bloqueoIdParaEliminar = null;
+
+function eliminarBloqueo(idBloqueo) {
+    bloqueoIdParaEliminar = idBloqueo;
+    abrirModal(elements.modalEliminarBloqueo);
+}
+
+
+async function confirmarEliminarBloqueo() {
+
+    if (!bloqueoIdParaEliminar) return;
 
     try {
-        const response = await fetch(`${API_URL}/api/calendario/bloqueos/${idBloqueo}`, {
-            method: 'DELETE',
-            credentials: 'include'
-        });
+
+        elements.btnConfirmarEliminarBloqueo.disabled = true;
+
+        const response = await fetch(
+            `${API_URL}/api/calendario/bloqueos/${bloqueoIdParaEliminar}`,
+            {
+                method: 'DELETE',
+                credentials: 'include'
+            }
+        );
 
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-            throw new Error(data.mensaje || 'No se pudo eliminar el bloqueo.');
+            throw new Error(
+                data.mensaje || 'No se pudo eliminar el bloqueo.'
+            );
         }
+
+        cerrarModal(elements.modalEliminarBloqueo);
+        bloqueoIdParaEliminar = null;
 
         await cargarEventosDelMes();
 
     } catch (error) {
-        console.error(error);
-        alert(error.message || 'Ocurrió un error al eliminar el bloqueo.');
+
+        console.error(
+            'Error eliminando bloqueo:',
+            error
+        );
+
+    } finally {
+
+        elements.btnConfirmarEliminarBloqueo.disabled = false;
     }
 }
+
 
 // =======================================
 // Modales genéricos
@@ -810,5 +853,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!elements.modalBloqueo.classList.contains('hidden')) cerrarModal(elements.modalBloqueo);
         if (!elements.modalCancelar.classList.contains('hidden')) cerrarModal(elements.modalCancelar);
     });
+
+    document.querySelectorAll(
+    '#modal-eliminar-bloqueo [data-action="close-eliminar-bloqueo"]'
+).forEach(el => {
+
+    el.addEventListener('click', () => {
+        cerrarModal(elements.modalEliminarBloqueo);
+        bloqueoIdParaEliminar = null;
+    });
+
+});
+
+elements.btnConfirmarEliminarBloqueo?.addEventListener(
+    'click',
+    confirmarEliminarBloqueo
+);
 
 });
