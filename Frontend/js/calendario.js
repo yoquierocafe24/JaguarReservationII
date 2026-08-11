@@ -206,13 +206,20 @@ function tieneBloqueoCompleto(iso) {
 
 
 
-function formatearFechaLarga(iso) {
+function formatearFechaLarga(valorFecha) {
+
+    const iso = obtenerSoloFecha(valorFecha);
+
+    if (!iso) return '';
+
     const fecha = new Date(`${iso}T00:00:00`);
+
     const texto = fecha.toLocaleDateString('es-HN', {
         weekday: 'long',
         day: 'numeric',
         month: 'long'
     });
+
     return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
