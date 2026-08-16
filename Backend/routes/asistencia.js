@@ -331,48 +331,85 @@ router.get('/resumen', async (req, res) => {
             });
         }
 
-        // Total de personas presentes en reservas de esa fecha
-        const [[total]] = await db.query(
-            `SELECT COUNT(*) AS total
-             FROM asistencia a
-             INNER JOIN reservas r
-                ON r.id_reserva = a.id_reserva
-             WHERE r.fecha = ?
-             AND r.estado = 'aprobada'`,
-            [fecha]
+        /*
+            Mismo universo de personas que la ruta principal
+            (titulares + acompañantes confirmados de reservas
+            aprobadas ese día), agrupado por estado_asistencia
+            para contar presentes, pendientes e inasistencias
+            en una sola consulta.
+        */
+
+        const [filas] = await db.query(
+
+            `SELECT
+                control.estado_asistencia,
+                COUNT(*) AS total
+             FROM (
+
+                SELECT
+                    r.id_reserva,
+                    CASE
+                        WHEN a.id_asistencia IS NOT NULL
+                        THEN 'presente'
+                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < NOW()
+                        THEN 'inasistencia'
+                        ELSE 'pendiente'
+                    END AS estado_asistencia
+                FROM reservas r
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = r.id_reserva
+                    AND a.id_estudiante = r.id_estudiante
+                WHERE r.fecha = ?
+                AND r.estado = 'aprobada'
+
+                UNION ALL
+
+                SELECT
+                    r.id_reserva,
+                    CASE
+                        WHEN a.id_asistencia IS NOT NULL
+                        THEN 'presente'
+                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < NOW()
+                        THEN 'inasistencia'
+                        ELSE 'pendiente'
+                    END AS estado_asistencia
+                FROM reserva_acompanantes ra
+                INNER JOIN reservas r
+                    ON r.id_reserva = ra.id_reserva
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = r.id_reserva
+                    AND a.id_estudiante = ra.id_estudiante
+                WHERE r.fecha = ?
+                AND r.estado = 'aprobada'
+                AND ra.confirmado = 1
+                AND ra.rol = 'acompanante'
+
+             ) AS control
+             GROUP BY control.estado_asistencia`,
+
+            [fecha, fecha]
+
         );
 
-        // Titulares presentes
-        const [[titulares]] = await db.query(
-            `SELECT COUNT(*) AS total
-             FROM asistencia a
-             INNER JOIN reservas r
-                ON r.id_reserva = a.id_reserva
-             WHERE r.fecha = ?
-             AND r.estado = 'aprobada'
-             AND a.tipo_asistencia = 'titular'`,
-            [fecha]
-        );
+        // Convierte [{estado_asistencia:'presente', total:5}, ...]
+        // en un objeto plano, aunque alguna categoría venga en 0
+        const conteo = { presente: 0, pendiente: 0, inasistencia: 0 };
 
-        // Acompañantes presentes
-        const [[acompanantes]] = await db.query(
-            `SELECT COUNT(*) AS total
-             FROM asistencia a
-             INNER JOIN reservas r
-                ON r.id_reserva = a.id_reserva
-             WHERE r.fecha = ?
-             AND r.estado = 'aprobada'
-             AND a.tipo_asistencia = 'acompanante'`,
-            [fecha]
-        );
+        filas.forEach(fila => {
+            conteo[fila.estado_asistencia] = Number(fila.total);
+        });
+
+        const esperados =
+            conteo.presente + conteo.pendiente + conteo.inasistencia;
 
         return res.json({
             ok: true,
             fecha,
             resumen: {
-                asistencias: Number(total.total || 0),
-                titulares_presentes: Number(titulares.total || 0),
-                acompanantes_presentes: Number(acompanantes.total || 0)
+                esperados,
+                presentes: conteo.presente,
+                pendientes: conteo.pendiente,
+                inasistencias: conteo.inasistencia
             }
         });
 
@@ -390,162 +427,5 @@ router.get('/resumen', async (req, res) => {
     }
 
 });
-
-/*
-
-// Nota:
-// Por ahora esta ruta permanece comentada
-// porque el QR de ingreso libre aún no ha
-// sido desarrollado.
-
-// ========================================
-// REGISTRAR INGRESO LIBRE AL POLIDEPORTIVO
-// POST /asistencia/libre
-// ========================================
-
-router.post('/libre', async (req, res) => {
-
-    try {
-
-        // El estudiante debe tener sesión iniciada
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok: false,
-                mensaje: 'Debe iniciar sesión.'
-            });
-        }
-
-        if (req.session.usuario.rol !== 'estudiante') {
-            return res.status(403).json({
-                ok: false,
-                mensaje: 'Solo los estudiantes pueden registrar ingreso libre.'
-            });
-        }
-
-        const id_estudiante =
-            req.session.usuario.id;
-
-        // Verificar que el estudiante siga activo
-        const [estudiantes] = await db.query(
-            `SELECT id_estudiante
-             FROM estudiantes
-             WHERE id_estudiante = ?
-             AND activo = 1`,
-            [id_estudiante]
-        );
-
-        if (estudiantes.length === 0) {
-            return res.status(403).json({
-                ok: false,
-                mensaje: 'El estudiante está inactivo.'
-            });
-        }
-
-        // Fecha y hora de Honduras
-        const [fechaHora] = await db.query(
-            `SELECT
-                DATE(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                ) AS fecha_hn,
-
-                TIME(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                ) AS hora_hn`
-        );
-
-        const fechaEntrada =
-            fechaHora[0].fecha_hn;
-
-        const horaEntrada =
-            fechaHora[0].hora_hn;
-
-        // Evitar registrar dos veces el mismo ingreso libre
-        // del estudiante durante el mismo día.
-        const [yaRegistrado] = await db.query(
-            `SELECT id_asistencia
-             FROM asistencia
-             WHERE id_estudiante = ?
-             AND fecha_entrada = ?
-             AND tipo_ingreso = 'libre'
-             LIMIT 1`,
-            [
-                id_estudiante,
-                fechaEntrada
-            ]
-        );
-
-        if (yaRegistrado.length > 0) {
-            return res.status(400).json({
-                ok: false,
-                mensaje:
-                    'Ya registraste tu ingreso al polideportivo hoy.'
-            });
-        }
-
-        // Guardar asistencia sin reserva ni guardia
-        await db.query(
-            `INSERT INTO asistencia
-            (
-                id_reserva,
-                id_estudiante,
-                tipo_asistencia,
-                hora_entrada,
-                id_guardia,
-                tipo_ingreso,
-                origen,
-                fecha_entrada
-            )
-            VALUES
-            (
-                NULL,
-                ?,
-                'visitante',
-                ?,
-                NULL,
-                'libre',
-                'qr',
-                ?
-            )`,
-            [
-                id_estudiante,
-                horaEntrada,
-                fechaEntrada
-            ]
-        );
-
-        return res.json({
-            ok: true,
-            mensaje:
-                'Ingreso registrado correctamente.',
-            fecha_entrada:
-                fechaEntrada,
-            hora_entrada:
-                horaEntrada
-        });
-
-    } catch (error) {
-
-        console.error(
-            'ERROR REGISTRANDO INGRESO LIBRE:',
-            error
-        );
-
-        return res.status(500).json({
-            ok: false,
-            mensaje:
-                'No se pudo registrar el ingreso.'
-        });
-    }
-});
-
-*/
 
 module.exports = router;

@@ -88,7 +88,18 @@ router.post('/', async (req, res) => {
                 mensaje: "Faltan datos obligatorios."
             });
 
+
         }
+
+
+        // Validación de longitud de solicitud especial
+
+        if (solicitud_especial && solicitud_especial.length > 250) {
+       return res.status(400).json({
+        ok: false,
+        mensaje: "La solicitud especial no puede superar los 250 caracteres."
+    });
+}
 
         // =======================================
         // Regla: domingos bloqueados (la U no abre)
