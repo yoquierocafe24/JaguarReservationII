@@ -1,3 +1,4 @@
+const API_URL = "https://jaguarreservationii-production.up.railway.app";
 
 // Actualizar fecha y hora en tiempo real
 function updateDateTime() {
