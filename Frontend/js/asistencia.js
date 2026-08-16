@@ -326,89 +326,46 @@ async function cargarAsistencias() {
 async function cargarResumen() {
 
   const fecha =
-    document.getElementById(
-      'filtro-fecha'
-    )?.value ||
+    document.getElementById('filtro-fecha')?.value ||
     obtenerFechaActual();
 
   try {
 
     const res = await fetch(
       `${API_URL}/api/asistencia/resumen?fecha=${encodeURIComponent(fecha)}`,
-      {
-        credentials: 'include'
-      }
+      { credentials: 'include' }
     );
 
-    const data =
-      await res.json();
+    const data = await res.json();
 
     if (!res.ok || !data.ok) {
-
-      throw new Error(
-        data.mensaje ||
-        'No se pudo cargar el resumen.'
-      );
+      throw new Error(data.mensaje || 'No se pudo cargar el resumen.');
     }
 
-    const resumen =
-      data.resumen || {};
+    const resumen = data.resumen || {};
 
-    const totalAsistencias =
-      document.getElementById(
-        'total-asistencias'
-      );
+    const campos = {
+      'total-esperados': resumen.esperados,
+      'total-presentes': resumen.presentes,
+      'total-pendientes': resumen.pendientes,
+      'total-inasistencias': resumen.inasistencias
+    };
 
-    const totalTitulares =
-      document.getElementById(
-        'total-titulares'
-      );
-
-    const totalAcompanantes =
-      document.getElementById(
-        'total-acompanantes'
-      );
-
-
-    if (totalAsistencias) {
-
-      totalAsistencias.textContent =
-        Number(
-          resumen.asistencias || 0
-        );
-    }
-
-    if (totalTitulares) {
-
-      totalTitulares.textContent =
-        Number(
-          resumen.titulares_presentes || 0
-        );
-    }
-
-    if (totalAcompanantes) {
-
-      totalAcompanantes.textContent =
-        Number(
-          resumen.acompanantes_presentes || 0
-        );
-    }
+    Object.entries(campos).forEach(([id, valor]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = Number(valor || 0);
+    });
 
   } catch (error) {
 
-    console.error(
-      'Error cargando resumen:',
-      error
-    );
+    console.error('Error cargando resumen:', error);
 
     mostrarToast(
-      error.message ||
-      'No se pudo cargar el resumen de asistencia.',
+      error.message || 'No se pudo cargar el resumen de asistencia.',
       'danger'
     );
   }
 }
-
 
 // ── PAGINACIÓN ──
 function renderPaginacion(totalPaginas) {
