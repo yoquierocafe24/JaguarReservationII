@@ -445,9 +445,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.confirmModalCloseBtn?.addEventListener('click', cerrarModalConfirmacion);
     elements.confirmModalBackdrop?.addEventListener('click', cerrarModalConfirmacion);
     elements.confirmModalConfirmBtn?.addEventListener('click', async () => {
-        if (typeof state.confirmAction === 'function') {
-            cerrarModalConfirmacion();
-            await state.confirmAction();
+        const accionConfirmada = state.confirmAction;
+        cerrarModalConfirmacion();
+ 
+        if (typeof accionConfirmada === 'function') {
+            await accionConfirmada();
         }
     });
  
@@ -465,4 +467,3 @@ document.addEventListener('DOMContentLoaded', async () => {
  
     await cargarGuardias();
 });
- 
