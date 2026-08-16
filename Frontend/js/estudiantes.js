@@ -290,10 +290,18 @@ function resetearPaginacion() {
     state.currentPage = 1;
 }
 
+//Nueva funcion
+function calcularTotalPaginas(totalItems) {
+    return Math.max(
+        1,
+        Math.ceil(totalItems / state.pageSize)
+    );
+}
+
 function renderPagination(totalItems) {
     if (!elements.paginationControls || !elements.paginationInfo || !elements.paginationPage) return;
 
-    const totalPages = Math.max(1, Math.ceil(totalItems / state.pageSize));
+    const totalPages = calcularTotalPaginas(totalItems);
     const startIndex = totalItems === 0 ? 0 : (state.currentPage - 1) * state.pageSize + 1;
     const endIndex = totalItems === 0 ? 0 : Math.min(state.currentPage * state.pageSize, totalItems);
 
@@ -645,8 +653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     elements.paginationNextBtn?.addEventListener('click', () => {
         const estudiantesFiltrados = obtenerEstudiantesFiltrados();
-        const totalPages = Math.max(1, Math.ceil(estudiantesFiltrados.length / state.pageSize));
-
+        const totalPages = calcularTotalPaginas( estudiantesFiltrados.length );
         if (state.currentPage < totalPages) {
             state.currentPage += 1;
             renderStudents(estudiantesFiltrados);

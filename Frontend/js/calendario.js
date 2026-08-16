@@ -446,6 +446,69 @@ function renderProximasReservas() {
 }
 
 // =======================================
+// Configurar estado del botón de bloqueo
+// =======================================
+function configurarBotonBloqueo(iso) {
+
+    if (!elements.btnBloquearDia) return;
+
+    const fechaPasada = esFechaPasada(iso);
+    const diaBloqueadoCompleto =
+        tieneBloqueoCompleto(iso);
+
+    elements.btnBloquearDia.disabled =
+        fechaPasada || diaBloqueadoCompleto;
+
+    if (fechaPasada) {
+        elements.btnBloquearDia.textContent =
+            'Fecha finalizada';
+        return;
+    }
+
+    if (diaBloqueadoCompleto) {
+        elements.btnBloquearDia.textContent =
+            'Día bloqueado';
+        return;
+    }
+
+    elements.btnBloquearDia.innerHTML =
+        '<i class="bi bi-lock"></i> Cerrar este día';
+}
+
+// =======================================
+// Obtener bloqueos del día seleccionado
+// =======================================
+function obtenerBloqueosDelDia(iso) {
+
+    return state.bloqueos.filter(b => {
+
+        const inicio =
+            obtenerSoloFecha(b.fecha_inicio);
+
+        const fin =
+            obtenerSoloFecha(b.fecha_fin);
+
+        return iso >= inicio && iso <= fin;
+    });
+}
+
+// =======================================
+// Obtener reservas del día seleccionado
+// =======================================
+function obtenerReservasDelDia(iso) {
+
+    return state.reservas
+        .filter(r =>
+            r.fecha?.startsWith(iso)
+        )
+        .sort((a, b) =>
+            a.hora_inicio.localeCompare(
+                b.hora_inicio
+            )
+        );
+}
+
+// =======================================
 // Panel: detalle de un día
 // =======================================
 function renderDetalleDia(iso) {
@@ -453,36 +516,20 @@ function renderDetalleDia(iso) {
     elements.panelDetalle.hidden = false;
     elements.diaTitulo.textContent = formatearFechaLarga(iso);
 
-
+    // Se sigue usando para ocultar acciones
+    // en fechas que ya pasaron
     const fechaPasada = esFechaPasada(iso);
-const diaBloqueadoCompleto = tieneBloqueoCompleto(iso);
 
-// No permitir cerrar días pasados ni volver a cerrar
-// un día que ya está bloqueado completamente.
-if (elements.btnBloquearDia) {
+    // Funciones separadas
 
-    elements.btnBloquearDia.disabled =
-        fechaPasada || diaBloqueadoCompleto;
+      configurarBotonBloqueo(iso);
 
-    if (fechaPasada) {
-        elements.btnBloquearDia.textContent = 'Fecha finalizada';
-    } else if (diaBloqueadoCompleto) {
-        elements.btnBloquearDia.textContent = 'Día bloqueado';
-    } else {
-        elements.btnBloquearDia.innerHTML =
-            '<i class="bi bi-lock"></i> Cerrar este día';
-    }
-}
+      const bloqueosDia =
+        obtenerBloqueosDelDia(iso);
 
-    const bloqueosDia = state.bloqueos.filter(b => {
-    const inicio = obtenerSoloFecha(b.fecha_inicio);
-    const fin = obtenerSoloFecha(b.fecha_fin);
-
-    return iso >= inicio && iso <= fin;
-});
-    const reservasDia = state.reservas
-        .filter(r => r.fecha?.startsWith(iso))
-        .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+     const reservasDia =
+        obtenerReservasDelDia(iso);
+   
 
     // Bloqueos del día
     if (bloqueosDia.length === 0) {
