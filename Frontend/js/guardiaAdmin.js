@@ -130,7 +130,7 @@ function cerrarMenu() {
 
 
 const elements = {
-    tableBody: document.getElementById('guardias-table-body'),
+    tableBody: document.getElementById('guardia-table-body'),
     statusMessage: document.getElementById('status-message'),
     refreshBtn: document.getElementById('refresh-btn'),
     nuevoGuardiaBtn: document.getElementById('nuevo-guardia-btn'),
@@ -156,7 +156,7 @@ const elements = {
 };
 
 const state = {
-    guardias: [],
+    guardia: [],
     confirmAction: null
 };
 
@@ -212,43 +212,43 @@ function cerrarModalConfirmacion() {
 }
 
 // =======================================
-// Cargar y renderizar guardias
+// Cargar y renderizar guardia
 // =======================================
 
-async function cargarGuardias() {
+async function cargarguardia() {
     try {
-        setStatus('Cargando guardias...');
+        setStatus('Cargando guardia...');
 
-        const response = await fetch(`${API_URL}/api/guardias`, {
+        const response = await fetch(`${API_URL}/api/guardia`, {
             credentials: 'include'
         });
 
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-            throw new Error(data.mensaje || 'No se pudieron cargar los guardias');
+            throw new Error(data.mensaje || 'No se pudieron cargar los guardia');
         }
 
-        state.guardias = data.guardias || [];
+        state.guardia = data.guardia || [];
 
-        setStatus(`${state.guardias.length} guardia(s) registrados.`);
-        renderGuardias();
+        setStatus(`${state.guardia.length} guardia(s) registrados.`);
+        renderguardia();
 
     } catch (error) {
         console.error(error);
-        setStatus(error.message || 'Ocurrió un error al cargar los guardias.', true);
+        setStatus(error.message || 'Ocurrió un error al cargar los guardia.', true);
     }
 }
 
-function renderGuardias() {
+function renderguardia() {
     if (!elements.tableBody) return;
 
-    if (!state.guardias.length) {
-        elements.tableBody.innerHTML = '<tr><td colspan="3" class="empty-state">No hay guardias registrados.</td></tr>';
+    if (!state.guardia.length) {
+        elements.tableBody.innerHTML = '<tr><td colspan="3" class="empty-state">No hay guardia registrados.</td></tr>';
         return;
     }
 
-    elements.tableBody.innerHTML = state.guardias.map((guardia) => `
+    elements.tableBody.innerHTML = state.guardia.map((guardia) => `
         <tr>
             <td>${escapeHtml(guardia.nombre)}</td>
             <td>${escapeHtml(guardia.usuario)}</td>
@@ -286,7 +286,7 @@ function abrirModalGuardia(idGuardia) {
 
     if (idGuardia) {
 
-        const guardia = state.guardias.find(g => String(g.id_guardia) === String(idGuardia));
+        const guardia = state.guardia.find(g => String(g.id_guardia) === String(idGuardia));
         if (!guardia) return;
 
         elements.guardiaModalTitle.textContent = 'Editar guardia';
@@ -334,7 +334,7 @@ async function guardarGuardia(event) {
         setFormStatus('Guardando...');
 
         const response = await fetch(
-            idGuardia ? `${API_URL}/api/guardias/${idGuardia}` : `${API_URL}/api/guardias`,
+            idGuardia ? `${API_URL}/api/guardia/${idGuardia}` : `${API_URL}/api/guardia`,
             {
                 method: idGuardia ? 'PUT' : 'POST',
                 credentials: 'include',
@@ -350,7 +350,7 @@ async function guardarGuardia(event) {
         }
 
         cerrarModal(elements.guardiaModal);
-        await cargarGuardias();
+        await cargarguardia();
 
     } catch (error) {
         console.error(error);
@@ -365,7 +365,7 @@ async function guardarGuardia(event) {
 // =======================================
 
 function solicitarConfirmacionEliminar(idGuardia) {
-    const guardia = state.guardias.find(g => String(g.id_guardia) === String(idGuardia));
+    const guardia = state.guardia.find(g => String(g.id_guardia) === String(idGuardia));
 
     abrirModalConfirmacion({
         title: 'Eliminar guardia',
@@ -381,7 +381,7 @@ async function eliminarGuardia(idGuardia) {
     try {
         setStatus('Eliminando guardia...');
 
-        const response = await fetch(`${API_URL}/api/guardias/${idGuardia}`, {
+        const response = await fetch(`${API_URL}/api/guardia/${idGuardia}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -392,7 +392,7 @@ async function eliminarGuardia(idGuardia) {
             throw new Error(data.mensaje || 'No se pudo eliminar el guardia.');
         }
 
-        await cargarGuardias();
+        await cargarguardia();
 
     } catch (error) {
         console.error(error);
@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    elements.refreshBtn?.addEventListener('click', cargarGuardias);
+    elements.refreshBtn?.addEventListener('click', cargarguardia);
     elements.nuevoGuardiaBtn?.addEventListener('click', () => abrirModalGuardia(null));
     elements.tableBody?.addEventListener('click', manejarClicTabla);
     elements.guardiaForm?.addEventListener('submit', guardarGuardia);
@@ -463,5 +463,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    await cargarGuardias();
+    await cargarguardia();
 });
