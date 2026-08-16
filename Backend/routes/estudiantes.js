@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const XLSX = require("xlsx");
 const db = require("../db");
+const { resolverCamposEstudiante } = require("../utils/excelImport");
 
 const upload = multer({
     dest: "uploads/"
@@ -125,21 +126,19 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
         const datos = XLSX.utils.sheet_to_json(sheet, {
-            header: 1
+            header: 1,
+            blankrows: false
         });
+
+        const encabezados = Array.isArray(datos[0]) ? datos[0].map((valor) => String(valor || '').trim()) : [];
+        const indiceInicio = encabezados.some((valor) => /cuenta|nombre|dni|correo|carrera|tipo_ingreso/i.test(valor)) ? 1 : 0;
 
         const idsEstudiantesExcel = [];
 
-        for (let i = 1; i < datos.length; i++) {
+        for (let i = indiceInicio; i < datos.length; i++) {
 
             const fila = datos[i];
-
-            const cuenta = fila[0];
-            const nombre = fila[1];
-            const dni = fila[2];
-            const correo = fila[30];
-            const carrera = fila[7];
-            const tipo_ingreso = fila[10];
+            const { cuenta, nombre, dni, correo, carrera, tipo_ingreso } = resolverCamposEstudiante(fila, encabezados);
 
             if (!cuenta || !nombre || !dni)
                 continue;

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { normalizarFechaISO, fechaActualHondurasISO } = require('../utils/fechas');
 
 // =======================================
 // Middlewares de ayuda (sesión / rol admin)
@@ -303,7 +304,18 @@ router.post('/bloqueos', requiereSesion, requiereAdmin, async (req, res) => {
 
         fecha_fin = fecha_fin || fecha_inicio;
 
-        if (fecha_fin < fecha_inicio) {
+        const fechaInicioISO = normalizarFechaISO(fecha_inicio);
+        const fechaFinISO = normalizarFechaISO(fecha_fin);
+        const fechaActualISO = fechaActualHondurasISO();
+
+        if (!fechaInicioISO || !fechaFinISO) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Las fechas enviadas no tienen un formato válido. Usa YYYY-MM-DD."
+            });
+        }
+
+        if (fechaFinISO < fechaInicioISO) {
 
             return res.status(400).json({
                 ok: false,
@@ -313,20 +325,15 @@ router.post('/bloqueos', requiereSesion, requiereAdmin, async (req, res) => {
         }
 
         // ---------- No permitir bloqueos en fechas pasadas ----------
+        if (fechaInicioISO < fechaActualISO) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se pueden crear bloqueos en fechas pasadas."
+            });
+        }
 
-        const hoyHonduras = new Intl.DateTimeFormat('en-CA', {
-             timeZone: 'America/Tegucigalpa',
-             year: 'numeric',
-             month: '2-digit',
-            day: '2-digit'
-        }).format(new Date());
-
-        if (fecha_inicio < hoyHonduras) {
-        return res.status(400).json({
-         ok: false,
-        mensaje: "No se pueden crear bloqueos en fechas pasadas."
-    });
-}
+        fecha_inicio = fechaInicioISO;
+        fecha_fin = fechaFinISO;
 
         // Normaliza dia_completo a booleano/entero (1 o 0)
         const esDiaCompleto = dia_completo === false || dia_completo === 0
