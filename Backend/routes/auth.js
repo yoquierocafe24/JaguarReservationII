@@ -136,6 +136,13 @@ router.post('/login/estudiante', async (req, res) => {
 
         const { cuenta, dni } = req.body;
 
+        if (!cuenta || !dni) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'Debe enviar cuenta y DNI.'
+            });
+        }
+
         const [rows] = await db.query(
             'SELECT * FROM estudiantes WHERE cuenta = ?',
             [cuenta]
@@ -151,6 +158,8 @@ router.post('/login/estudiante', async (req, res) => {
         }
 
         const estudiante = rows[0];
+        const dniReal = String(estudiante.dni || '');
+        const dniIngresado = String(dni).trim();
 
         if (!estudiante.activo) {
 
@@ -161,7 +170,7 @@ router.post('/login/estudiante', async (req, res) => {
 
         }
 
-      if (!estudiante.dni.endsWith(dni)) {
+        if (!dniReal || !dniReal.endsWith(dniIngresado)) {
 
             return res.status(401).json({
                 ok: false,

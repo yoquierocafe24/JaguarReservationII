@@ -1,5 +1,4 @@
-const API_URL =
-    "https://jaguarreservationii-production.up.railway.app";
+const API_URL = 'http://localhost:3000';
 
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SM = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];

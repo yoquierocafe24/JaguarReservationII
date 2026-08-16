@@ -43,12 +43,24 @@ app.use(express.json());
 app.set("trust proxy", 1);
 
 app.use(cors({
-    origin: [
-        "http://localhost",
-        "http://127.0.0.1",
-        "http://127.0.0.1:5500",
-        "https://jaguar-reservation-ii.vercel.app"
-    ],
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            'http://localhost',
+            'http://127.0.0.1',
+            'http://localhost:8000',
+            'http://127.0.0.1:8000',
+            'http://localhost:5500',
+            'http://127.0.0.1:5500',
+            'https://jaguar-reservation-ii.vercel.app'
+        ];
+
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+
+        callback(new Error('Origin no permitido por CORS'));
+    },
     credentials: true
 }));
 
@@ -74,14 +86,8 @@ app.use(session({
 
     cookie: {
         httpOnly: true,
-
-        // Necesario porque Railway usa HTTPS
-        secure: true,
-
-        // Permite enviar la cookie entre
-        // localhost y Railway
-        sameSite: "none",
-
+        secure: false,
+        sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 4
     }
 }));

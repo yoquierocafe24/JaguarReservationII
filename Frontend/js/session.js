@@ -1,7 +1,6 @@
 
 
-const API_URL =
-    "https://jaguarreservationii-production.up.railway.app";
+const API_URL = 'http://localhost:3000';
 
 async function cargarSesion() {
     try {
