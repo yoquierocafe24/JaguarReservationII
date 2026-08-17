@@ -540,3 +540,50 @@
     }
 
 }
+
+/* ======================================
+   TARJETAS DE RESUMEN — COLOR POR ESTADO
+====================================== */
+
+.resumen-grid.asistencia-resumen {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.resumen-item span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.resumen-item span i {
+    font-size: 13px;
+}
+
+/* Ya no forzamos el color solo en el primero */
+.resumen-item:first-child strong {
+    color: var(--texto);
+}
+
+.item-esperados strong { color: #2563eb; }
+.item-esperados span i { color: #2563eb; }
+
+.item-presentes strong { color: #16a34a; }
+.item-presentes span i { color: #16a34a; }
+
+.item-pendientes strong { color: #d97706; }
+.item-pendientes span i { color: #d97706; }
+
+.item-inasistencias strong { color: var(--crimson); }
+.item-inasistencias span i { color: var(--crimson); }
+
+@media (max-width: 992px) {
+    .resumen-grid.asistencia-resumen {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .resumen-grid.asistencia-resumen {
+        grid-template-columns: 1fr;
+    }
+}

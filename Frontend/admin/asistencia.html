@@ -1,20 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
-
-<head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"  >
     <meta
         http-equiv="Cache-Control"
         content="no-store, no-cache, must-revalidate, max-age=0"
     >
-
     <meta
         http-equiv="Pragma"
         content="no-cache"
@@ -54,12 +44,12 @@
     <!-- CSS -->
     <link
         rel="stylesheet"
-        href="../css/admin.css"
+        href="../css/admin.css?v=12"
     >
 
     <link
         rel="stylesheet"
-        href="../css/asistencia.css"
+        href="../css/asistencia.css?v=12"
     >
 
 </head>
@@ -266,31 +256,35 @@
                 ></span>
 
 
-                <div class="admin-user">
+                <div class="admin-user" id="admin-user-trigger">
+
+                 <div class="admin-user-text">
+                 <span id="usuario-nombre">Administradora</span>
+                 <small>Administrador</small>
+                 </div>
+
+                <div class="admin-avatar" id="usuario-avatar">A</div>
+
+                <i class="bi bi-chevron-down admin-user-caret"></i>
+
+                 <div class="admin-user-dropdown" id="admin-user-dropdown">
+
+            <button type="button" onclick="abrirModalPerfil()">
+              <i class="bi bi-person"></i> Editar perfil
+            </button>
+
+             <button type="button" onclick="abrirModalPassword()">
+                <i class="bi bi-key"></i> Cambiar contraseña
+            </button>
+
+             <div class="admin-dropdown-separador" id="separador-superadmin" style="display:none;"></div>
+
+             <button type="button" id="btn-crear-admin" onclick="abrirModalCrearAdmin()" style="display:none;">
+                  <i class="bi bi-person-plus"></i> Crear administrador
+             </button>
 
 
-                    <div class="admin-user-text">
-
-                        <span id="usuario-nombre">
-                            Administradora
-                        </span>
-
-                        <small>
-                            Administrador
-                        </small>
-
-                    </div>
-
-
-                    <div
-                        class="admin-avatar"
-                        id="usuario-avatar"
-                    >
-                        A
-                    </div>
-
-
-                </div>
+            </div>
 
 
             </div>
@@ -323,73 +317,33 @@
 
 
 
-            <!-- =====================================
-                 RESUMEN
-            ====================================== -->
+         <div class="resumen-grid asistencia-resumen">
 
-            <div class="resumen-grid asistencia-resumen">
+    <div class="resumen-item item-esperados">
+        <span><i class="bi bi-people-fill"></i> Esperados hoy</span>
+        <strong id="total-esperados">0</strong>
+        <small>Personas con reserva aprobada</small>
+    </div>
 
+    <div class="resumen-item item-presentes">
+        <span><i class="bi bi-check-circle-fill"></i> Presentes</span>
+        <strong id="total-presentes">0</strong>
+        <small>Ya registraron entrada</small>
+    </div>
 
-                <!-- TOTAL ASISTENCIAS -->
+    <div class="resumen-item item-pendientes">
+        <span><i class="bi bi-hourglass-split"></i> Pendientes</span>
+        <strong id="total-pendientes">0</strong>
+        <small>Su horario aún no termina</small>
+    </div>
 
-                <div class="resumen-item">
+    <div class="resumen-item item-inasistencias">
+        <span><i class="bi bi-x-circle-fill"></i> Inasistencias</span>
+        <strong id="total-inasistencias">0</strong>
+        <small>El horario ya terminó, no llegaron</small>
+    </div>
 
-                    <span>
-                        Asistencias
-                    </span>
-
-                    <strong id="total-asistencias">
-                        0
-                    </strong>
-
-                    <small>
-                        Personas presentes
-                    </small>
-
-                </div>
-
-
-
-                <!-- TITULARES -->
-
-                <div class="resumen-item">
-
-                    <span>
-                        Titulares presentes
-                    </span>
-
-                    <strong id="total-titulares">
-                        0
-                    </strong>
-
-                    <small>
-                        Titulares que registraron entrada
-                    </small>
-
-                </div>
-
-
-
-                <!-- ACOMPAÑANTES -->
-
-                <div class="resumen-item">
-
-                    <span>
-                        Acompañantes presentes
-                    </span>
-
-                    <strong id="total-acompanantes">
-                        0
-                    </strong>
-
-                    <small>
-                        Acompañantes que registraron entrada
-                    </small>
-
-                </div>
-
-
-            </div>
+</div>
 
 
 
@@ -663,7 +617,62 @@
 
 </div>
 
+<!-- MODAL: EDITAR PERFIL -->
+<div class="modal-jaguar" id="modal-perfil">
+    <div class="modal-jaguar-caja">
+        <h3>Editar perfil</h3>
 
+        <label>Nombre</label>
+        <input type="text" id="perfil-nombre">
+
+        <label>Correo</label>
+        <input type="email" id="perfil-correo">
+
+        <div class="modal-jaguar-acciones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal('modal-perfil')">Cancelar</button>
+            <button type="button" class="btn-primario" onclick="guardarPerfil()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CAMBIAR CONTRASEÑA -->
+<div class="modal-jaguar" id="modal-password">
+    <div class="modal-jaguar-caja">
+        <h3>Cambiar contraseña</h3>
+
+        <label>Contraseña actual</label>
+        <input type="password" id="password-actual">
+
+        <label>Nueva contraseña</label>
+        <input type="password" id="password-nueva">
+
+        <div class="modal-jaguar-acciones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal('modal-password')">Cancelar</button>
+            <button type="button" class="btn-primario" onclick="guardarPassword()">Cambiar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREAR ADMINISTRADOR (solo superadmin) -->
+<div class="modal-jaguar" id="modal-crear-admin">
+    <div class="modal-jaguar-caja">
+        <h3>Crear administrador</h3>
+
+        <label>Nombre</label>
+        <input type="text" id="nuevo-admin-nombre">
+
+        <label>Correo</label>
+        <input type="email" id="nuevo-admin-correo">
+
+        <label>Contraseña temporal</label>
+        <input type="password" id="nuevo-admin-password">
+
+        <div class="modal-jaguar-acciones">
+            <button type="button" class="btn-secundario" onclick="cerrarModal('modal-crear-admin')">Cancelar</button>
+            <button type="button" class="btn-primario" onclick="guardarNuevoAdmin()">Crear</button>
+        </div>
+    </div>
+</div>
 
 <!-- =====================================
      TOAST
@@ -698,9 +707,8 @@
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
 ></script>
 
-<script src="../js/asistencia.js"></script>
-
-
+<script src="../js/asistencia.js?v=12"></script>
+<script src="../js/perfil-admin.js"></script>
 </body>
 
 </html>

@@ -57,18 +57,19 @@ async function cargarSesionAdmin() {
             return false;
         }
 
-        const nombre =
+       const nombre =
             data.usuario.nombre || "Administradora";
 
-        document.getElementById("admin-name").textContent =
+        document.getElementById("usuario-nombre").textContent =
             nombre;
 
         document.getElementById("welcome-name").textContent =
             primerNombre(nombre);
 
-        document.getElementById("admin-avatar").textContent =
+        document.getElementById("usuario-avatar").textContent =
             obtenerIniciales(nombre);
 
+            
         return true;
 
     } catch (error) {
