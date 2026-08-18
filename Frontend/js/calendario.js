@@ -64,8 +64,8 @@ async function cargarSesionAdmin() {
 
         const nombre = data.usuario.nombre || 'Administrador';
 
-        const nombreElement = document.getElementById('admin-name');
-        const avatarElement = document.getElementById('admin-avatar');
+        const nombreElement = document.getElementById('usuario-nombre');
+        const avatarElement = document.getElementById('usuario-avatar');
 
         if (nombreElement) nombreElement.textContent = nombre;
         if (avatarElement) avatarElement.textContent = obtenerIniciales(nombre);
