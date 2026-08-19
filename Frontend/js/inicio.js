@@ -1,6 +1,3 @@
-const API_URL =
-"https://jaguarreservationii-production.up.railway.app";
-
 
 function seleccionarEspacio(espacio){
 

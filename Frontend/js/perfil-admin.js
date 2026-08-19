@@ -29,12 +29,15 @@ document.addEventListener('click', (evento) => {
 
 
 // ── MODALES: abrir / cerrar ──
-function abrirModal(id) {
+// Nombres con sufijo "PerfilAdmin" para no chocar con
+// abrirModal()/cerrarModal() de otros scripts (ej: calendario.js),
+// que usan la misma función pero esperando un ELEMENTO en vez de un ID.
+function abrirModalPerfilAdmin(id) {
     document.getElementById(id)?.classList.add('activo');
     document.getElementById('admin-user-trigger')?.classList.remove('abierto');
 }
 
-function cerrarModal(id) {
+function cerrarModalPerfilAdmin(id) {
     document.getElementById(id)?.classList.remove('activo');
 }
 
@@ -45,7 +48,7 @@ function abrirModalPerfil() {
         document.getElementById('perfil-correo').value = usuarioActual.correo || '';
     }
 
-    abrirModal('modal-perfil');
+    abrirModalPerfilAdmin('modal-perfil');
 }
 
 function abrirModalPassword() {
@@ -53,7 +56,7 @@ function abrirModalPassword() {
     document.getElementById('password-actual').value = '';
     document.getElementById('password-nueva').value = '';
 
-    abrirModal('modal-password');
+    abrirModalPerfilAdmin('modal-password');
 }
 
 function abrirModalCrearAdmin() {
@@ -62,7 +65,7 @@ function abrirModalCrearAdmin() {
     document.getElementById('nuevo-admin-correo').value = '';
     document.getElementById('nuevo-admin-password').value = '';
 
-    abrirModal('modal-crear-admin');
+    abrirModalPerfilAdmin('modal-crear-admin');
 }
 
 
@@ -102,7 +105,7 @@ async function guardarPerfil() {
         if (avatarElemento) avatarElemento.textContent = obtenerInicialesPerfil(data.usuario.nombre);
 
         mostrarToast('Perfil actualizado correctamente.', 'success');
-        cerrarModal('modal-perfil');
+        cerrarModalPerfilAdmin('modal-perfil');
 
     } catch (error) {
 
@@ -148,7 +151,7 @@ async function guardarPassword() {
         }
 
         mostrarToast('Contraseña actualizada correctamente.', 'success');
-        cerrarModal('modal-password');
+        cerrarModalPerfilAdmin('modal-password');
 
     } catch (error) {
 
@@ -192,7 +195,7 @@ async function guardarNuevoAdmin() {
         }
 
         mostrarToast('Administrador creado correctamente.', 'success');
-        cerrarModal('modal-crear-admin');
+        cerrarModalPerfilAdmin('modal-crear-admin');
 
     } catch (error) {
 
@@ -245,4 +248,3 @@ document.addEventListener('DOMContentLoaded', async () => {
         .getElementById('admin-user-trigger')
         ?.addEventListener('click', alternarDropdownPerfil);
 });
-
