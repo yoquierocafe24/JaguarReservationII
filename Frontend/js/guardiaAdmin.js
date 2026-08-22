@@ -69,6 +69,17 @@ async function cargarSesionAdmin() {
             avatarElement.textContent =
                 obtenerIniciales(nombre);
         }
+
+        // =======================================
+        // Solo el superadmin puede crear, editar
+        // o eliminar guardias. Un admin regular
+        // solo consulta la lista.
+        // =======================================
+        state.esSuperadmin = Boolean(data.usuario.es_superadmin);
+
+        if (!state.esSuperadmin && elements.nuevoGuardiaBtn) {
+            elements.nuevoGuardiaBtn.style.display = 'none';
+        }
  
         return true;
  
@@ -157,7 +168,8 @@ const elements = {
  
 const state = {
     guardias: [],
-    confirmAction: null
+    confirmAction: null,
+    esSuperadmin: false
 };
  
 function escapeHtml(value = '') {
@@ -248,18 +260,27 @@ function renderGuardias() {
         return;
     }
  
-    elements.tableBody.innerHTML = state.guardias.map((guardia) => `
-        <tr>
-            <td>${escapeHtml(guardia.nombre)}</td>
-            <td>${escapeHtml(guardia.usuario)}</td>
-            <td>
+    elements.tableBody.innerHTML = state.guardias.map((guardia) => {
+
+        // Editar/Eliminar solo para el superadmin.
+        // Un admin regular solo puede consultar la lista.
+        const acciones = state.esSuperadmin
+            ? `
                 <div class="acciones-celda">
                     <button type="button" class="action-btn" data-editar="${guardia.id_guardia}">Editar</button>
                     <button type="button" class="action-btn eliminar" data-eliminar="${guardia.id_guardia}">Eliminar</button>
                 </div>
-            </td>
+            `
+            : `<span class="empty-state">—</span>`;
+
+        return `
+        <tr>
+            <td>${escapeHtml(guardia.nombre)}</td>
+            <td>${escapeHtml(guardia.usuario)}</td>
+            <td>${acciones}</td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
  
 function manejarClicTabla(event) {

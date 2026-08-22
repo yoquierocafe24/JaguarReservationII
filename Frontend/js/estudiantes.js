@@ -71,6 +71,22 @@ async function cargarSesionAdmin() {
                 obtenerIniciales(nombre);
         }
 
+        // =======================================
+        // Solo el superadmin puede subir el Excel
+        // de estudiantes y cerrar el trimestre.
+        // Un admin regular no ve esas opciones.
+        // =======================================
+        if (!data.usuario.es_superadmin) {
+
+            if (elements.uploadForm) {
+                elements.uploadForm.style.display = 'none';
+            }
+
+            if (elements.closeTrimesterBtn) {
+                elements.closeTrimesterBtn.style.display = 'none';
+            }
+        }
+
         return true;
 
     } catch (error) {
