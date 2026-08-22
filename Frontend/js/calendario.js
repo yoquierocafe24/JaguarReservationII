@@ -636,6 +636,7 @@ function cerrarDetalleDia() {
 function abrirModalCancelar(idReserva) {
     state.reservaIdParaCancelar = idReserva;
     elements.cancelarMotivo.value = '';
+     setCancelarFormStatus(''); 
     abrirModal(elements.modalCancelar);
 }
 
@@ -903,12 +904,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.querySelectorAll('#modal-bloqueo [data-action="close"]').forEach(el => {
-        el.addEventListener('click', () => cerrarModal(elements.modalBloqueo));
+        el.addEventListener('click', () => cerrarModal(elements.modalBloqueo) );
     });
 
-    document.querySelectorAll('#modal-cancelar [data-action="close-cancelar"]').forEach(el => {
-        el.addEventListener('click', () => cerrarModal(elements.modalCancelar));
+   document.querySelectorAll('#modal-cancelar [data-action="close-cancelar"]').forEach(el => {
+    el.addEventListener('click', () => {
+        cerrarModal(elements.modalCancelar);
+        setCancelarFormStatus('');  
     });
+});
 
     elements.btnConfirmarCancelar?.addEventListener('click', confirmarCancelarReserva);
 

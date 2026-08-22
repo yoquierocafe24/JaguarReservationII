@@ -120,6 +120,24 @@
                     </div>
 
                     <div class="admin-avatar" id="usuario-avatar">A</div>
+                  
+                    <i class="bi bi-chevron-down admin-user-caret"></i>
+
+            <div class="admin-user-dropdown" id="admin-user-dropdown">
+            <button type="button" onclick="abrirModalPerfil()">
+            <i class="bi bi-person"></i> Editar perfil
+        </button>
+
+        <button type="button" onclick="abrirModalPassword()">
+            <i class="bi bi-key"></i> Cambiar contraseña
+        </button>
+        
+        <div class="admin-dropdown-separador" id="separador-superadmin" style="display:none;"></div>
+        <button type="button" id="btn-crear-admin" onclick="abrirModalCrearAdmin()" style="display:none;">
+            <i class="bi bi-person-plus"></i> Crear administrador
+        </button>
+
+
                 </div>
             </div>
 
