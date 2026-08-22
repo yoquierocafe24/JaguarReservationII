@@ -32,6 +32,19 @@ function requiereAdmin(req, res, next) {
     next();
 }
 
+function requiereSuperAdmin(req, res, next) {
+    if (
+        req.session.usuario.rol !== "admin" ||
+        !req.session.usuario.es_superadmin
+    ) {
+        return res.status(403).json({
+            ok: false,
+            mensaje: "Solo el administrador principal puede realizar esta acción."
+        });
+    }
+    next();
+}
+
 // ========================================
 // HELPERS DE PERIODOS
 // ========================================
@@ -134,7 +147,7 @@ async function obtenerEstadoPeriodo(id_periodo) {
 // SUBIR EXCEL DE ESTUDIANTES (por periodo)
 // ========================================
 
-router.post("/estudiantes/subir", requiereSesion, requiereAdmin, upload.single("archivo"), async (req, res) => {
+router.post("/estudiantes/subir", requiereSesion, requiereSuperAdmin, upload.single("archivo"), async (req, res) => {
 
     try {
 
@@ -465,7 +478,7 @@ router.get("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
 router.put(
     "/estudiantes/cerrar-trimestre",
     requiereSesion,
-    requiereAdmin,
+    requiereSuperAdmin,
     async (req, res) => {
 
         try {

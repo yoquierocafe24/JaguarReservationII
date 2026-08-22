@@ -27,9 +27,23 @@ function requiereAdmin(req, res, next) {
     next();
 }
 
+function requiereSuperAdmin(req, res, next) {
+    if (
+        req.session.usuario.rol !== "admin" ||
+        !req.session.usuario.es_superadmin
+    ) {
+        return res.status(403).json({
+            ok: false,
+            mensaje: "Solo el administrador principal puede realizar esta acción."
+        });
+    }
+    next();
+}
+
 // =======================================
 // Listar guardias
 // GET /api/guardias
+// (cualquier admin puede consultar)
 // =======================================
 
 router.get('/', requiereSesion, requiereAdmin, async (req, res) => {
@@ -63,6 +77,7 @@ router.get('/', requiereSesion, requiereAdmin, async (req, res) => {
 // =======================================
 // Detalle de un guardia
 // GET /api/guardias/:id
+// (cualquier admin puede consultar)
 // =======================================
 
 router.get('/:id', requiereSesion, requiereAdmin, async (req, res) => {
@@ -106,11 +121,12 @@ router.get('/:id', requiereSesion, requiereAdmin, async (req, res) => {
 // =======================================
 // Crear guardia
 // POST /api/guardias
+// Solo el superadmin puede crear guardias
 //
 // body: nombre, usuario, contrasena
 // =======================================
 
-router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
+router.post('/', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
     try {
 
@@ -181,12 +197,13 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 // =======================================
 // Editar guardia
 // PUT /api/guardias/:id
+// Solo el superadmin puede editar guardias
 //
 // body: nombre, usuario, contrasena (opcional)
 // Si no se envía contrasena, se conserva la actual.
 // =======================================
 
-router.put('/:id', requiereSesion, requiereAdmin, async (req, res) => {
+router.put('/:id', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
     try {
 
@@ -288,9 +305,10 @@ router.put('/:id', requiereSesion, requiereAdmin, async (req, res) => {
 // =======================================
 // Eliminar guardia
 // DELETE /api/guardias/:id
+// Solo el superadmin puede eliminar guardias
 // =======================================
 
-router.delete('/:id', requiereSesion, requiereAdmin, async (req, res) => {
+router.delete('/:id', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
     try {
 
