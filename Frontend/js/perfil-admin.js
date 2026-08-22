@@ -235,8 +235,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (data.usuario.es_superadmin) {
 
-                document.getElementById('btn-crear-admin').style.display = 'flex';
-                document.getElementById('separador-superadmin').style.display = 'block';
+                // Con "?." por si la página no tiene estos elementos
+                // (ej: paneles donde no aplica crear administradores)
+                document.getElementById('btn-crear-admin')?.style.setProperty('display', 'flex');
+                document.getElementById('separador-superadmin')?.style.setProperty('display', 'block');
             }
         }
 
