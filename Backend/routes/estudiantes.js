@@ -8,6 +8,30 @@ const upload = multer({
     dest: "uploads/"
 });
 
+// =======================================
+// Middlewares de ayuda (sesión / rol admin)
+// =======================================
+
+function requiereSesion(req, res, next) {
+    if (!req.session.usuario) {
+        return res.status(401).json({
+            ok: false,
+            mensaje: "Debe iniciar sesión."
+        });
+    }
+    next();
+}
+
+function requiereAdmin(req, res, next) {
+    if (req.session.usuario.rol !== "admin") {
+        return res.status(403).json({
+            ok: false,
+            mensaje: "No tiene permisos."
+        });
+    }
+    next();
+}
+
 // ========================================
 // HELPERS DE PERIODOS
 // ========================================
@@ -88,11 +112,29 @@ async function obtenerPeriodoActivo() {
 
 }
 
+// Devuelve el estado ('Activo' / 'Finalizado') de un período específico,
+// o null si el período no existe.
+async function obtenerEstadoPeriodo(id_periodo) {
+
+    const [rows] = await db.query(
+
+        `SELECT estado
+         FROM periodo_academico
+         WHERE id_periodo = ?`,
+
+        [id_periodo]
+
+    );
+
+    return rows.length > 0 ? rows[0].estado : null;
+
+}
+
 // ========================================
 // SUBIR EXCEL DE ESTUDIANTES (por periodo)
 // ========================================
 
-router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => {
+router.post("/estudiantes/subir", requiereSesion, requiereAdmin, upload.single("archivo"), async (req, res) => {
 
     try {
 
@@ -267,7 +309,7 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
         res.status(500).json({
 
             ok: false,
-            mensaje: error.message
+            mensaje: "Error del servidor."
 
         });
 
@@ -279,7 +321,7 @@ router.post("/estudiantes/subir", upload.single("archivo"), async (req, res) => 
 // OBTENER PERIODOS ACADÉMICOS
 // ========================================
 
-router.get("/estudiantes/periodos", async (req, res) => {
+router.get("/estudiantes/periodos", requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
 
@@ -312,7 +354,7 @@ router.get("/estudiantes/periodos", async (req, res) => {
 
         res.status(500).json({
             ok: false,
-            mensaje: error.message
+            mensaje: "Error del servidor."
         });
 
     }
@@ -323,7 +365,7 @@ router.get("/estudiantes/periodos", async (req, res) => {
 // OBTENER TODOS LOS ESTUDIANTES (de un periodo)
 // ========================================
 
-router.get("/estudiantes", async (req, res) => {
+router.get("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
 
@@ -409,7 +451,7 @@ router.get("/estudiantes", async (req, res) => {
 
         res.status(500).json({
             ok: false,
-            mensaje: error.message
+            mensaje: "Error del servidor."
         });
 
     }
@@ -422,6 +464,8 @@ router.get("/estudiantes", async (req, res) => {
 
 router.put(
     "/estudiantes/cerrar-trimestre",
+    requiereSesion,
+    requiereAdmin,
     async (req, res) => {
 
         try {
@@ -492,7 +536,7 @@ router.put(
 
             return res.status(500).json({
                 ok: false,
-                mensaje: error.message
+                mensaje: "Error del servidor."
             });
         }
     }
@@ -504,6 +548,8 @@ router.put(
 
 router.put(
     "/estudiantes/:id_estudiante/estado",
+    requiereSesion,
+    requiereAdmin,
     async (req, res) => {
 
         try {
@@ -531,6 +577,31 @@ router.put(
                     ok: false,
                     mensaje:
                         "No hay un periodo académico activo ni se especificó id_periodo"
+                });
+            }
+
+            // =======================================
+            // Regla: no se puede modificar el estado
+            // de un estudiante en un período que ya
+            // fue cerrado (Finalizado). Ese registro
+            // es histórico y no debe cambiar.
+            // =======================================
+
+            const estadoPeriodo =
+                await obtenerEstadoPeriodo(id_periodo);
+
+            if (!estadoPeriodo) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje: "El periodo indicado no existe."
+                });
+            }
+
+            if (estadoPeriodo !== "Activo") {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje:
+                        "No se puede modificar el estado de un estudiante en un periodo ya finalizado."
                 });
             }
 
@@ -599,7 +670,7 @@ router.put(
 
             return res.status(500).json({
                 ok: false,
-                mensaje: error.message
+                mensaje: "Error del servidor."
             });
         }
     }
@@ -609,7 +680,7 @@ router.put(
 // ESTADISTICAS (de un periodo)
 // ========================================
 
-router.get("/estudiantes/resumen", async (req, res) => {
+router.get("/estudiantes/resumen", requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
 
@@ -680,7 +751,7 @@ router.get("/estudiantes/resumen", async (req, res) => {
 
             ok:false,
 
-            mensaje:error.message
+            mensaje: "Error del servidor."
 
         });
 

@@ -644,14 +644,21 @@ async function confirmarCancelarReserva() {
 
     const motivo = elements.cancelarMotivo.value.trim();
 
+    // Validar ANTES de enviar, igual que en Reservas
+    if (!motivo || motivo.length < 5) {
+        setCancelarFormStatus('Debe indicar el motivo de la cancelación (mínimo 5 caracteres).', true);
+        return;
+    }
+
     try {
         elements.btnConfirmarCancelar.disabled = true;
+        setCancelarFormStatus('');
 
         const response = await fetch(`${API_URL}/api/reservas/${state.reservaIdParaCancelar}/cancelar`, {
             method: 'PUT',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ motivo_cancelacion: motivo || undefined })
+            body: JSON.stringify({ motivo_cancelacion: motivo })
         });
 
         const data = await response.json();
@@ -665,10 +672,17 @@ async function confirmarCancelarReserva() {
 
     } catch (error) {
         console.error(error);
-        alert(error.message || 'Ocurrió un error al cancelar la reserva.');
+        setCancelarFormStatus(error.message || 'Ocurrió un error al cancelar la reserva.', true);
     } finally {
         elements.btnConfirmarCancelar.disabled = false;
     }
+}
+
+function setCancelarFormStatus(message, isError = false) {
+    const el = document.getElementById('cancelar-form-status');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.toggle('error', isError);
 }
 
 // =======================================

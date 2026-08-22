@@ -4,6 +4,40 @@ const db = require('../db');
 const crypto = require("crypto");
 
 // =======================================
+// Middlewares de ayuda (sesión / roles)
+// =======================================
+
+function requiereSesion(req, res, next) {
+    if (!req.session.usuario) {
+        return res.status(401).json({
+            ok: false,
+            mensaje: "Debe iniciar sesión."
+        });
+    }
+    next();
+}
+
+function requiereAdmin(req, res, next) {
+    if (req.session.usuario.rol !== "admin") {
+        return res.status(403).json({
+            ok: false,
+            mensaje: "No tiene permisos."
+        });
+    }
+    next();
+}
+
+function requiereEstudiante(req, res, next) {
+    if (req.session.usuario.rol !== "estudiante") {
+        return res.status(403).json({
+            ok: false,
+            mensaje: "No tiene permisos para realizar reservas."
+        });
+    }
+    next();
+}
+
+// =======================================
 // Generar ID de reserva (R001-2026, R002-2026...)
 // Se reinicia cada año
 // =======================================
@@ -42,25 +76,9 @@ async function generarIdReserva() {
 // POST /api/reservas
 // =======================================
 
-router.post('/', async (req, res) => {
+router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
 
     try {
-
-        // Verificar sesión
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-        }
-
-        // Solo estudiantes pueden reservar
-        if (req.session.usuario.rol !== "estudiante") {
-            return res.status(403).json({
-                ok: false,
-                mensaje: "No tiene permisos para realizar reservas."
-            });
-        }
 
         // El id del estudiante sale de la sesión
         const id_estudiante = req.session.usuario.id;
@@ -437,14 +455,8 @@ if (
 // GET /api/reservas
 // =======================================
 
-router.get('/', async (req, res) => {
+router.get('/', requiereSesion, async (req, res) => {
     try {
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok:false,
-                mensaje:"Debe iniciar sesión."
-            });
-        }
 
         const { estado, espacio, fecha } = req.query;
 
@@ -539,25 +551,9 @@ router.get('/', async (req, res) => {
 // GET /api/reservas/:id/acompanantes
 // =======================================
 
-router.get('/:id/acompanantes', async (req, res) => {
+router.get('/:id/acompanantes', requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
-
-        // Validar sesión
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-        }
-
-        // Solo administradores
-        if (req.session.usuario.rol !== "admin") {
-            return res.status(403).json({
-                ok: false,
-                mensaje: "No tiene permisos."
-            });
-        }
 
         const idReserva = req.params.id;
 
@@ -622,22 +618,13 @@ router.get('/:id/acompanantes', async (req, res) => {
 });
 
 // =======================================
-// Obtener horarios ocupados
+// Obtener horarios ocupados de un ESPACIO
 // GET /api/reservas/horarios/consultar?espacio=1&fecha=2026-07-15
 // =======================================
 
-router.get('/horarios/consultar', async (req, res) => {
+router.get('/horarios/consultar', requiereSesion, async (req, res) => {
 
     try {
-
-        if (!req.session.usuario) {
-
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-
-        }
 
         const { espacio, fecha } = req.query;
 
@@ -699,23 +686,71 @@ router.get('/horarios/consultar', async (req, res) => {
 
 });
 
+// =======================================
+// Obtener horarios ocupados del ESTUDIANTE
+// (sin importar el espacio) — se usa para
+// avisar ANTES de enviar el formulario que
+// ya tiene otra reserva a esa hora.
+// GET /api/reservas/mis-horarios?fecha=2026-08-20
+// =======================================
 
+router.get('/mis-horarios', requiereSesion, requiereEstudiante, async (req, res) => {
 
-router.put('/:id/aprobar', async (req, res) => {
     try {
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok:false,
-                mensaje:"Debe iniciar sesión."
+
+        const { fecha } = req.query;
+
+        if (!fecha) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Falta el parámetro: fecha."
             });
+
         }
 
-        if (req.session.usuario.rol !== "admin") {
-            return res.status(403).json({
-                ok:false,
-                mensaje:"No tiene permisos."
-            });
-        }
+        const [rows] = await db.query(
+
+            `SELECT hora_inicio, hora_fin
+             FROM reservas
+             WHERE id_estudiante = ?
+             AND fecha = ?
+             AND estado IN ('pendiente','aprobada')`,
+
+            [req.session.usuario.id, fecha]
+
+        );
+
+        const horasOcupadas = rows.map(r => {
+
+            const hi = r.hora_inicio.substring(0,5);
+            const hf = r.hora_fin.substring(0,5);
+            return `${hi}–${hf}`;
+
+        });
+
+        res.json({
+            ok: true,
+            horasOcupadas
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+
+
+router.put('/:id/aprobar', requiereSesion, requiereAdmin, async (req, res) => {
+    try {
 
         const [rows] = await db.query(
             `SELECT estado, fecha, hora_fin
@@ -776,21 +811,8 @@ router.put('/:id/aprobar', async (req, res) => {
     }
 });
 
-router.put('/:id/rechazar', async (req, res) => {
+router.put('/:id/rechazar', requiereSesion, requiereAdmin, async (req, res) => {
     try {
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok:false,
-                mensaje:"Debe iniciar sesión."
-            });
-        }
-
-        if (req.session.usuario.rol !== "admin") {
-            return res.status(403).json({
-                ok:false,
-                mensaje:"No tiene permisos."
-            });
-        }
 
         const [rows] = await db.query(
             `SELECT estado, fecha, hora_fin
@@ -856,21 +878,11 @@ router.put('/:id/rechazar', async (req, res) => {
 // PUT /api/reservas/:id/cancelar
 // =======================================
 
-router.put('/:id/cancelar', async (req, res) => {
+router.put('/:id/cancelar', requiereSesion, async (req, res) => {
 
     try {
 
-        if (!req.session.usuario) {
-
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-
-        }
-
-        const motivoCancelacion =
-            req.body.motivo_cancelacion?.trim();
+     const motivoCancelacion = (req.body.motivo_cancelacion || '').trim();
 
         // El estudiante debe indicar un motivo
         if (

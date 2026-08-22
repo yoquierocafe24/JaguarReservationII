@@ -399,6 +399,16 @@ body.modal-open {
     overflow: hidden;
 }
 
+.badge-periodo-cerrado {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--gris);
+    color: var(--subtexto);
+}
+
 @media (max-width: 900px) {
     .content {
         padding: 18px;

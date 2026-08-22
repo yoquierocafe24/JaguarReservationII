@@ -216,7 +216,12 @@ function getPeriodoSeleccionado() {
 
 async function cargarPeriodos() {
     try {
-        const response = await fetch(`${API_URL}/estudiantes/periodos`);
+        const response = await fetch(
+            `${API_URL}/estudiantes/periodos`,
+            {
+                credentials: 'include'
+            }
+        );
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
@@ -251,8 +256,14 @@ async function loadDashboard() {
         const periodoSeleccionado = getPeriodoSeleccionado();
 
         const [resumenRes, estudiantesRes] = await Promise.all([
-            fetch(`${API_URL}/estudiantes/resumen${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`),
-            fetch(`${API_URL}/estudiantes${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`)
+            fetch(
+                `${API_URL}/estudiantes/resumen${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`,
+                { credentials: 'include' }
+            ),
+            fetch(
+                `${API_URL}/estudiantes${periodoSeleccionado ? `?id_periodo=${encodeURIComponent(periodoSeleccionado)}` : ''}`,
+                { credentials: 'include' }
+            )
         ]);
 
         if (!resumenRes.ok || !estudiantesRes.ok) {
@@ -360,6 +371,14 @@ function renderStats(resumen) {
 function renderStudents(estudiantes) {
     if (!elements.tableBody) return;
 
+    // Determina si el período que se está viendo actualmente
+    // es el período activo, o uno ya finalizado (histórico).
+    const periodoSeleccionado =
+        getPeriodoSeleccionado() || state.periodoActivo;
+
+    const esPeriodoActivo =
+        String(periodoSeleccionado) === String(state.periodoActivo);
+
     const totalItems = Array.isArray(estudiantes) ? estudiantes.length : 0;
     const totalPages = Math.max(1, Math.ceil(totalItems / state.pageSize));
 
@@ -380,16 +399,22 @@ function renderStudents(estudiantes) {
         const activo = esActivo(estudiante);
         const estado = activo ? 'Activo' : 'Inactivo';
         const badgeClass = activo ? 'active' : 'inactive';
-        const accionHtml = `
-        <button
-        type="button"
-        class="action-btn ${activo ? '' : 'activar'}"
-        data-id="${escapeHtml(String(estudiante.id_estudiante))}"
-        data-activo="${activo ? '1' : '0'}"
-    >
-        ${activo ? 'Inactivar' : 'Activar'}
-    </button>
-`;
+
+        // Si el período que se está viendo ya está finalizado,
+        // no se muestra el botón — ese registro es histórico
+        // y el backend tampoco permitiría el cambio.
+        const accionHtml = esPeriodoActivo
+            ? `
+                <button
+                    type="button"
+                    class="action-btn ${activo ? '' : 'activar'}"
+                    data-id="${escapeHtml(String(estudiante.id_estudiante))}"
+                    data-activo="${activo ? '1' : '0'}"
+                >
+                    ${activo ? 'Inactivar' : 'Activar'}
+                </button>
+            `
+            : `<span class="badge-periodo-cerrado" title="Período finalizado, no se puede modificar">Período cerrado</span>`;
 
         return `
             <tr>
@@ -423,6 +448,7 @@ async function cambiarEstadoEstudiante(idEstudiante, nuevoEstado) {
             `${API_URL}/estudiantes/${encodeURIComponent(idEstudiante)}/estado`,
             {
                 method: 'PUT',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -538,6 +564,7 @@ async function handleUpload(event) {
         setStatus('Subiendo archivo...');
         const response = await fetch(`${API_URL}/estudiantes/subir`, {
             method: 'POST',
+            credentials: 'include',
             body: formData
         });
 
@@ -559,7 +586,8 @@ async function handleCloseTrimester() {
     try {
         setStatus('Cerrando trimestre...');
         const response = await fetch(`${API_URL}/estudiantes/cerrar-trimestre`, {
-            method: 'PUT'
+            method: 'PUT',
+            credentials: 'include'
         });
 
         const data = await response.json();

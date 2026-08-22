@@ -1,4 +1,3 @@
-
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS    = ['L','M','M','J','V','S','D'];
 const DIAS_SM = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -265,6 +264,10 @@ async function cargarHoras() {
 // Consulta al backend qué horas ya están ocupadas o agotadas
 let horasOcupadas = [];
 
+// Horas donde EL PROPIO ESTUDIANTE ya tiene otra reserva,
+// sin importar el espacio (se avisa distinto al usuario)
+let horasPropiasOcupadas = [];
+
 try {
 
   let url;
@@ -302,18 +305,32 @@ try {
   `${API_URL}/api/reservas/horarios/consultar?espacio=${espacios[espacio]}&fecha=${fechaSel}`;
   }
 
-  const res = await fetch(url, {
-    credentials: "include"
-  });
+  // Se consultan en paralelo:
+  // 1) la disponibilidad del espacio/juego (url de arriba)
+  // 2) las horas donde el ESTUDIANTE ya tiene otra reserva
+  //    ese día, sin importar el espacio
+  const [resEspacio, resPropias] = await Promise.all([
+    fetch(url, { credentials: "include" }),
+    fetch(
+      `${API_URL}/api/reservas/mis-horarios?fecha=${fechaSel}`,
+      { credentials: "include" }
+    )
+  ]);
 
-  const data = await res.json();
+  const data = await resEspacio.json();
+  const dataPropias = await resPropias.json();
 
   console.log("RESPUESTA DE HORARIOS:", data);
+  console.log("MIS HORARIOS OCUPADOS:", dataPropias);
 
-  if (!res.ok || !data.ok) {
+  if (!resEspacio.ok || !data.ok) {
     throw new Error(
       data.mensaje || "No se pudieron consultar los horarios."
     );
+  }
+
+  if (resPropias.ok && dataPropias.ok) {
+    horasPropiasOcupadas = dataPropias.horasOcupadas || [];
   }
 
   if (espacio === "zona_jaguar") {
@@ -361,6 +378,7 @@ try {
     const yaPaso = esHoy && finMinutos <= horaActualMinutos;
     const estaOcupada = horasOcupadas.includes(h);
     const estaBloqueada = esHorarioBloqueado(fechaSel, h);
+    const esPropiaOcupada = horasPropiasOcupadas.includes(h);
 
     // Texto visible con AM/PM
     const textoVisible = `${formatear12h(horaInicioStr)} – ${formatear12h(horaFinStr)}`;
@@ -381,9 +399,19 @@ if (estaBloqueada) {
   `;
 }
 
+// Ya tiene otra reserva a esta hora (en cualquier espacio) —
+// se avisa ANTES de enviar, no hasta el final del formulario
+if (esPropiaOcupada) {
+  return `
+    <button class="hora-chip ocupada" disabled title="Ya tienes una reserva a esta hora">
+      ${textoVisible}
+    </button>
+  `;
+}
+
 if (estaOcupada) {
   return `
-    <button class="hora-chip ocupada" disabled>
+    <button class="hora-chip ocupada" disabled title="Ese horario ya está reservado">
       ${textoVisible}
     </button>
   `;
@@ -776,6 +804,3 @@ if (selectJuego) {
 if (espacio === "zona_jaguar") {
   cargarJuegos();
 }
-  
-
-

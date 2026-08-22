@@ -3,28 +3,42 @@ const router = express.Router();
 const db = require('../db');
 
 // =======================================
+// Middlewares de ayuda (sesión / rol guardia)
+// =======================================
+
+function requiereSesion(req, res, next) {
+    if (!req.session.usuario) {
+        return res.status(401).json({
+            ok: false,
+            mensaje: "Debe iniciar sesión."
+        });
+    }
+    next();
+}
+
+function requiereGuardia(req, res, next) {
+    if (req.session.usuario.rol !== "guardia") {
+        return res.status(403).json({
+            ok: false,
+            mensaje: "No tiene permisos."
+        });
+    }
+    next();
+}
+
+// Fecha/hora de Honduras reutilizable en las queries
+const FECHA_HN = `DATE(CONVERT_TZ(NOW(), '+00:00', '-06:00'))`;
+const HORA_HN = `TIME(CONVERT_TZ(NOW(), '+00:00', '-06:00'))`;
+
+// =======================================
 // GUARDIA
 // Reservas del día
 // GET /api/reservas/hoy
 // =======================================
 
-router.get('/hoy', async (req, res) => {
+router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
 
     try {
-
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok:false,
-                mensaje:"Debe iniciar sesión."
-            });
-        }
-
-        if(req.session.usuario.rol !== "guardia"){
-            return res.status(403).json({
-                ok:false,
-                mensaje:"No tiene permisos."
-            });
-        }
 
         const [rows] = await db.query(
 
@@ -49,7 +63,7 @@ router.get('/hoy', async (req, res) => {
             INNER JOIN espacios es
                 ON r.id_espacio=es.id_espacio
 
-            WHERE r.fecha = CURDATE()
+            WHERE r.fecha = ${FECHA_HN}
             AND r.estado = 'aprobada'
             
 
@@ -57,12 +71,12 @@ router.get('/hoy', async (req, res) => {
 
     /* Primero: reservas con horario activo */
     CASE
-        WHEN CURTIME() >= r.hora_inicio
-         AND CURTIME() <= r.hora_fin
+        WHEN ${HORA_HN} >= r.hora_inicio
+         AND ${HORA_HN} <= r.hora_fin
         THEN 1
 
         /* Segundo: reservas que aún no comienzan */
-        WHEN CURTIME() < r.hora_inicio
+        WHEN ${HORA_HN} < r.hora_inicio
         THEN 2
 
         /* Tercero: reservas ya vencidas */
@@ -71,13 +85,13 @@ router.get('/hoy', async (req, res) => {
 
     /* Activas y próximas: la hora más cercana primero */
     CASE
-        WHEN CURTIME() <= r.hora_fin
+        WHEN ${HORA_HN} <= r.hora_fin
         THEN r.hora_inicio
     END ASC,
 
     /* Vencidas: la más reciente primero */
     CASE
-        WHEN CURTIME() > r.hora_fin
+        WHEN ${HORA_HN} > r.hora_fin
         THEN r.hora_fin
     END DESC`
 
@@ -107,25 +121,9 @@ router.get('/hoy', async (req, res) => {
 // Busca titulares y acompañantes del día
 // =======================================
 
-router.get('/buscar', async (req, res) => {
+router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
 
     try {
-
-        // Verificar sesión activa
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-        }
-
-        // Solo el guardia puede buscar personas
-        if (req.session.usuario.rol !== "guardia") {
-            return res.status(403).json({
-                ok: false,
-                mensaje: "No tiene permisos."
-            });
-        }
 
         const cuenta =
             String(req.query.cuenta || "").trim();
@@ -172,9 +170,9 @@ router.get('/buscar', async (req, res) => {
 
                 /* Indica si la reserva está en su horario */
                 CASE
-                    WHEN persona.fecha = CURDATE()
-                     AND CURTIME() >= persona.hora_inicio
-                     AND CURTIME() <= persona.hora_fin
+                    WHEN persona.fecha = ${FECHA_HN}
+                     AND ${HORA_HN} >= persona.hora_inicio
+                     AND ${HORA_HN} <= persona.hora_fin
                     THEN 1
                     ELSE 0
                 END AS horario_activo
@@ -203,7 +201,7 @@ router.get('/buscar', async (req, res) => {
                     ON titular.id_estudiante =
                        r.id_estudiante
 
-                WHERE r.fecha = CURDATE()
+                WHERE r.fecha = ${FECHA_HN}
                 AND r.estado = 'aprobada'
                 AND titular.cuenta = ?
 
@@ -235,7 +233,7 @@ router.get('/buscar', async (req, res) => {
                     ON acompanante.id_estudiante =
                        ra.id_estudiante
 
-                WHERE r.fecha = CURDATE()
+                WHERE r.fecha = ${FECHA_HN}
                 AND r.estado = 'aprobada'
                 AND acompanante.cuenta = ?
 
@@ -255,12 +253,12 @@ router.get('/buscar', async (req, res) => {
 
     /* 1. Reservas activas */
     CASE
-        WHEN CURTIME() >= persona.hora_inicio
-         AND CURTIME() <= persona.hora_fin
+        WHEN ${HORA_HN} >= persona.hora_inicio
+         AND ${HORA_HN} <= persona.hora_fin
         THEN 1
 
         /* 2. Reservas próximas */
-        WHEN CURTIME() < persona.hora_inicio
+        WHEN ${HORA_HN} < persona.hora_inicio
         THEN 2
 
         /* 3. Reservas vencidas */
@@ -269,13 +267,13 @@ router.get('/buscar', async (req, res) => {
 
     /* Activas y próximas: la más cercana primero */
     CASE
-        WHEN CURTIME() <= persona.hora_fin
+        WHEN ${HORA_HN} <= persona.hora_fin
         THEN persona.hora_inicio
     END ASC,
 
     /* Vencidas: la más reciente primero */
     CASE
-        WHEN CURTIME() > persona.hora_fin
+        WHEN ${HORA_HN} > persona.hora_fin
         THEN persona.hora_fin
     END DESC`,
 
@@ -321,23 +319,9 @@ router.get('/buscar', async (req, res) => {
 // GET /api/reservas/guardia/:id
 // =======================================
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
     try {
-
-        if (!req.session.usuario) {
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-        }
-
-        if (req.session.usuario.rol !== "guardia") {
-            return res.status(403).json({
-                ok: false,
-                mensaje: "No tiene permisos."
-            });
-        }
 
         // Información básica necesaria para el guardia
         const [reservas] = await db.query(
@@ -448,22 +432,9 @@ router.get('/:id', async (req, res) => {
 
     `SELECT
         CASE
-            WHEN fecha =
-                DATE(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                )
+            WHEN fecha = ${FECHA_HN}
 
-             AND TIME(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                ) BETWEEN hora_inicio AND hora_fin
+             AND ${HORA_HN} BETWEEN hora_inicio AND hora_fin
 
              AND estado NOT IN ('cancelada', 'rechazada')
 
@@ -503,34 +474,11 @@ router.get('/:id', async (req, res) => {
 // PUT /api/reservas/guardia/:id/asistencia
 // =======================================
 
-router.put('/:id/asistencia', async (req, res) => {
+router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) => {
 
     let conexion;
 
     try {
-
-        // =======================================
-        // Validar sesión
-        // =======================================
-
-        if (!req.session.usuario) {
-
-            return res.status(401).json({
-                ok: false,
-                mensaje: "Debe iniciar sesión."
-            });
-
-        }
-
-        // Solo el guardia puede registrar asistencia
-        if (req.session.usuario.rol !== "guardia") {
-
-            return res.status(403).json({
-                ok: false,
-                mensaje: "No tiene permisos."
-            });
-
-        }
 
         const id_reserva = req.params.id;
         const id_guardia = req.session.usuario.id;
@@ -565,43 +513,17 @@ router.put('/:id/asistencia', async (req, res) => {
         estado,
 
         CASE
-            WHEN fecha =
-                DATE(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                )
+            WHEN fecha = ${FECHA_HN}
             THEN 1
             ELSE 0
         END AS es_hoy,
 
         CASE
-            WHEN fecha =
-                DATE(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                )
+            WHEN fecha = ${FECHA_HN}
 
-             AND TIME(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                ) >= hora_inicio
+             AND ${HORA_HN} >= hora_inicio
 
-             AND TIME(
-                    CONVERT_TZ(
-                        NOW(),
-                        '+00:00',
-                        '-06:00'
-                    )
-                ) <= hora_fin
+             AND ${HORA_HN} <= hora_fin
 
             THEN 1
             ELSE 0
@@ -653,7 +575,7 @@ router.put('/:id/asistencia', async (req, res) => {
         if (!reserva.horario_activo) {
 
             const [horaActual] = await conexion.query(
-                `SELECT CURTIME() AS hora_actual`
+                `SELECT ${HORA_HN} AS hora_actual`
             );
 
             const ahora = horaActual[0].hora_actual;
@@ -808,7 +730,7 @@ router.put('/:id/asistencia', async (req, res) => {
                     hora_entrada,
                     id_guardia
                 )
-                VALUES (?, ?, ?, CURTIME(), ?)`,
+                VALUES (?, ?, ?, ${HORA_HN}, ?)`,
 
                 [
                     id_reserva,

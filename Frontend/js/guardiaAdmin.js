@@ -56,10 +56,10 @@ async function cargarSesionAdmin() {
             data.usuario.nombre || 'Administrador';
  
         const nombreElement =
-            document.getElementById('admin-name');
+            document.getElementById('usuario-nombre');
  
         const avatarElement =
-            document.getElementById('admin-avatar');
+            document.getElementById('usuario-avatar');
  
         if (nombreElement) {
             nombreElement.textContent = nombre;
