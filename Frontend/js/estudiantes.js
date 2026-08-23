@@ -76,14 +76,14 @@ async function cargarSesionAdmin() {
         // de estudiantes y cerrar el trimestre.
         // Un admin regular no ve esas opciones.
         // =======================================
-        if (!data.usuario.es_superadmin) {
+        if (data.usuario.es_superadmin) {
 
             if (elements.uploadForm) {
-                elements.uploadForm.style.display = 'none';
+                elements.uploadForm.style.display = 'flex';
             }
 
             if (elements.closeTrimesterBtn) {
-                elements.closeTrimesterBtn.style.display = 'none';
+                elements.closeTrimesterBtn.style.display = 'inline-block';
             }
         }
 

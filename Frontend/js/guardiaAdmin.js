@@ -77,8 +77,8 @@ async function cargarSesionAdmin() {
         // =======================================
         state.esSuperadmin = Boolean(data.usuario.es_superadmin);
 
-        if (!state.esSuperadmin && elements.nuevoGuardiaBtn) {
-            elements.nuevoGuardiaBtn.style.display = 'none';
+        if (state.esSuperadmin && elements.nuevoGuardiaBtn) {
+            elements.nuevoGuardiaBtn.style.display = 'flex';
         }
  
         return true;
