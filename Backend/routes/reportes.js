@@ -105,8 +105,8 @@ function construirFiltros(q) {
 router.get('/opciones', async (req, res) => {
     try {
         const [espacios] = await db.query(
-            `SELECT id_espacio, nombre FROM espacios WHERE activo = 1 ORDER BY id_espacio`
-        );
+    `SELECT id_espacio, nombre FROM espacios ORDER BY id_espacio`
+);
 
         const [carreras] = await db.query(
             `SELECT DISTINCT carrera

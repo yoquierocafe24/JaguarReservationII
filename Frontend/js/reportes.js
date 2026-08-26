@@ -1,5 +1,6 @@
 // reportes.js — Panel de administración · Módulo de Reportes
-const API_URL = 'http://localhost:3000';
+const API_URL =
+    'https://jaguarreservationii-production.up.railway.app';
 
 // ============================================================
 // Utilidades de shell (topbar, sesión, menú) — mismo patrón
@@ -33,8 +34,8 @@ async function cargarSesionAdmin() {
         }
 
         const nombre = data.usuario.nombre || 'Administrador';
-        const nombreEl = document.getElementById('admin-name');
-        const avatarEl = document.getElementById('admin-avatar');
+        const nombreEl = document.getElementById('usuario-nombre');
+        const avatarEl = document.getElementById('usuario-avatar');
         if (nombreEl) nombreEl.textContent = nombre;
         if (avatarEl) avatarEl.textContent = obtenerIniciales(nombre);
         return true;
