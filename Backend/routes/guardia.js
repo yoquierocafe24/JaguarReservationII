@@ -41,6 +41,37 @@ function requiereSuperAdmin(req, res, next) {
 }
 
 // =======================================
+// Validación de contraseña segura
+// Mínimo 8 caracteres, al menos una mayúscula,
+// una minúscula y un número.
+// Los caracteres especiales son opcionales.
+// =======================================
+
+function validarContrasena(contrasena) {
+
+    const errores = [];
+
+    if (!contrasena || contrasena.length < 8) {
+        errores.push("al menos 8 caracteres");
+    }
+
+    if (!/[A-Z]/.test(contrasena || "")) {
+        errores.push("al menos una letra mayúscula");
+    }
+
+    if (!/[a-z]/.test(contrasena || "")) {
+        errores.push("al menos una letra minúscula");
+    }
+
+    if (!/[0-9]/.test(contrasena || "")) {
+        errores.push("al menos un número");
+    }
+
+    return errores;
+
+}
+
+// =======================================
 // Listar guardias
 // GET /api/guardias
 // (cualquier admin puede consultar)
@@ -141,11 +172,13 @@ router.post('/', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
         }
 
-        if (contrasena.length < 6) {
+        const erroresContrasena = validarContrasena(contrasena);
+
+        if (erroresContrasena.length > 0) {
 
             return res.status(400).json({
                 ok: false,
-                mensaje: "La contraseña debe tener al menos 6 caracteres."
+                mensaje: `La contraseña debe tener ${erroresContrasena.join(", ")}.`
             });
 
         }
@@ -249,11 +282,13 @@ router.put('/:id', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
         if (contrasena) {
 
-            if (contrasena.length < 6) {
+            const erroresContrasena = validarContrasena(contrasena);
+
+            if (erroresContrasena.length > 0) {
 
                 return res.status(400).json({
                     ok: false,
-                    mensaje: "La contraseña debe tener al menos 6 caracteres."
+                    mensaje: `La contraseña debe tener ${erroresContrasena.join(", ")}.`
                 });
 
             }

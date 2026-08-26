@@ -180,6 +180,34 @@ function escapeHtml(value = '') {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
+
+// =======================================
+// Validación de contraseña segura
+// Mínimo 8 caracteres, al menos una mayúscula,
+// una minúscula y un número.
+// Los caracteres especiales son opcionales.
+// =======================================
+function validarContrasena(contrasena) {
+    const errores = [];
+
+    if (!contrasena || contrasena.length < 8) {
+        errores.push('al menos 8 caracteres');
+    }
+
+    if (!/[A-Z]/.test(contrasena || '')) {
+        errores.push('al menos una letra mayúscula');
+    }
+
+    if (!/[a-z]/.test(contrasena || '')) {
+        errores.push('al menos una letra minúscula');
+    }
+
+    if (!/[0-9]/.test(contrasena || '')) {
+        errores.push('al menos un número');
+    }
+
+    return errores;
+}
  
 function setStatus(message, isError = false) {
     if (!elements.statusMessage) return;
@@ -315,14 +343,14 @@ function abrirModalGuardia(idGuardia) {
         elements.guardiaNombre.value = guardia.nombre;
         elements.guardiaUsuario.value = guardia.usuario;
         elements.guardiaContrasena.required = false;
-        elements.guardiaContrasenaHint.textContent = 'Deja este campo en blanco para no cambiar la contraseña.';
+        elements.guardiaContrasenaHint.textContent = 'Deja este campo en blanco para no cambiar la contraseña. Si la cambias: mínimo 8 caracteres, con mayúscula, minúscula y número (los caracteres especiales son opcionales).';
  
     } else {
  
         elements.guardiaModalTitle.textContent = 'Nuevo guardia';
         elements.guardiaId.value = '';
         elements.guardiaContrasena.required = true;
-        elements.guardiaContrasenaHint.textContent = 'Mínimo 6 caracteres.';
+        elements.guardiaContrasenaHint.textContent = 'Mínimo 8 caracteres, con mayúscula, minúscula y número. Los caracteres especiales son opcionales.';
  
     }
  
@@ -348,6 +376,15 @@ async function guardarGuardia(event) {
     if (!idGuardia && !payload.contrasena) {
         setFormStatus('Debes indicar una contraseña para el nuevo guardia.', true);
         return;
+    }
+
+    if (payload.contrasena) {
+        const erroresContrasena = validarContrasena(payload.contrasena);
+
+        if (erroresContrasena.length > 0) {
+            setFormStatus(`La contraseña debe tener ${erroresContrasena.join(', ')}.`, true);
+            return;
+        }
     }
  
     try {
