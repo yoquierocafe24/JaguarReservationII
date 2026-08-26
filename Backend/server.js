@@ -21,6 +21,7 @@ const guardiasRoutes = require('./routes/guardias');
 const qrRoutes = require('./routes/qr');
 const asistenciaRoutes = require('./routes/asistencia');
 const calendarioRoutes = require('./routes/calendario');
+const reportesRoutes = require('./routes/reportes');
 
 
 
@@ -112,6 +113,7 @@ app.use('/api/guardias', guardiasRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/asistencia', asistenciaRoutes);
 app.use('/api/calendario', calendarioRoutes);
+app.use('/api/reportes', reportesRoutes);
 
 
 

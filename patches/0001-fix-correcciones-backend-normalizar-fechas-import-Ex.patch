@@ -1,0 +1,637 @@
+From 5a58972df20cb364c233e52ed0cd4909fcec6c04 Mon Sep 17 00:00:00 2001
+From: Skyle1 <richardcalderon350@yahoo.com>
+Date: Sat, 15 Aug 2026 21:26:04 -0600
+Subject: [PATCH] fix: correcciones backend - normalizar fechas, import Excel y
+ parche tsconfig
+
+---
+ .DS_Store                              | Bin 0 -> 6148 bytes
+ Backend/db.js                          | 283 +++++++++++++++++++++++++
+ Backend/package.json                   |   3 +-
+ Backend/routes/auth.js                 |  11 +-
+ Backend/scripts/patch-xlsx-tsconfig.js |  41 ++++
+ Backend/seed_prueba.sql                |   6 +-
+ Backend/server.js                      |  34 +--
+ Frontend/js/admin.js                   |   3 +-
+ Frontend/js/asistencia.js              |   3 +-
+ Frontend/js/calendario.js              |   3 +-
+ Frontend/js/estudiantes.js             |   3 +-
+ Frontend/js/guardia.js                 |   3 +-
+ Frontend/js/reservar-admin.js          |   3 +-
+ Frontend/js/session.js                 |   3 +-
+ Frontend/js/unirse-reserva.js          |   3 +-
+ Frontend/login.js                      |   3 +-
+ 16 files changed, 368 insertions(+), 37 deletions(-)
+ create mode 100644 .DS_Store
+ create mode 100644 Backend/scripts/patch-xlsx-tsconfig.js
+
+diff --git a/.DS_Store b/.DS_Store
+new file mode 100644
+index 0000000000000000000000000000000000000000..aeaaf3b62643db5b0af84137a63b15420e53abf1
+GIT binary patch
+literal 6148
+zcmeHKIZnht5Uhrkutc&U;e3G~Sk}S^_yDjbVudA++!62MX;dEpmLXY*WK}Ko)J#v;
+zjHUv&8-NWT<2A4a(9s?7>BHK5-+g6g6>+pU;|VVq$G83Aaav{n9&qjj20UPoXZ+w#
+z2Pbs6#VaNr`@Y=deKIK^1*Cu!kOETR2nDK!c9%zRMUeth;ItL+??a<I_Jwm|d^$Kp
+z3qag39L9O{62#^KVqZ8XGD5SY5|e7xVp!4{Z<W^<&WTBf#mzjYZno-BEN*AKMLMic
+z)F=g{z*2$pTyDMo-_ZZ)|Cc1Kq<|DSDFtk^yW0(XQq|Vg<Gj{3`aRuqzUXe82ZckF
+lV`7wJF1#FHMN;N9pL4%2oD+l2c+iRZ8E{=>QsBQ8_y&{d8`=N>
+
+literal 0
+HcmV?d00001
+
+diff --git a/Backend/db.js b/Backend/db.js
+index de424d6..968a8ff 100644
+--- a/Backend/db.js
++++ b/Backend/db.js
+@@ -2,6 +2,7 @@
+ // Todos los demas modulos importan este pool para hacer consultas.
+ 
+ const mysql = require('mysql2/promise');
++const bcrypt = require('bcryptjs');
+ require('dotenv').config();
+ 
+ const pool = mysql.createPool({
+@@ -15,12 +16,293 @@ const pool = mysql.createPool({
+   queueLimit: 0
+ });
+ 
++async function ensureColumn(tableName, columnName, definition) {
++  const [rows] = await pool.query(
++    `SELECT COUNT(*) AS total
++     FROM information_schema.COLUMNS
++     WHERE TABLE_SCHEMA = DATABASE()
++       AND TABLE_NAME = ?
++       AND COLUMN_NAME = ?`,
++    [tableName, columnName]
++  );
++
++  if (rows[0].total === 0) {
++    await pool.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
++  }
++}
++
++async function ensureStandardSchema() {
++  try {
++    const conn = await pool.getConnection();
++
++    try {
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS espacios (
++          id_espacio INT NOT NULL AUTO_INCREMENT,
++          nombre VARCHAR(100) NOT NULL,
++          descripcion TEXT NULL,
++          activo TINYINT(1) NOT NULL DEFAULT 1,
++          PRIMARY KEY (id_espacio)
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS estudiantes (
++          id_estudiante INT NOT NULL AUTO_INCREMENT,
++          nombre VARCHAR(150) NOT NULL,
++          dni VARCHAR(50) NOT NULL,
++          cuenta VARCHAR(50) NOT NULL,
++          correo VARCHAR(150) NULL,
++          activo TINYINT(1) NOT NULL DEFAULT 1,
++          PRIMARY KEY (id_estudiante),
++          UNIQUE KEY uq_estudiante_cuenta (cuenta),
++          UNIQUE KEY uq_estudiante_dni (dni)
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS administradores (
++          id_admin INT NOT NULL AUTO_INCREMENT,
++          nombre VARCHAR(150) NOT NULL,
++          correo VARCHAR(150) NOT NULL,
++          contrasena VARCHAR(255) NOT NULL,
++          PRIMARY KEY (id_admin),
++          UNIQUE KEY uq_admin_correo (correo)
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS guardia (
++          id_guardia INT NOT NULL AUTO_INCREMENT,
++          nombre VARCHAR(150) NOT NULL,
++          usuario VARCHAR(100) NOT NULL,
++          contrasena VARCHAR(255) NOT NULL,
++          PRIMARY KEY (id_guardia),
++          UNIQUE KEY uq_guardia_usuario (usuario)
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS reservas (
++          id_reserva VARCHAR(50) NOT NULL,
++          id_estudiante INT NOT NULL,
++          id_espacio INT NULL,
++          id_item INT NULL,
++          tipo_reserva VARCHAR(30) NOT NULL DEFAULT 'individual',
++          id_equipo INT NULL,
++          fecha DATE NOT NULL,
++          hora_inicio TIME NOT NULL,
++          hora_fin TIME NOT NULL,
++          telefono VARCHAR(20) NULL,
++          solicitud_especial TEXT NULL,
++          cant_acompanantes INT NOT NULL DEFAULT 0,
++          estado VARCHAR(30) NOT NULL DEFAULT 'aprobada',
++          qr_token VARCHAR(255) NULL,
++          cancelado_por VARCHAR(50) NULL,
++          motivo_cancelacion TEXT NULL,
++          PRIMARY KEY (id_reserva),
++          KEY fk_reserva_estudiante_idx (id_estudiante),
++          KEY fk_reserva_espacio_idx (id_espacio),
++          CONSTRAINT fk_reserva_estudiante
++            FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante)
++            ON DELETE CASCADE ON UPDATE CASCADE,
++          CONSTRAINT fk_reserva_espacio
++            FOREIGN KEY (id_espacio) REFERENCES espacios(id_espacio)
++            ON DELETE SET NULL ON UPDATE CASCADE
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS calendario_bloqueos (
++          id_bloqueo INT NOT NULL AUTO_INCREMENT,
++          fecha_inicio DATE NULL,
++          fecha_fin DATE NULL,
++          hora_inicio TIME NULL,
++          hora_fin TIME NULL,
++          dia_completo TINYINT(1) NOT NULL DEFAULT 0,
++          id_espacio INT NULL,
++          motivo VARCHAR(255) NULL,
++          origen VARCHAR(50) NULL DEFAULT 'manual',
++          PRIMARY KEY (id_bloqueo),
++          KEY fk_bloqueo_espacio_idx (id_espacio),
++          CONSTRAINT fk_bloqueo_espacio
++            FOREIGN KEY (id_espacio) REFERENCES espacios(id_espacio)
++            ON DELETE SET NULL ON UPDATE CASCADE
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS periodo_academico (
++          id_periodo INT NOT NULL AUTO_INCREMENT,
++          nombre VARCHAR(100) NOT NULL,
++          fecha_inicio DATE NOT NULL,
++          fecha_fin DATE NOT NULL,
++          estado VARCHAR(20) NOT NULL DEFAULT 'Activo',
++          PRIMARY KEY (id_periodo),
++          UNIQUE KEY uq_periodo_nombre (nombre)
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await conn.query(`
++        CREATE TABLE IF NOT EXISTS estudiante_periodo (
++          id INT NOT NULL AUTO_INCREMENT,
++          id_estudiante INT NOT NULL,
++          id_periodo INT NOT NULL,
++          carrera VARCHAR(150) NULL,
++          tipo_ingreso VARCHAR(100) NULL,
++          activo TINYINT(1) NOT NULL DEFAULT 1,
++          PRIMARY KEY (id),
++          UNIQUE KEY uq_estudiante_periodo (id_estudiante, id_periodo),
++          KEY fk_ep_estudiante_idx (id_estudiante),
++          KEY fk_ep_periodo_idx (id_periodo),
++          CONSTRAINT fk_ep_estudiante
++            FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante)
++            ON DELETE CASCADE ON UPDATE CASCADE,
++          CONSTRAINT fk_ep_periodo
++            FOREIGN KEY (id_periodo) REFERENCES periodo_academico(id_periodo)
++            ON DELETE CASCADE ON UPDATE CASCADE
++        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
++      `);
++
++      await ensureColumn('espacios', 'descripcion', 'TEXT NULL');
++      await ensureColumn('espacios', 'activo', 'TINYINT(1) NOT NULL DEFAULT 1');
++
++      await ensureColumn('estudiantes', 'dni', 'VARCHAR(50) NULL');
++      await ensureColumn('estudiantes', 'cuenta', 'VARCHAR(50) NULL');
++      await ensureColumn('estudiantes', 'correo', 'VARCHAR(150) NULL');
++      await ensureColumn('estudiantes', 'activo', 'TINYINT(1) NOT NULL DEFAULT 1');
++
++      await ensureColumn('administradores', 'nombre', 'VARCHAR(150) NULL');
++      await ensureColumn('administradores', 'correo', 'VARCHAR(150) NULL');
++      await ensureColumn('administradores', 'contrasena', 'VARCHAR(255) NULL');
++
++      await ensureColumn('guardia', 'nombre', 'VARCHAR(150) NULL');
++      await ensureColumn('guardia', 'usuario', 'VARCHAR(100) NULL');
++      await ensureColumn('guardia', 'contrasena', 'VARCHAR(255) NULL');
++
++      await ensureColumn('reservas', 'id_espacio', 'INT NULL');
++      await ensureColumn('reservas', 'id_item', 'INT NULL');
++      await ensureColumn('reservas', 'tipo_reserva', 'VARCHAR(30) NOT NULL DEFAULT "individual"');
++      await ensureColumn('reservas', 'id_equipo', 'INT NULL');
++      await ensureColumn('reservas', 'fecha', 'DATE NULL');
++      await ensureColumn('reservas', 'hora_inicio', 'TIME NULL');
++      await ensureColumn('reservas', 'hora_fin', 'TIME NULL');
++      await ensureColumn('reservas', 'telefono', 'VARCHAR(20) NULL');
++      await ensureColumn('reservas', 'solicitud_especial', 'TEXT NULL');
++      await ensureColumn('reservas', 'cant_acompanantes', 'INT NOT NULL DEFAULT 0');
++      await ensureColumn('reservas', 'estado', 'VARCHAR(30) NOT NULL DEFAULT "aprobada"');
++      await ensureColumn('reservas', 'qr_token', 'VARCHAR(255) NULL');
++      await ensureColumn('reservas', 'cancelado_por', 'VARCHAR(50) NULL');
++      await ensureColumn('reservas', 'motivo_cancelacion', 'TEXT NULL');
++
++      await ensureColumn('calendario_bloqueos', 'fecha_inicio', 'DATE NULL');
++      await ensureColumn('calendario_bloqueos', 'fecha_fin', 'DATE NULL');
++      await ensureColumn('calendario_bloqueos', 'hora_inicio', 'TIME NULL');
++      await ensureColumn('calendario_bloqueos', 'hora_fin', 'TIME NULL');
++      await ensureColumn('calendario_bloqueos', 'dia_completo', 'TINYINT(1) NOT NULL DEFAULT 0');
++      await ensureColumn('calendario_bloqueos', 'id_espacio', 'INT NULL');
++      await ensureColumn('calendario_bloqueos', 'motivo', 'VARCHAR(255) NULL');
++      await ensureColumn('calendario_bloqueos', 'origen', 'VARCHAR(50) NULL DEFAULT "manual"');
++
++      const [espacios] = await conn.query('SELECT COUNT(*) AS total FROM espacios');
++      if (espacios[0].total === 0) {
++        await conn.query(`
++          INSERT INTO espacios (id_espacio, nombre, descripcion, activo) VALUES
++          (1, 'Espacio 1', 'Espacio principal', 1),
++          (2, 'Espacio 2', 'Espacio secundario', 1),
++          (3, 'Espacio 3', 'Espacio adicional', 1),
++          (4, 'Espacio 4', 'Espacio reservado', 1)
++          ON DUPLICATE KEY UPDATE nombre = VALUES(nombre)
++        `);
++      }
++
++      const [adminRows] = await conn.query('SELECT COUNT(*) AS total FROM administradores');
++      if (adminRows[0].total === 0) {
++        const hash = bcrypt.hashSync('admin123', 10);
++        await conn.query(
++          'INSERT INTO administradores (nombre, correo, contrasena) VALUES (?, ?, ?)',
++          ['Lic. Keila Duarte', 'keila@ceutec.hn', hash]
++        );
++      }
++
++      const [guardiaRows] = await conn.query('SELECT COUNT(*) AS total FROM guardia');
++      if (guardiaRows[0].total === 0) {
++        const hash = bcrypt.hashSync('guardia123', 10);
++        await conn.query(
++          'INSERT INTO guardia (nombre, usuario, contrasena) VALUES (?, ?, ?)',
++          ['Carlos Nunez', 'guardia', hash]
++        );
++      }
++
++      const [estudiantesRows] = await conn.query('SELECT COUNT(*) AS total FROM estudiantes');
++      if (estudiantesRows[0].total === 0) {
++        await conn.query(
++          'INSERT INTO estudiantes (nombre, dni, cuenta, correo, activo) VALUES (?, ?, ?, ?, ?)',
++          ['Richard Calderon', '0801200500123', '42411126', 'rcalderon@ceutec.hn', 1]
++        );
++      }
++
++      const [periodRows] = await conn.query('SELECT COUNT(*) AS total FROM periodo_academico');
++      if (periodRows[0].total === 0) {
++        const hoy = new Date();
++        const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
++        const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 3, 0);
++        const nombrePeriodo = `${hoy.getFullYear()}-T${Math.ceil((hoy.getMonth() + 1) / 3)}`;
++
++        await conn.query(
++          'INSERT INTO periodo_academico (nombre, fecha_inicio, fecha_fin, estado) VALUES (?, ?, ?, ?)',
++          [
++            nombrePeriodo,
++            inicio.toISOString().slice(0, 10),
++            fin.toISOString().slice(0, 10),
++            'Activo'
++          ]
++        );
++      }
++
++      const [fkReserva] = await conn.query(
++        `SELECT COUNT(*) AS total
++         FROM information_schema.KEY_COLUMN_USAGE
++         WHERE TABLE_SCHEMA = DATABASE()
++           AND TABLE_NAME = 'reservas'
++           AND CONSTRAINT_NAME = 'fk_reserva_espacio'`
++      );
++      if (fkReserva[0].total === 0) {
++        await conn.query(
++          'ALTER TABLE reservas ADD CONSTRAINT fk_reserva_espacio FOREIGN KEY (id_espacio) REFERENCES espacios(id_espacio) ON DELETE SET NULL ON UPDATE CASCADE'
++        );
++      }
++
++      const [fkBloqueos] = await conn.query(
++        `SELECT COUNT(*) AS total
++         FROM information_schema.KEY_COLUMN_USAGE
++         WHERE TABLE_SCHEMA = DATABASE()
++           AND TABLE_NAME = 'calendario_bloqueos'
++           AND CONSTRAINT_NAME = 'fk_bloqueo_espacio'`
++      );
++      if (fkBloqueos[0].total === 0) {
++        await conn.query(
++          'ALTER TABLE calendario_bloqueos ADD CONSTRAINT fk_bloqueo_espacio FOREIGN KEY (id_espacio) REFERENCES espacios(id_espacio) ON DELETE SET NULL ON UPDATE CASCADE'
++        );
++      }
++
++      console.log('OK  Esquema estandarizado para Jaguar Reserva.');
++    } finally {
++      conn.release();
++    }
++  } catch (err) {
++    console.error('ERROR al estandarizar la base de datos:', err.message);
++    throw err;
++  }
++}
++
+ // Prueba de conexion al arrancar (para ver rapido si la BD esta bien configurada)
+ (async () => {
+   try {
+     const conn = await pool.getConnection();
+     console.log('OK  Conectado a MySQL:', process.env.DB_NAME || 'jaguar_reserva');
+     conn.release();
++    await ensureStandardSchema();
+   } catch (err) {
+     console.error('ERROR al conectar a MySQL:', err.message);
+     console.error('    Revisa tu archivo .env (usuario, password, nombre de la BD).');
+@@ -28,3 +310,4 @@ const pool = mysql.createPool({
+ })();
+ 
+ module.exports = pool;
++module.exports.ensureStandardSchema = ensureStandardSchema;
+diff --git a/Backend/package.json b/Backend/package.json
+index 0d99703..11ec161 100644
+--- a/Backend/package.json
++++ b/Backend/package.json
+@@ -5,7 +5,8 @@
+   "main": "server.js",
+   "scripts": {
+     "start": "node server.js",
+-    "dev": "nodemon server.js"
++    "dev": "node server.js",
++    "postinstall": "node scripts/patch-xlsx-tsconfig.js"
+   },
+   "dependencies": {
+     "bcryptjs": "^2.4.3",
+diff --git a/Backend/routes/auth.js b/Backend/routes/auth.js
+index f3cdc4b..b58ff63 100644
+--- a/Backend/routes/auth.js
++++ b/Backend/routes/auth.js
+@@ -136,6 +136,13 @@ router.post('/login/estudiante', async (req, res) => {
+ 
+         const { cuenta, dni } = req.body;
+ 
++        if (!cuenta || !dni) {
++            return res.status(400).json({
++                ok: false,
++                mensaje: 'Debe enviar cuenta y DNI.'
++            });
++        }
++
+         const [rows] = await db.query(
+             'SELECT * FROM estudiantes WHERE cuenta = ?',
+             [cuenta]
+@@ -151,6 +158,8 @@ router.post('/login/estudiante', async (req, res) => {
+         }
+ 
+         const estudiante = rows[0];
++        const dniReal = String(estudiante.dni || '');
++        const dniIngresado = String(dni).trim();
+ 
+         if (!estudiante.activo) {
+ 
+@@ -161,7 +170,7 @@ router.post('/login/estudiante', async (req, res) => {
+ 
+         }
+ 
+-      if (!estudiante.dni.endsWith(dni)) {
++        if (!dniReal || !dniReal.endsWith(dniIngresado)) {
+ 
+             return res.status(401).json({
+                 ok: false,
+diff --git a/Backend/scripts/patch-xlsx-tsconfig.js b/Backend/scripts/patch-xlsx-tsconfig.js
+new file mode 100644
+index 0000000..3abafa0
+--- /dev/null
++++ b/Backend/scripts/patch-xlsx-tsconfig.js
+@@ -0,0 +1,41 @@
++const fs = require('fs');
++const path = require('path');
++
++const dest = path.join(__dirname, '..', 'node_modules', 'xlsx', 'types', 'tsconfig.json');
++const backup = dest + '.bak';
++
++const content = {
++    compilerOptions: {
++        module: 'commonjs',
++        target: 'es5',
++        lib: ['es5'],
++        moduleResolution: 'node',
++        esModuleInterop: true,
++        skipLibCheck: true,
++        noImplicitAny: true,
++        noImplicitThis: true,
++        strictNullChecks: false,
++        baseUrl: '.',
++        paths: { xlsx: ['.'] },
++        types: [],
++        noEmit: true,
++        strictFunctionTypes: true,
++        forceConsistentCasingInFileNames: true
++    }
++};
++
++try {
++    const dir = path.dirname(dest);
++    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
++
++    if (fs.existsSync(dest) && !fs.existsSync(backup)) {
++        fs.copyFileSync(dest, backup);
++        console.log('Backup creado en', backup);
++    }
++
++    fs.writeFileSync(dest, JSON.stringify(content, null, 4), 'utf8');
++    console.log('tsconfig parcheado en', dest);
++} catch (err) {
++    console.error('No fue posible parchear tsconfig:', err.message);
++    process.exitCode = 1;
++}
+diff --git a/Backend/seed_prueba.sql b/Backend/seed_prueba.sql
+index c4a9b6f..6bcbae9 100644
+--- a/Backend/seed_prueba.sql
++++ b/Backend/seed_prueba.sql
+@@ -7,17 +7,17 @@
+ USE jaguar_reserva;
+ 
+ -- Admin  (correo: keila@ceutec.hn   contrasena: admin123)   [bcrypt]
+-INSERT INTO Administrador (nombre, correo, contrasena) VALUES
++INSERT INTO administradores (nombre, correo, contrasena) VALUES
+ ('Lic. Keila Duarte', 'keila@ceutec.hn',
+  '$2b$10$IjdFdwqhb78l65Jz9l6ode3DRW1TKSzD5/1UEf4yl4OBfb7UjEuP6');
+ 
+ -- Guardia  (usuario: guardia   contrasena: guardia123)   [bcrypt]
+-INSERT INTO Guardia (nombre, usuario, contrasena) VALUES
++INSERT INTO guardia (nombre, usuario, contrasena) VALUES
+ ('Carlos Nunez', 'guardia',
+  '$2b$10$GIAFu7vPAOrWMZ1ZOigUIO1HwdM9mPBtoTVDL/ggv3oYxL5zJudMi');
+ 
+ -- Estudiantes de prueba (el DNI es la contrasena — texto plano por diseno)
+-INSERT INTO Estudiantes (nombre, dni, cuenta, correo, activo) VALUES
++INSERT INTO estudiantes (nombre, dni, cuenta, correo, activo) VALUES
+ ('Richard Calderon',     '0801200500123', '42411126', 'rcalderon@ceutec.hn', 1),
+ ('Maria Fernandez',      '0801200400456', '42411047', 'mfernandez@ceutec.hn', 1),
+ ('Estudiante Inactivo',  '0801200300789', '42411099', 'inactivo@ceutec.hn',   0);
+diff --git a/Backend/server.js b/Backend/server.js
+index 4f7bf4c..3ce6bad 100644
+--- a/Backend/server.js
++++ b/Backend/server.js
+@@ -43,12 +43,24 @@ app.use(express.json());
+ app.set("trust proxy", 1);
+ 
+ app.use(cors({
+-    origin: [
+-        "http://localhost",
+-        "http://127.0.0.1",
+-        "http://127.0.0.1:5500",
+-        "https://jaguar-reservation-ii.vercel.app"
+-    ],
++    origin: function (origin, callback) {
++        const allowedOrigins = [
++            'http://localhost',
++            'http://127.0.0.1',
++            'http://localhost:8000',
++            'http://127.0.0.1:8000',
++            'http://localhost:5500',
++            'http://127.0.0.1:5500',
++            'https://jaguar-reservation-ii.vercel.app'
++        ];
++
++        if (!origin || allowedOrigins.includes(origin)) {
++            callback(null, true);
++            return;
++        }
++
++        callback(new Error('Origin no permitido por CORS'));
++    },
+     credentials: true
+ }));
+ 
+@@ -74,14 +86,8 @@ app.use(session({
+ 
+     cookie: {
+         httpOnly: true,
+-
+-        // Necesario porque Railway usa HTTPS
+-        secure: true,
+-
+-        // Permite enviar la cookie entre
+-        // localhost y Railway
+-        sameSite: "none",
+-
++        secure: false,
++        sameSite: 'lax',
+         maxAge: 1000 * 60 * 60 * 4
+     }
+ }));
+diff --git a/Frontend/js/admin.js b/Frontend/js/admin.js
+index 696c4fd..b512019 100644
+--- a/Frontend/js/admin.js
++++ b/Frontend/js/admin.js
+@@ -1,5 +1,4 @@
+-const API_URL =
+-    "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ let reservasAdmin = [];
+ 
+diff --git a/Frontend/js/asistencia.js b/Frontend/js/asistencia.js
+index 0ee07a8..e2844a2 100644
+--- a/Frontend/js/asistencia.js
++++ b/Frontend/js/asistencia.js
+@@ -1,5 +1,4 @@
+-const API_URL =
+-  "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ const ASISTENCIAS_POR_PAGINA = 6;
+ 
+diff --git a/Frontend/js/calendario.js b/Frontend/js/calendario.js
+index 52be84c..c4b1d29 100644
+--- a/Frontend/js/calendario.js
++++ b/Frontend/js/calendario.js
+@@ -1,5 +1,4 @@
+-const API_URL =
+-  "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ 
+ // =======================================
+diff --git a/Frontend/js/estudiantes.js b/Frontend/js/estudiantes.js
+index b265381..cd5942e 100644
+--- a/Frontend/js/estudiantes.js
++++ b/Frontend/js/estudiantes.js
+@@ -1,5 +1,4 @@
+-const API_URL =
+-    "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ // Actualizar fecha y hora en tiempo real
+ function updateDateTime() {
+diff --git a/Frontend/js/guardia.js b/Frontend/js/guardia.js
+index 046256d..78b5e39 100644
+--- a/Frontend/js/guardia.js
++++ b/Frontend/js/guardia.js
+@@ -1,7 +1,6 @@
+ // LO NUEVOOO
+ 
+-const API_URL =
+-    'https://jaguarreservationii-production.up.railway.app';
++const API_URL = 'http://localhost:3000';
+ 
+ let reservasDelDia = [];
+ let reservaSeleccionada = null;
+diff --git a/Frontend/js/reservar-admin.js b/Frontend/js/reservar-admin.js
+index aa4496a..976f487 100644
+--- a/Frontend/js/reservar-admin.js
++++ b/Frontend/js/reservar-admin.js
+@@ -1,5 +1,4 @@
+-const API_URL =
+-    "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+ const DIAS_SM = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+diff --git a/Frontend/js/session.js b/Frontend/js/session.js
+index 9f26ef9..0e219b9 100644
+--- a/Frontend/js/session.js
++++ b/Frontend/js/session.js
+@@ -1,7 +1,6 @@
+ 
+ 
+-const API_URL =
+-    "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ async function cargarSesion() {
+     try {
+diff --git a/Frontend/js/unirse-reserva.js b/Frontend/js/unirse-reserva.js
+index 482dcc3..ea8c78a 100644
+--- a/Frontend/js/unirse-reserva.js
++++ b/Frontend/js/unirse-reserva.js
+@@ -1,6 +1,5 @@
+ 
+-const API_URL =
+-    "https://jaguarreservationii-production.up.railway.app";
++const API_URL = 'http://localhost:3000';
+ 
+ // ======================================
+ // ELEMENTOS DEL HTML
+diff --git a/Frontend/login.js b/Frontend/login.js
+index c06aa5c..ed20ed0 100644
+--- a/Frontend/login.js
++++ b/Frontend/login.js
+@@ -2,8 +2,7 @@
+ const $ = (s) => document.querySelector(s);
+ 
+ //LO NUEVO
+-const API_URL =
+-    'https://jaguarreservationii-production.up.railway.app';
++const API_URL = 'http://localhost:3000';
+     
+ let tipo = 'estudiante';
+ 
+-- 
+2.55.0
+

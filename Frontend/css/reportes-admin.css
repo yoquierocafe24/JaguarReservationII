@@ -1,0 +1,218 @@
+/* ======================================
+   JAGUAR RESERVATION — REPORTES (ADMIN)
+   Reutiliza la identidad visual del panel
+   (admin.css + estudiantes-admin.css) y
+   añade estilos propios de reportes.
+====================================== */
+
+.reportes-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.reportes-head h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--carmine);
+    font-weight: 700;
+}
+
+.reportes-head p {
+    margin: 2px 0 0;
+    font-size: .85rem;
+    color: var(--muted, #6b7280);
+}
+
+/* Grid de tarjetas de reporte (2 columnas) */
+.reportes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.report-card {
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 16px;
+    padding: 18px 18px 20px;
+    box-shadow: 0 8px 24px rgba(9, 13, 94, .04);
+    display: flex;
+    flex-direction: column;
+    min-height: 260px;
+}
+
+.report-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.report-card-icon {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--carmine), var(--crimson));
+    color: #fff;
+    font-size: 18px;
+}
+
+.report-card-title {
+    font-size: .98rem;
+    font-weight: 700;
+    color: var(--text, #1f2937);
+    line-height: 1.2;
+}
+
+.report-card-sub {
+    font-size: .76rem;
+    color: var(--muted, #6b7280);
+    margin-top: 2px;
+}
+
+/* Gráfico de barras horizontales */
+.bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.bar-row {
+    display: grid;
+    grid-template-columns: 150px 1fr 48px;
+    align-items: center;
+    gap: 10px;
+}
+
+.bar-label {
+    font-size: .84rem;
+    color: var(--text, #1f2937);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bar-track {
+    display: block;
+    width: 100%;
+    height: 14px;
+    background: #f0eef6;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--carmine), var(--crimson));
+    width: 0;
+    transition: width .6s ease;
+    min-width: 2px;
+}
+
+/* Colores alternos para diferenciar categorías */
+.report-card.alt .bar-fill {
+    background: linear-gradient(90deg, #090d5e, #3b3fb5);
+}
+
+.bar-value {
+    font-size: .86rem;
+    font-weight: 700;
+    color: var(--carmine);
+    text-align: right;
+}
+
+.report-card.alt .bar-value {
+    color: #090d5e;
+}
+
+/* Comparativo primer ingreso vs reingreso (dos bloques) */
+.compare-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.compare-box {
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid rgba(147, 6, 30, .12);
+    background: #fff7f7;
+}
+
+.compare-box.reingreso {
+    border-color: rgba(9, 13, 94, .14);
+    background: #f4f5ff;
+}
+
+.compare-box .c-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--carmine);
+    line-height: 1;
+}
+
+.compare-box.reingreso .c-value {
+    color: #090d5e;
+}
+
+.compare-box .c-label {
+    font-size: .82rem;
+    color: var(--muted, #6b7280);
+    margin-top: 8px;
+    font-weight: 600;
+}
+
+.compare-box .c-pct {
+    font-size: .8rem;
+    color: var(--muted, #6b7280);
+    margin-top: 4px;
+}
+
+/* Nota informativa dentro de una tarjeta */
+.report-note {
+    font-size: .76rem;
+    color: var(--muted, #6b7280);
+    margin-top: auto;
+    padding-top: 12px;
+}
+
+/* Estado de carga / vacío dentro de tarjeta */
+.card-empty {
+    text-align: center;
+    color: var(--muted, #6b7280);
+    padding: 28px 10px;
+    font-size: .88rem;
+}
+
+.filters-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+@media (max-width: 1050px) {
+    .reportes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .bar-row {
+        grid-template-columns: 110px 1fr 40px;
+    }
+}
