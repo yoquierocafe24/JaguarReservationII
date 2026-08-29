@@ -22,14 +22,40 @@
 //   id_periodo               = usa el rango del periodo academico (trimestral)
 //   periodo=anual & anio=YYYY          = todo el año
 //   periodo=trimestral & anio=YYYY & trimestre=1..4  = un trimestre calculado
+//
+// NOTA IMPORTANTE sobre carrera/tipo_ingreso:
+// Un mismo estudiante puede tener VARIAS filas en estudiante_periodo
+// (una por cada trimestre subido por Excel). Para no duplicar el conteo
+// de reservas al unir con esa tabla, todas las consultas usan la
+// subconsulta SUBQUERY_ULTIMO_PERIODO, que trae solo el registro MÁS
+// RECIENTE de cada estudiante (su carrera/tipo_ingreso "actuales").
 
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
 // -------------------------------------------------------------
+// Subconsulta reusable: el registro más reciente de
+// estudiante_periodo por cada estudiante (evita duplicar
+// reservas al unir con una tabla que tiene varias filas
+// por estudiante).
+// -------------------------------------------------------------
+const SUBQUERY_ULTIMO_PERIODO = `
+    (
+        SELECT ep1.id_estudiante, ep1.carrera, ep1.tipo_ingreso
+        FROM estudiante_periodo ep1
+        INNER JOIN (
+            SELECT id_estudiante, MAX(id) AS max_id
+            FROM estudiante_periodo
+            GROUP BY id_estudiante
+        ) ultimo ON ultimo.max_id = ep1.id
+    )
+`;
+
+// -------------------------------------------------------------
 // Construye la parte WHERE (fechas + filtros) sobre las reservas.
-// Usa los alias: r = reservas, e = estudiantes.
+// Usa los alias: r = reservas, e = estudiantes, ep = subconsulta
+// del período más reciente (ver SUBQUERY_ULTIMO_PERIODO).
 // Devuelve { clausula: 'AND ...', params: [...] }.
 // -------------------------------------------------------------
 function construirFiltros(q) {
@@ -66,7 +92,7 @@ function construirFiltros(q) {
 
     // ---- Filtros adicionales ----
     if (q.carrera) {
-        condiciones.push('e.carrera = ?');
+        condiciones.push('ep.carrera = ?');
         params.push(q.carrera);
     }
 
@@ -87,11 +113,11 @@ function construirFiltros(q) {
 
     // Primer ingreso: atajo si/no
     if (q.primer_ingreso === 'si') {
-        condiciones.push("LOWER(COALESCE(e.tipo_ingreso, '')) LIKE '%primer%'");
+        condiciones.push("LOWER(COALESCE(ep.tipo_ingreso, '')) LIKE '%primer%'");
     } else if (q.primer_ingreso === 'no') {
-        condiciones.push("(e.tipo_ingreso IS NOT NULL AND e.tipo_ingreso <> '' AND LOWER(e.tipo_ingreso) NOT LIKE '%primer%')");
+        condiciones.push("(ep.tipo_ingreso IS NOT NULL AND ep.tipo_ingreso <> '' AND LOWER(ep.tipo_ingreso) NOT LIKE '%primer%')");
     } else if (q.tipo_ingreso) {
-        condiciones.push('e.tipo_ingreso = ?');
+        condiciones.push('ep.tipo_ingreso = ?');
         params.push(q.tipo_ingreso);
     }
 
@@ -105,12 +131,12 @@ function construirFiltros(q) {
 router.get('/opciones', async (req, res) => {
     try {
         const [espacios] = await db.query(
-    `SELECT id_espacio, nombre FROM espacios ORDER BY id_espacio`
-);
+            `SELECT id_espacio, nombre FROM espacios ORDER BY id_espacio`
+        );
 
         const [carreras] = await db.query(
             `SELECT DISTINCT carrera
-             FROM estudiantes
+             FROM estudiante_periodo
              WHERE carrera IS NOT NULL AND carrera <> ''
              ORDER BY carrera`
         );
@@ -149,10 +175,11 @@ router.get('/reservas-por-carrera', async (req, res) => {
         const { clausula, params } = construirFiltros(req.query);
 
         const [rows] = await db.query(
-            `SELECT COALESCE(NULLIF(e.carrera, ''), 'Sin carrera') AS carrera,
+            `SELECT COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera') AS carrera,
                     COUNT(*) AS total_reservas
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              WHERE 1 = 1 ${clausula}
              GROUP BY carrera
              ORDER BY total_reservas DESC`,
@@ -179,6 +206,7 @@ router.get('/reservas-por-espacio', async (req, res) => {
                     COUNT(*) AS total_reservas
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              LEFT JOIN espacios s ON s.id_espacio = r.id_espacio
              WHERE 1 = 1 ${clausula}
              GROUP BY r.id_espacio, s.nombre
@@ -202,13 +230,14 @@ router.get('/primer-ingreso', async (req, res) => {
 
         const [rows] = await db.query(
             `SELECT CASE
-                        WHEN LOWER(COALESCE(e.tipo_ingreso, '')) LIKE '%primer%' THEN 'Primer ingreso'
-                        WHEN e.tipo_ingreso IS NULL OR e.tipo_ingreso = '' THEN 'Sin definir'
+                        WHEN LOWER(COALESCE(ep.tipo_ingreso, '')) LIKE '%primer%' THEN 'Primer ingreso'
+                        WHEN ep.tipo_ingreso IS NULL OR ep.tipo_ingreso = '' THEN 'Sin definir'
                         ELSE 'Reingreso'
                     END AS categoria,
                     COUNT(*) AS total_reservas
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              WHERE 1 = 1 ${clausula}
              GROUP BY categoria
              ORDER BY total_reservas DESC`,
@@ -263,15 +292,19 @@ router.get('/resumen', async (req, res) => {
         const { clausula, params } = construirFiltros(req.query);
 
         const [porCarrera] = await db.query(
-            `SELECT COALESCE(NULLIF(e.carrera, ''), 'Sin carrera') AS carrera, COUNT(*) AS total_reservas
-             FROM reservas r JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+            `SELECT COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera') AS carrera, COUNT(*) AS total_reservas
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              WHERE 1 = 1 ${clausula} GROUP BY carrera ORDER BY total_reservas DESC`,
             params
         );
 
         const [porEspacio] = await db.query(
             `SELECT r.id_espacio, COALESCE(s.nombre, 'Sin espacio') AS espacio, COUNT(*) AS total_reservas
-             FROM reservas r JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              LEFT JOIN espacios s ON s.id_espacio = r.id_espacio
              WHERE 1 = 1 ${clausula} GROUP BY r.id_espacio, s.nombre ORDER BY total_reservas DESC`,
             params
@@ -279,11 +312,13 @@ router.get('/resumen', async (req, res) => {
 
         const [comparativo] = await db.query(
             `SELECT CASE
-                        WHEN LOWER(COALESCE(e.tipo_ingreso, '')) LIKE '%primer%' THEN 'Primer ingreso'
-                        WHEN e.tipo_ingreso IS NULL OR e.tipo_ingreso = '' THEN 'Sin definir'
+                        WHEN LOWER(COALESCE(ep.tipo_ingreso, '')) LIKE '%primer%' THEN 'Primer ingreso'
+                        WHEN ep.tipo_ingreso IS NULL OR ep.tipo_ingreso = '' THEN 'Sin definir'
                         ELSE 'Reingreso'
                     END AS categoria, COUNT(*) AS total_reservas
-             FROM reservas r JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              WHERE 1 = 1 ${clausula} GROUP BY categoria ORDER BY total_reservas DESC`,
             params
         );
