@@ -1,1065 +1,827 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../db');
-const crypto = require("crypto");
+const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS    = ['L','M','M','J','V','S','D'];
+const DIAS_SM = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const TODAY   = new Date();
 
-// =======================================
-// Middlewares de ayuda (sesión / roles)
-// =======================================
+let currentYear  = TODAY.getFullYear();
+let currentMonth = TODAY.getMonth();
+let fechaSel     = null;
+let horaSel      = null;
+let bloqueosCalendario = [];
 
-function requiereSesion(req, res, next) {
-    if (!req.session.usuario) {
-        return res.status(401).json({
-            ok: false,
-            mensaje: "Debe iniciar sesión."
-        });
-    }
-    next();
+// ── Espacio seleccionado desde inicio.html ──
+const espacioLabels = {
+  futbol:      'Fútbol',
+  voleibol:    'Voleibol',
+  baloncesto:  'Baloncesto',
+  zona_jaguar: 'Zona Jaguar'
+};
+
+const espacio = sessionStorage.getItem('espacioSeleccionado') || 'futbol';
+document.getElementById('titulo-espacio').textContent = espacioLabels[espacio] || espacio;
+
+if(espacio === "zona_jaguar"){
+
+    document
+    .getElementById("grupo-juego")
+    .style.display = "block";
+
+}else{
+
+    document
+    .getElementById("grupo-juego")
+    .style.display = "none";
+
 }
 
-function requiereAdmin(req, res, next) {
-    if (req.session.usuario.rol !== "admin") {
-        return res.status(403).json({
-            ok: false,
-            mensaje: "No tiene permisos."
-        });
-    }
-    next();
+// ── Topbar fecha ──
+document.getElementById('topbar-fecha').textContent =
+  DIAS_SM[TODAY.getDay()] + ' ' + TODAY.getDate() + ' de ' + MESES[TODAY.getMonth()] + ' ' + TODAY.getFullYear();
+
+
+  
+function obtenerSoloFecha(fecha) {
+  if (!fecha) return '';
+  return String(fecha).substring(0, 10);
 }
 
-function requiereEstudiante(req, res, next) {
-    if (req.session.usuario.rol !== "estudiante") {
-        return res.status(403).json({
-            ok: false,
-            mensaje: "No tiene permisos para realizar reservas."
-        });
+async function cargarBloqueosCalendario() {
+
+  try {
+
+    const primerDia =
+      `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-01`;
+
+    const ultimoDiaMes =
+      new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    const ultimoDia =
+      `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-${String(ultimoDiaMes).padStart(2,'0')}`;
+
+    const idEspacio = espacios[espacio];
+
+    const url =
+      `${API_URL}/api/calendario/bloqueos?fecha_inicio=${primerDia}&fecha_fin=${ultimoDia}&espacio=${idEspacio}`;
+
+    const res = await fetch(url, {
+      credentials: 'include'
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(
+        data.mensaje || 'No se pudieron consultar los bloqueos.'
+      );
     }
-    next();
-}
 
-// =======================================
-// Generar ID de reserva (R001-2026, R002-2026...)
-// Se reinicia cada año
-// =======================================
-async function generarIdReserva() {
+    bloqueosCalendario = data.bloqueos || [];
 
-    // Año actual completo, ej: 2026
-    const anioActual = new Date().getFullYear();
+  } catch (error) {
 
-    // Busca el último id_reserva generado ESTE año
-    const [rows] = await db.query(
-
-        `SELECT id_reserva
-         FROM reservas
-         WHERE id_reserva LIKE ?
-         ORDER BY CAST(SUBSTRING(id_reserva, 2, 3) AS UNSIGNED) DESC
-         LIMIT 1`,
-
-        [`R%-${anioActual}`]
-
+    console.error(
+      'Error cargando bloqueos del calendario:',
+      error
     );
 
-    if (rows.length === 0) {
-        return `R001-${anioActual}`;
+    bloqueosCalendario = [];
+  }
+}
+
+function esDiaBloqueadoCompleto(fecha) {
+
+  return bloqueosCalendario.some(bloqueo => {
+
+    const inicio =
+      obtenerSoloFecha(bloqueo.fecha_inicio);
+
+    const fin =
+      obtenerSoloFecha(bloqueo.fecha_fin);
+
+    return (
+      Number(bloqueo.dia_completo) === 1 &&
+      fecha >= inicio &&
+      fecha <= fin
+    );
+  });
+}
+
+function esHorarioBloqueado(fecha, horario) {
+
+  const [inicioHorario, finHorario] = horario.split('–');
+
+  return bloqueosCalendario.some(bloqueo => {
+
+    const fechaInicio = obtenerSoloFecha(bloqueo.fecha_inicio);
+    const fechaFin = obtenerSoloFecha(bloqueo.fecha_fin);
+
+    // El bloqueo no corresponde a este día
+    if (fecha < fechaInicio || fecha > fechaFin) {
+      return false;
     }
 
-    // Extrae el número, ej: "R047-2026" -> 47
-    const partes = rows[0].id_reserva.split('-');
-    const ultimoNumero = parseInt(partes[0].substring(1));
-    const nuevoNumero = ultimoNumero + 1;
+    // Si es día completo, todo está bloqueado
+    if (Number(bloqueo.dia_completo) === 1) {
+      return true;
+    }
 
-    return `R${String(nuevoNumero).padStart(3, "0")}-${anioActual}`;
+    const inicioBloqueo =
+      String(bloqueo.hora_inicio || '').substring(0, 5);
+
+    const finBloqueo =
+      String(bloqueo.hora_fin || '').substring(0, 5);
+
+    if (!inicioBloqueo || !finBloqueo) {
+      return false;
+    }
+
+    // Detectar si los horarios se cruzan
+    return (
+      inicioHorario < finBloqueo &&
+      finHorario > inicioBloqueo
+    );
+  });
 }
 
-// =======================================
-// Crear Reserva
-// POST /api/reservas
-// =======================================
+// ── CALENDARIO ──
+function renderCal() {
 
-router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
+  document.getElementById('cal-mes').textContent =
+    MESES[currentMonth] + ' ' + currentYear;
 
-    try {
+  document.getElementById('cal-dow').innerHTML =
+    DIAS.map(d => `<div class="cal-dow">${d}</div>`).join('');
 
-        // El id del estudiante sale de la sesión
-        const id_estudiante = req.session.usuario.id;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
 
-        const {
+  let startDow = new Date(currentYear, currentMonth, 1).getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;
 
-            id_espacio,
-            id_item,
-            tipo_reserva,
-            id_equipo,
-            fecha,
-            hora_inicio,
-            hora_fin,
-            telefono,
-            solicitud_especial,
-            cant_acompanantes
+  const total = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-        } = req.body;
+  // Espacios vacíos antes del primer día
+  for (let i = 0; i < startDow; i++) {
+    grid.appendChild(document.createElement('div'));
+  }
 
-        // Validación de datos obligatorios
-        if (!id_espacio || !fecha || !hora_inicio || !hora_fin) {
+  // Días del mes
+  for (let d = 1; d <= total; d++) {
 
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Faltan datos obligatorios."
-            });
+    const cell = document.createElement('div');
+
+    const fecha = new Date(currentYear, currentMonth, d);
+
+    const fechaActual =
+      `${currentYear}-${String(currentMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+    const esHoy =
+      fecha.toDateString() === TODAY.toDateString();
+
+    const esPasado =
+      fecha < new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate());
+
+    const esDomingo =
+      fecha.getDay() === 0;
+
+      const esBloqueado =
+  esDiaBloqueadoCompleto(fechaActual);
+
+    // Comparación correcta
+    const esSel = fechaSel === fechaActual;
+
+    cell.className = 'cal-dia';
+
+    if (esPasado || esDomingo || esBloqueado) {
+  cell.classList.add('bloqueado');
+} else if (esSel) {
+      cell.classList.add('selected');
+    } else if (esHoy) {
+      cell.classList.add('hoy');
+    }
+
+    cell.textContent = d;
+
+    if (!esPasado && !esDomingo && !esBloqueado) {
+  cell.onclick = () =>
+    seleccionarFecha(currentYear, currentMonth, d);
+}
+
+    grid.appendChild(cell);
+  }
+
+}
+
+async function cambiarMes(dir) {
+  currentMonth += dir;
+
+  if (currentMonth < 0) {
+    currentMonth = 11;
+    currentYear--;
+  }
+
+  if (currentMonth > 11) {
+    currentMonth = 0;
+    currentYear++;
+  }
+
+  fechaSel = null;
+  horaSel = null;
+
+  await cargarBloqueosCalendario();
+  renderCal();
+}
 
 
-        }
 
+// ── HORAS ──
 
-        // Validación de longitud de solicitud especial
+// Convierte "14:00" -> "2:00 PM"
+function formatear12h(hora24) {
+  let [h, m] = hora24.split(':').map(Number);
+  const periodo = h >= 12 ? 'PM' : 'AM';
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${periodo}`;
+}
 
-        if (solicitud_especial && solicitud_especial.length > 250) {
-       return res.status(400).json({
-        ok: false,
-        mensaje: "La solicitud especial no puede superar los 250 caracteres."
+async function cargarHoras() {
+  const wrap = document.getElementById('horas-wrap');
+  const horas = ['08:00–09:00','09:00–10:00','10:00–11:00',
+                 '14:00–15:00','15:00–16:00','17:00–18:00','19:00–20:00'];
+
+  wrap.innerHTML = '<p style="font-size:13px;color:var(--subtexto)">Cargando horarios...</p>';
+
+  // No se necesita nada aquí — el chequeo de 24h
+  // reemplaza al viejo "yaPaso" (que solo miraba
+  // el mismo día). Se calcula por cada horario más abajo.
+
+// Consulta al backend qué horas ya están ocupadas o agotadas
+let horasOcupadas = [];
+
+// Horas donde EL PROPIO ESTUDIANTE ya tiene otra reserva,
+// sin importar el espacio (se avisa distinto al usuario)
+let horasPropiasOcupadas = [];
+
+try {
+
+  let url;
+
+  // =========================================
+  // ZONA JAGUAR
+  // Se bloquea solamente cuando se agotan
+  // todas las unidades del juego seleccionado
+  // =========================================
+  if (espacio === "zona_jaguar") {
+
+    const idItem = selectJuego?.value;
+
+    if (!idItem) {
+
+      wrap.innerHTML = `
+        <p style="font-size:13px;color:var(--subtexto)">
+          Selecciona primero un juego para consultar los horarios disponibles.
+        </p>
+      `;
+
+      return;
+    }
+
+   url =
+  `${API_URL}/api/inventario/horarios-agotados?fecha=${fechaSel}&id_item=${idItem}`;
+
+  } else {
+
+    // =========================================
+    // CANCHAS
+    // Una reserva sí bloquea el espacio completo
+    // =========================================
+   url =
+  `${API_URL}/api/reservas/horarios/consultar?espacio=${espacios[espacio]}&fecha=${fechaSel}`;
+  }
+
+  // Se consultan en paralelo:
+  // 1) la disponibilidad del espacio/juego (url de arriba)
+  // 2) las horas donde el ESTUDIANTE ya tiene otra reserva
+  //    ese día, sin importar el espacio
+  const [resEspacio, resPropias] = await Promise.all([
+    fetch(url, { credentials: "include" }),
+    fetch(
+      `${API_URL}/api/reservas/mis-horarios?fecha=${fechaSel}`,
+      { credentials: "include" }
+    )
+  ]);
+
+  const data = await resEspacio.json();
+  const dataPropias = await resPropias.json();
+
+  console.log("RESPUESTA DE HORARIOS:", data);
+  console.log("MIS HORARIOS OCUPADOS:", dataPropias);
+
+  if (!resEspacio.ok || !data.ok) {
+    throw new Error(
+      data.mensaje || "No se pudieron consultar los horarios."
+    );
+  }
+
+  if (resPropias.ok && dataPropias.ok) {
+    horasPropiasOcupadas = dataPropias.horasOcupadas || [];
+  }
+
+  if (espacio === "zona_jaguar") {
+
+    // La nueva ruta devuelve horarios_agotados
+    horasOcupadas = (data.horarios_agotados || []).map(horario => {
+
+      const inicio =
+        String(horario.hora_inicio).slice(0, 5);
+
+      const fin =
+        String(horario.hora_fin).slice(0, 5);
+
+      return `${inicio}–${fin}`;
+
     });
+
+  } else {
+
+    // La ruta actual de canchas devuelve horasOcupadas
+    horasOcupadas = data.horasOcupadas || [];
+
+  }
+
+} catch (error) {
+
+  console.error(
+    "Error al consultar horarios:",
+    error
+  );
+
+  mostrarToast(
+    "No se pudieron consultar los horarios disponibles.",
+    "danger"
+  );
+
 }
 
-        // =======================================
-        // Regla: la reserva debe hacerse con al
-        // menos 24 horas de anticipación.
-        //
-        // Se construye la fecha/hora de la reserva
-        // indicando explícitamente el offset de
-        // Honduras (-06:00), para no depender de la
-        // zona horaria del servidor (mismo tipo de
-        // problema que causó el bug de las 23:00).
-        // =======================================
-
-        const fechaHoraReserva = new Date(
-            `${fecha}T${hora_inicio}:00-06:00`
-        );
-
-        const ahora = new Date();
-
-        const horasDeAnticipacion =
-            (fechaHoraReserva - ahora) / (1000 * 60 * 60);
-
-        if (horasDeAnticipacion < 24) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Las reservas deben hacerse con al menos 24 horas de anticipación."
-            });
-
-        }
-
-        // =======================================
-        // Regla: domingos bloqueados (la U no abre)
-        // =======================================
-
-        const diaSemana = new Date(fecha + "T00:00:00").getDay();
-        // getDay() → 0 = domingo
-
-        if (diaSemana === 0) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "No se puede reservar los domingos, el polideportivo está cerrado."
-            });
-
-        }
-
-        // Validar estudiante
-
-        const [estudiante] = await db.query(
-
-            `SELECT * FROM estudiantes
-             WHERE id_estudiante = ?
-             AND activo = 1`,
-
-            [id_estudiante]
-
-        );
-
-        if (estudiante.length === 0) {
-
-            return res.status(404).json({
-
-                ok: false,
-                mensaje: "El estudiante no existe o está inactivo."
-
-            });
-
-        }
-
-        // =======================================
-        // Regla: el mismo estudiante no puede tener
-        // otra reserva (en cualquier espacio) que
-        // se traslape con este horario
-        // =======================================
-
-        const [choqueEstudiante] = await db.query(
-
-            `SELECT *
-             FROM reservas
-             WHERE id_estudiante = ?
-             AND fecha = ?
-             AND estado IN ('pendiente','aprobada')
-             AND hora_inicio < ?
-             AND hora_fin > ?`,
-
-            [
-                id_estudiante,
-                fecha,
-                hora_fin,
-                hora_inicio
-            ]
-
-        );
-
-        if (choqueEstudiante.length > 0) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Ya tienes una reserva en ese horario. No puedes tener dos reservas al mismo tiempo."
-            });
-
-        }
-
-        // =======================================
-        // Espacios que comparten cancha física:
-        // Voleibol (2) y Baloncesto (3)
-        // Si se reserva uno, se bloquea el otro
-        // en el mismo horario.
-        // =======================================
-
-        const CANCHA_COMPARTIDA = {
-            2: [2, 3], // voleibol bloquea voleibol y baloncesto
-            3: [2, 3]  // baloncesto bloquea voleibol y baloncesto
-        };
-
-        const espaciosABloquear =
-            CANCHA_COMPARTIDA[id_espacio] || [id_espacio];
-
-        // =======================================
-        // Regla: horario ocupado
-        // - Fútbol / Voleibol / Baloncesto: bloquea
-        //   el espacio (o los compartidos) por completo.
-        // - Zona Jaguar (4): NO bloquea por horario,
-        //   se valida por disponibilidad de inventario
-        //   más abajo.
-        // =======================================
-
-        if (id_espacio != 4) {
-
-            const [ocupado] = await db.query(
-
-                `SELECT *
-                 FROM reservas
-                 WHERE id_espacio IN (?)
-                 AND fecha = ?
-                 AND estado IN ('pendiente','aprobada')
-                 AND hora_inicio < ?
-                 AND hora_fin > ?`,
-
-                [
-                    espaciosABloquear,
-                    fecha,
-                    hora_fin,
-                    hora_inicio
-                ]
-
-            );
-
-            if (ocupado.length > 0) {
-
-                return res.status(400).json({
-                    ok: false,
-                    mensaje: "Ese horario ya se encuentra reservado."
-                });
-
-            }
-
-        }
-
-        // =======================================
-        // Regla: Zona Jaguar - validar disponibilidad
-        // de inventario para el juego seleccionado
-        // =======================================
-
-        if (id_espacio == 4) {
-
-            if (!id_item) {
-
-                return res.status(400).json({
-                    ok: false,
-                    mensaje: "Debe seleccionar un juego."
-                });
-
-            }
-
-            // Cantidad total de ese juego en inventario
-            const [item] = await db.query(
-
-                `SELECT cantidad_total
-                 FROM inventario
-                 WHERE id_item = ?
-                 AND estado = 'activo'`,
-
-                [id_item]
-
-            );
-
-            if (item.length === 0) {
-
-                return res.status(404).json({
-                    ok: false,
-                    mensaje: "El juego seleccionado no está disponible."
-                });
-
-            }
-
-            const cantidadTotal = item[0].cantidad_total;
-
-            // Cuántas reservas ya existen para ese mismo
-            // juego, en esa misma fecha y horario
-            const [reservasDelJuego] = await db.query(
-
-                `SELECT *
-                 FROM reservas
-                 WHERE id_espacio = 4
-                 AND id_item = ?
-                 AND fecha = ?
-                 AND estado IN ('pendiente','aprobada')
-                 AND hora_inicio < ?
-                 AND hora_fin > ?`,
-
-                [
-                    id_item,
-                    fecha,
-                    hora_fin,
-                    hora_inicio
-                ]
-
-            );
-
-            if (reservasDelJuego.length >= cantidadTotal) {
-
-                return res.status(400).json({
-                    ok: false,
-                    mensaje: "Ya no hay unidades disponibles de ese juego en ese horario."
-                });
-
-            }
-
-        }
-
-        // Crear ID
-
-        const id_reserva = await generarIdReserva();
-
-       // =======================================
-// Generar el token para el código QR
-// =======================================
-
-// Convierte la cantidad de acompañantes a número.
-// Si viene vacío o nulo, toma el valor 0.
-const cantidadAcompanantes =
-    Number(cant_acompanantes) || 0;
-
-// Normaliza el tipo de reserva.
-// Solo existen dos tipos:
-// - "individual"
-// - "equipo"
-// Si no viene ningún valor, por defecto será "individual".
-const tipoReservaFinal =
-    tipo_reserva === "equipo"
-        ? "equipo"
-        : "individual";
-
-// Indica si la reserva es de tipo equipo.
-const esReservaEquipo =
-    tipoReservaFinal === "equipo";
-
-// Por defecto la reserva no tendrá código QR.
-let qr_token = null;
-
-// Reglas para generar el QR:
-//
-// 1. Reserva individual:
-//    Solo genera QR cuando lleva uno o más acompañantes.
-//
-// 2. Reserva de equipo:
-//    Siempre genera QR para que los visitantes puedan registrarse.
-if (
-    esReservaEquipo ||
-    cantidadAcompanantes > 0
-    
+  wrap.innerHTML = horas.map(h => {
+
+    const [horaInicioStr, horaFinStr] = h.split('–');
+
+    const estaOcupada = horasOcupadas.includes(h);
+    const estaBloqueada = esHorarioBloqueado(fechaSel, h);
+    const esPropiaOcupada = horasPropiasOcupadas.includes(h);
+
+    // Texto visible con AM/PM
+    const textoVisible = `${formatear12h(horaInicioStr)} – ${formatear12h(horaFinStr)}`;
+
+    // Regla de 24h de anticipación (mismo cálculo que el
+    // backend, con el offset de Honduras explícito para
+    // no depender de la zona horaria del navegador).
+    // Cubre tanto horas que ya pasaron HOY como horas
+    // de MAÑANA que igual caen dentro de las próximas 24h.
+    const fechaHoraSlot = new Date(`${fechaSel}T${horaInicioStr}:00-06:00`);
+    const horasFaltantes = (fechaHoraSlot - new Date()) / (1000 * 60 * 60);
+    const noCumple24h = horasFaltantes < 24;
+
+   if (noCumple24h) {
+  return `
+    <button class="hora-chip pasada" disabled title="Debes reservar con al menos 24 horas de anticipación">
+      ${textoVisible}
+    </button>
+  `;
+}
+
+if (estaBloqueada) {
+  return `
+    <button class="hora-chip ocupada" disabled title="Horario bloqueado por administración">
+      ${textoVisible}
+    </button>
+  `;
+}
+
+// Ya tiene otra reserva a esta hora (en cualquier espacio) —
+// se avisa ANTES de enviar, no hasta el final del formulario
+if (esPropiaOcupada) {
+  return `
+    <button class="hora-chip ocupada" disabled title="Ya tienes una reserva a esta hora">
+      ${textoVisible}
+    </button>
+  `;
+}
+
+if (estaOcupada) {
+  return `
+    <button class="hora-chip ocupada" disabled title="Ese horario ya está reservado">
+      ${textoVisible}
+    </button>
+  `;
+}
+
+return `
+  <button class="hora-chip" onclick="seleccionarHora(this,'${h}')">
+    ${textoVisible}
+  </button>`;
+
+}).join('');
+
+  // Si TODAS las horas del día quedaron bloqueadas solo por
+  // la regla de 24h (no por ocupación real), se lo explicamos
+  // al estudiante en vez de dejarlo adivinando por qué no
+  // puede seleccionar nada.
+  const todasPor24h = horas.every(h => {
+    const [horaInicioStr] = h.split('–');
+    const fechaHoraSlot = new Date(`${fechaSel}T${horaInicioStr}:00-06:00`);
+    const horasFaltantes = (fechaHoraSlot - new Date()) / (1000 * 60 * 60);
+    return horasFaltantes < 24;
+  });
+
+  if (todasPor24h) {
+    wrap.insertAdjacentHTML('beforebegin', `
+      <p id="aviso-24h" style="font-size:13px;color:var(--crimson);margin-bottom:10px;">
+        <i class="bi bi-clock-history"></i>
+        Ya no se puede reservar este día: las reservas deben hacerse con al menos 24 horas de anticipación. Selecciona una fecha posterior.
+      </p>
+    `);
+  }
+}
+function seleccionarHora(boton, hora) {
+
+    horaSel = hora;
+
+    // quitar selección anterior
+    document.querySelectorAll(".hora-chip").forEach(btn => {
+        btn.classList.remove("seleccionada");
+    });
+
+    // marcar la seleccionada
+    boton.classList.add("seleccionada");
+
+    console.log("Hora seleccionada:", horaSel);
+}
+
+
+async function seleccionarFecha(y, m, d) {
+  fechaSel = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  horaSel  = null;
+  renderCal();
+  await cargarHoras();
+}
+
+// ── ENVIAR RESERVA ──
+
+const espacios = {
+  futbol: 1,
+  baloncesto: 2,
+  voleibol: 3,
+  zona_jaguar: 4
+};
+
+
+async function enviarReserva() {
+
+    const telefono = document.getElementById('campo-telefono').value.trim();
+    const solicitud = document.getElementById('campo-solicitud').value.trim();
+    const cantAcompanantes = parseInt(document.getElementById('campo-acompanantes').value) || 0;
+
+  
+    if (!fechaSel) {
+        mostrarToast("Por favor selecciona una fecha.", "danger");
+        return;
+    }
+
+    if (!horaSel) {
+        mostrarToast("Por favor selecciona un horario.", "danger");
+        return;
+    }
+
+      if (
+    espacio === "zona_jaguar" &&
+    !document.getElementById("juego").value
 ) {
- 
 
-    // Genera un identificador único para el QR.
-    qr_token = crypto.randomUUID();
+    mostrarToast(
+        "Seleccione un juego.",
+        "danger"
+    );
+
+    return;
 }
 
-        // Estado
 
-        let estado = "aprobada";
+   if (!telefono) {
+    mostrarToast("Por favor ingresa un teléfono.", "danger");
+    return;
+}
 
-        if (id_item != null) {
-            estado = "pendiente";
+if (!/^\d{8}$/.test(telefono)) {
+    mostrarToast("El teléfono debe tener exactamente 8 dígitos.", "danger");
+    return;
+}
 
-        }
+    const [horaInicio, horaFin] = horaSel.split("–");
 
-        // Guardar reserva
+    const body = {
 
-        await db.query(
+    id_espacio: espacios[espacio],
 
-            `INSERT INTO reservas(
+    id_item:
+        espacio === "zona_jaguar"
+            ? document.getElementById("juego").value
+            : null,
 
-                id_reserva,
-                id_estudiante,
-                id_espacio,
-                id_item,
-                tipo_reserva,
-                id_equipo,
-                fecha,
-                hora_inicio,
-                hora_fin,
-                telefono,
-                solicitud_especial,
-                cant_acompanantes,
-                estado,
-                qr_token
+    fecha: fechaSel,
 
-            )
+    hora_inicio: horaInicio,
 
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    hora_fin: horaFin,
 
-            [
+    telefono: telefono,
 
-                id_reserva,
-                id_estudiante,
-                id_espacio,
-                id_item,
-                tipoReservaFinal,
-                id_equipo,
-                fecha,
-                hora_inicio,
-                hora_fin,
-                telefono,
-                solicitud_especial,
-                cantidadAcompanantes,
-                estado,
-                qr_token
+    solicitud_especial: solicitud,
 
-            ]
+    cant_acompanantes: cantAcompanantes
 
-        );
+};
 
-        res.json({
+    try {
 
-         ok: true,
-         mensaje: "Reserva creada correctamente.",
-         id_reserva,
-         qr_token,
-         tiene_qr: Boolean(qr_token)
+       const res = await fetch(`${API_URL}/api/reservas`, {
+            method: "POST",
 
-    });
+            credentials: "include",
 
-    }
+            headers: {
+                "Content-Type": "application/json"
+            },
 
-    catch (error) {
-
-        console.log(error);
-
-        res.status(500).json({
-
-            ok: false,
-            mensaje: "Error del servidor."
+            body: JSON.stringify(body)
 
         });
 
+        const data = await res.json();
+
+        
+      if (data.ok) {
+
+    // Guardamos la información para confirmar.html
+    const reserva = {
+        id_reserva: data.id_reserva || null,
+
+       // Será true si el backend devuelve tiene_qr
+    // o si devuelve directamente un qr_token.
+    tiene_qr:
+        data.tiene_qr === true ||
+        Boolean(data.qr_token),
+
+    qr_token:
+        data.qr_token || null,
+
+    cant_acompanantes:
+        cantAcompanantes,
+
+            tipo_reserva:
+        "individual",
+
+        nombre: document.getElementById("campo-nombre").value,
+
+        cuenta: document.getElementById("campo-cuenta").value,
+
+        espacio: espacioLabels[espacio],
+
+        juego:
+         espacio === "zona_jaguar" && selectJuego
+        ? selectJuego.options[selectJuego.selectedIndex].text
+        : null,
+
+        fecha: fechaSel,
+
+        horaInicio: horaInicio,
+
+        horaFin: horaFin,
+
+        codigo: data.codigo || data.id_reserva ||  "0000"
+
+    };
+    console.log("RESERVA GUARDADA:", reserva);
+
+    sessionStorage.setItem(
+        "ultimaReserva",
+        JSON.stringify(reserva)
+    );
+
+    window.location.href = "confirmar.html";
+
+} else {
+
+    mostrarToast(
+        data.mensaje || "No se pudo crear la reserva",
+        "danger"
+    );
+
+}
+
+    } catch (error) {
+
+        console.error(error);
+
+        mostrarToast("No se pudo conectar con el servidor.", "danger");
+
     }
 
-});
+}
 
-// =======================================
-// Obtener todas las reservas
-// GET /api/reservas
-// =======================================
+function mostrarToast(mensaje, tipo="danger") {
 
-router.get('/', requiereSesion, async (req, res) => {
+    const toast = document.getElementById("toastMensaje");
+
+    if(!toast){
+        console.log(mensaje);
+        return;
+    }
+
+    const cuerpo = toast.querySelector(".toast-body");
+    cuerpo.textContent = mensaje;
+
+    toast.className = 
+    `toast text-bg-${tipo}`;
+
+    const bsToast = new bootstrap.Toast(toast);
+
+    bsToast.show();
+
+}
+function abrirMenu(){
+    document .querySelector(".sidebar") .classList.add("activo");
+    document .querySelector(".overlay") .classList.add("activo");
+}
+
+
+
+function cerrarMenu(){
+    document .querySelector(".sidebar") .classList.remove("activo");
+    document .querySelector(".overlay") .classList.remove("activo");
+}
+
+async function cargarJuegos() {
+    try {
+        const respuesta = await fetch(
+    `${API_URL}/api/inventario/juegos`,
+            {
+                credentials: "include"
+            }
+        );
+
+        const data = await respuesta.json();
+
+        const opciones = data.juegos.map(juego => ({
+            value: String(juego.id_item),
+            label: juego.nombre
+        }));
+
+        if (choicesJuego) {
+            choicesJuego.clearChoices();
+            choicesJuego.setChoices(
+                [{ value: "", label: "Seleccione un juego", selected: true, disabled: false }, ...opciones],
+                'value',
+                'label',
+                true
+            );
+        }
+
+    } catch (error) {
+        console.error(error);
+        mostrarToast("No se pudieron cargar los juegos.", "danger");
+
+    }
+
+}
+
+
+async function cerrarSesion() {
     try {
 
-        const { estado, espacio, fecha } = req.query;
+        const res = await fetch(`${API_URL}/api/auth/logout`, {
 
-        let consulta = `
-            SELECT
-                r.*,
-                e.nombre AS estudiante_nombre,
-                e.cuenta AS estudiante_cuenta,
-                e.correo AS estudiante_correo,
-                es.nombre AS espacio_nombre,
-                i.nombre AS item_nombre
-            FROM reservas r
-            INNER JOIN estudiantes e
-                ON e.id_estudiante = r.id_estudiante
-            INNER JOIN espacios es
-                ON es.id_espacio = r.id_espacio
-            LEFT JOIN inventario i
-                ON i.id_item = r.id_item
-            WHERE 1 = 1
-        `;
+            method: "POST",
+            credentials: "include"
 
-        const valores = [];
+        });
 
-    if (req.session.usuario.rol === "estudiante") {
+        const data = await res.json();
 
-    // El estudiante solo ve sus propias reservas
-    consulta += ` AND r.id_estudiante = ?`;
-    valores.push(req.session.usuario.id);
+        if (data.ok) {
 
-    // Filtrar sus reservas por estado
-    if (estado) {
-        consulta += ` AND r.estado = ?`;
-        valores.push(estado);
+            // Redirige al login
+            window.location.href = "../../login.html";
+
+        } else {
+
+            mostrarToast("No se pudo cerrar la sesión.", "danger");
+
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        mostrarToast("Error al cerrar la sesión.", "danger");
     }
 
-    // Filtrar sus reservas por fecha
-    if (fecha) {
-        consulta += ` AND r.fecha = ?`;
-        valores.push(fecha);
-    }
+}
 
-    } else if (req.session.usuario.rol === "admin") {
+/* ======================================
+   ADVERTENCIA DE ACOMPAÑANTES
+====================================== */
 
-    // El administrador sí puede ver todas las reservas
-    if (estado) {
-        consulta += ` AND r.estado = ?`;
-        valores.push(estado);
-    }
+function verificarCantidadAcompanantes() {
 
-    if (espacio) {
-        consulta += ` AND r.id_espacio = ?`;
-        valores.push(espacio);
-    }
+    const input = document.getElementById("campo-acompanantes");
+    const advertencia = document.getElementById("advertencia-acompanantes");
 
-    if (fecha) {
-        consulta += ` AND r.fecha = ?`;
-        valores.push(fecha);
-    }
+    if (!input || !advertencia) return;
 
+    const cantidad = Number(input.value) || 0;
+
+    // Umbral de advertencia (NO es un límite)
+    const UMBRAL_ADVERTENCIA = 15;
+
+    if (cantidad >= UMBRAL_ADVERTENCIA) {
+        advertencia.hidden = false;
     } else {
+        advertencia.hidden = true;
+    }
 
-    return res.status(403).json({
-        ok: false,
-        mensaje: "No tiene permisos."
-    });
 }
 
-        // Ordenar por fecha
-        consulta += `
-            ORDER BY r.fecha_creacion DESC
-        `;
+const campoAcompanantes =
+    document.getElementById("campo-acompanantes");
 
-        const [rows] = await db.query(consulta, valores);
+if (campoAcompanantes) {
 
-        res.json({
-            ok:true,
-            reservas:rows
-        });
+    campoAcompanantes.addEventListener(
+        "input",
+        verificarCantidadAcompanantes
+    );
 
-    } catch (error) {
-        console.error("ERROR OBTENIENDO RESERVAS:", error);
+    verificarCantidadAcompanantes();
 
-        res.status(500).json({
-            ok:false,
-            mensaje:"Error del servidor."
-        });
-    }
-});
+}
 
-// =======================================
-// ADMIN - Detalle de acompañantes
-// GET /api/reservas/:id/acompanantes
-// =======================================
 
-router.get('/:id/acompanantes', requiereSesion, requiereAdmin, async (req, res) => {
 
-    try {
 
-        const idReserva = req.params.id;
 
-        // Consultar la cantidad permitida
-        const [reservas] = await db.query(
-            `SELECT
-                id_reserva,
-                cant_acompanantes
-             FROM reservas
-             WHERE id_reserva = ?`,
-            [idReserva]
-        );
-
-        if (reservas.length === 0) {
-            return res.status(404).json({
-                ok: false,
-                mensaje: "Reserva no encontrada."
-            });
-        }
-
-        // Consultar quienes llenaron el QR
-        const [acompanantes] = await db.query(
-            `SELECT
-                e.id_estudiante,
-                e.nombre,
-                e.cuenta,
-                ra.fecha_registro
-             FROM reserva_acompanantes ra
-             INNER JOIN estudiantes e
-                ON e.id_estudiante = ra.id_estudiante
-             WHERE ra.id_reserva = ?
-             AND ra.confirmado = 1
-             ORDER BY ra.fecha_registro ASC`,
-            [idReserva]
-        );
-
-        return res.json({
-            ok: true,
-
-            cantidad_permitida:
-                Number(reservas[0].cant_acompanantes || 0),
-
-            total_registrados:
-                acompanantes.length,
-
-            acompanantes
-        });
-
-    } catch (error) {
-
-        console.error(
-            "ERROR CONSULTANDO ACOMPAÑANTES:",
-            error
-        );
-
-        return res.status(500).json({
-            ok: false,
-            mensaje:
-                "No se pudieron consultar los acompañantes."
-        });
-    }
-});
-
-// =======================================
-// Obtener horarios ocupados de un ESPACIO
-// GET /api/reservas/horarios/consultar?espacio=1&fecha=2026-07-15
-// =======================================
-
-router.get('/horarios/consultar', requiereSesion, async (req, res) => {
-
-    try {
-
-        const { espacio, fecha } = req.query;
-
-        if (!espacio || !fecha) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Faltan parámetros: espacio y fecha."
-            });
-
-        }
-
-        // Espacios que comparten cancha física
-        const CANCHA_COMPARTIDA = {
-            2: [2, 3],
-            3: [2, 3]
-        };
-
-        const espaciosAConsultar =
-            CANCHA_COMPARTIDA[espacio] || [espacio];
-
-        const [rows] = await db.query(
-
-            `SELECT hora_inicio, hora_fin
-             FROM reservas
-             WHERE id_espacio IN (?)
-             AND fecha = ?
-             AND estado IN ('pendiente','aprobada')`,
-
-            [espaciosAConsultar, fecha]
-
-        );
-
-        // Formatea como "HH:MM–HH:MM" para que coincida
-        // con el formato de los chips del frontend
-        const horasOcupadas = rows.map(r => {
-
-            const hi = r.hora_inicio.substring(0,5);
-            const hf = r.hora_fin.substring(0,5);
-            return `${hi}–${hf}`;
-
-        });
-
-        res.json({
-            ok: true,
-            horasOcupadas
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error del servidor."
-        });
-
-    }
-
-});
-
-// =======================================
-// Obtener horarios ocupados del ESTUDIANTE
-// (sin importar el espacio) — se usa para
-// avisar ANTES de enviar el formulario que
-// ya tiene otra reserva a esa hora.
-// GET /api/reservas/mis-horarios?fecha=2026-08-20
-// =======================================
-
-router.get('/mis-horarios', requiereSesion, requiereEstudiante, async (req, res) => {
-
-    try {
-
-        const { fecha } = req.query;
-
-        if (!fecha) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Falta el parámetro: fecha."
-            });
-
-        }
-
-        const [rows] = await db.query(
-
-            `SELECT hora_inicio, hora_fin
-             FROM reservas
-             WHERE id_estudiante = ?
-             AND fecha = ?
-             AND estado IN ('pendiente','aprobada')`,
-
-            [req.session.usuario.id, fecha]
-
-        );
-
-        const horasOcupadas = rows.map(r => {
-
-            const hi = r.hora_inicio.substring(0,5);
-            const hf = r.hora_fin.substring(0,5);
-            return `${hi}–${hf}`;
-
-        });
-
-        res.json({
-            ok: true,
-            horasOcupadas
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error del servidor."
-        });
-
-    }
-
+// Solo permite números en el campo de teléfono, máximo 8 dígitos
+document.getElementById('campo-telefono').addEventListener('input', function(e) {
+  // Elimina cualquier caracter que no sea número
+  let valor = e.target.value.replace(/\D/g, '');
+  // Limita a 8 dígitos máximo
+  if (valor.length > 8) {
+    valor = valor.slice(0, 8);
+  }
+  e.target.value = valor;
 });
 
 
+// Iniciar calendario
+async function iniciarCalendario() {
+  await cargarBloqueosCalendario();
+  renderCal();
+}
 
-router.put('/:id/aprobar', requiereSesion, requiereAdmin, async (req, res) => {
-    try {
+iniciarCalendario();
 
-        const [rows] = await db.query(
-            `SELECT estado, fecha, hora_fin
-             FROM reservas
-             WHERE id_reserva = ?`,
-            [req.params.id]
-        );
+// Inicializar Choices.js en el select de juego y cargar los juegos
+let choicesJuego = null;
+const selectJuego = document.getElementById('juego');
 
-        if (rows.length === 0) {
-            return res.status(404).json({
-                ok:false,
-                mensaje:"Reserva no encontrada."
-            });
-        }
+if (selectJuego) {
 
-        const reserva = rows[0];
+  choicesJuego = new Choices(selectJuego, {
+    searchEnabled: false,
+    itemSelectText: '',
+    shouldSort: false,
+    placeholder: true,
+  });
 
-        if (reserva.estado !== "pendiente") {
-            return res.status(400).json({
-                ok:false,
-                mensaje:"La reserva ya fue procesada."
-            });
-        }
+}
 
-        const [vigencia] = await db.query(
-            `SELECT TIMESTAMP(fecha, hora_fin) >= NOW() AS vigente
-             FROM reservas
-             WHERE id_reserva = ?`,
-            [req.params.id]
-        );
+if (selectJuego) {
 
-        if (!vigencia[0]?.vigente) {
-            return res.status(400).json({
-                ok:false,
-                mensaje:"La reserva ya venció."
-            });
-        }
+  selectJuego.addEventListener("change", async () => {
 
-        await db.query(
-            `UPDATE reservas
-             SET estado = 'aprobada'
-             WHERE id_reserva = ?`,
-            [req.params.id]
-        );
+    horaSel = null;
 
-        res.json({
-            ok:true,
-            mensaje:"Reserva aprobada correctamente."
-        });
-
-    } catch (error) {
-        console.error("ERROR APROBANDO RESERVA:", error);
-
-        res.status(500).json({
-            ok:false,
-            mensaje:"Error del servidor."
-        });
-    }
-});
-
-router.put('/:id/rechazar', requiereSesion, requiereAdmin, async (req, res) => {
-    try {
-
-        const [rows] = await db.query(
-            `SELECT estado, fecha, hora_fin
-             FROM reservas
-             WHERE id_reserva = ?`,
-            [req.params.id]
-        );
-
-        if (rows.length === 0) {
-            return res.status(404).json({
-                ok:false,
-                mensaje:"Reserva no encontrada."
-            });
-        }
-
-        const reserva = rows[0];
-
-        if (reserva.estado !== "pendiente") {
-            return res.status(400).json({
-                ok:false,
-                mensaje:"La reserva ya fue procesada."
-            });
-        }
-
-        const [vigencia] = await db.query(
-            `SELECT TIMESTAMP(fecha, hora_fin) >= NOW() AS vigente
-             FROM reservas
-             WHERE id_reserva = ?`,
-            [req.params.id]
-        );
-
-        if (!vigencia[0]?.vigente) {
-            return res.status(400).json({
-                ok:false,
-                mensaje:"La reserva ya venció."
-            });
-        }
-
-        await db.query(
-            `UPDATE reservas
-             SET estado = 'rechazada'
-             WHERE id_reserva = ?`,
-            [req.params.id]
-        );
-
-        res.json({
-            ok:true,
-            mensaje:"Reserva rechazada correctamente."
-        });
-
-    } catch (error) {
-        console.error("ERROR RECHAZANDO RESERVA:", error);
-
-        res.status(500).json({
-            ok:false,
-            mensaje:"Error del servidor."
-        });
-    }
-});
-
-// =======================================
-// Cancelar Reserva
-// PUT /api/reservas/:id/cancelar
-// =======================================
-
-router.put('/:id/cancelar', requiereSesion, async (req, res) => {
-
-    try {
-
-        const motivoCancelacion =
-            req.body.motivo_cancelacion?.trim();
-
-        // El estudiante debe indicar un motivo
-        if (
-            req.session.usuario.rol === "estudiante" &&
-            !motivoCancelacion
-        ) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Debe indicar el motivo de la cancelación."
-            });
-
-        }
-
-        if (
-             ["estudiante", "admin"].includes(req.session.usuario.rol) &&
-            motivoCancelacion.length < 5
-        )       {
-         return res.status(400).json({
-        ok: false,
-        mensaje: "El motivo debe tener al menos 5 caracteres."
-        });
-        }
-
-        if (
-            motivoCancelacion &&
-            motivoCancelacion.length > 250
-        ) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "El motivo no puede superar los 250 caracteres."
-            });
-
-        }
-
-        const [rows] = await db.query(
-
-            `SELECT *
-             FROM reservas
-             WHERE id_reserva = ?`,
-
-            [req.params.id]
-
-        );
-
-        if (rows.length === 0) {
-
-            return res.status(404).json({
-                ok: false,
-                mensaje: "Reserva no encontrada."
-            });
-
-        }
-
-        const reserva = rows[0];
-
-        // Un estudiante solo puede cancelar sus reservas
-        if (
-            req.session.usuario.rol === "estudiante" &&
-            Number(reserva.id_estudiante) !==
-            Number(req.session.usuario.id)
-        ) {
-
-            return res.status(403).json({
-                ok: false,
-                mensaje: "No tiene permisos."
-            });
-
-        }
-
-        if (
-            ["cancelada", "rechazada"]
-                .includes(reserva.estado)
-        ) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje:
-                    "La reserva ya no puede cancelarse."
-            });
-
-        }
-
-        const [vigencia] = await db.query(
-
-            `SELECT
-                TIMESTAMP(fecha, hora_inicio) > NOW()
-                    AS puede_cancelar
-             FROM reservas
-             WHERE id_reserva = ?`,
-
-            [req.params.id]
-
-        );
-
-        if (!vigencia[0]?.puede_cancelar) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje:
-                    "La reserva ya comenzó o venció y no puede cancelarse."
-            });
-
-        }
-
-        const canceladoPor =
-            req.session.usuario.rol === "admin"
-                ? "admin"
-                : "estudiante";
-
-        await db.query(
-
-            `UPDATE reservas
-             SET
-                estado = 'cancelada',
-                cancelado_por = ?,
-                motivo_cancelacion = ?
-             WHERE id_reserva = ?`,
-
-            [
-                canceladoPor,
-                motivoCancelacion || null,
-                req.params.id
-            ]
-
-        );
-
-        res.json({
-            ok: true,
-            mensaje: "Reserva cancelada correctamente."
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Error cancelando reserva:",
-            error
-        );
-
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error del servidor."
-        });
-
+    if (fechaSel) {
+      await cargarHoras();
     }
 
-});
+  });
 
-module.exports = router;
+}
+
+// Solo cargar juegos si el espacio es zona_jaguar
+if (espacio === "zona_jaguar") {
+  cargarJuegos();
+}
