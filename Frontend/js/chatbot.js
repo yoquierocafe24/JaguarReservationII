@@ -36,12 +36,7 @@ const respuestasChatbot = {
 
         <p>
             Desde la pantalla de inicio selecciona el espacio que deseas reservar:
-            Fútbol, Baloncesto, Voleibol o Zona Jaguar.
-        </p>
-
-        <p>
-            Luego selecciona la fecha, el horario disponible y completa los datos
-            solicitados.
+            Fútbol, Baloncesto, Voleibol o Zona Jaguar y desde ahi puedes hacer tu reserva.
         </p>
     `,
 
@@ -49,12 +44,8 @@ const respuestasChatbot = {
         <p><strong>¿Cómo consultar mis reservas?</strong></p>
 
         <p>
-            Ingresa a la opción <strong>Mis reservas</strong> desde Mi perfil del sistema.
-        </p>
-
-        <p>
-            Allí podrás consultar tus reservas aprobadas, pendientes, canceladas
-            , rechazadas y vencidas.
+            Ingresa a la opción <strong>Mi perfil</strong> Allí podrás consultar tus reservas aprobadas, pendientes, canceladas
+            , rechazadas y vencidas. .
         </p>
     `,
 
@@ -62,7 +53,7 @@ const respuestasChatbot = {
         <p><strong>¿Cómo cancelar una reserva?</strong></p>
 
         <p>
-            Entra en <strong>Mis reservas</strong>, selecciona la reserva que deseas
+            Entra en <strong>Mi perfil</strong>, selecciona la reserva que deseas
             cancelar y presiona el botón <strong>Cancelar reserva</strong>.
         </p>
 
