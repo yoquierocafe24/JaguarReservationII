@@ -120,6 +120,35 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
 }
 
         // =======================================
+        // Regla: la reserva debe hacerse con al
+        // menos 24 horas de anticipación.
+        //
+        // Se construye la fecha/hora de la reserva
+        // indicando explícitamente el offset de
+        // Honduras (-06:00), para no depender de la
+        // zona horaria del servidor (mismo tipo de
+        // problema que causó el bug de las 23:00).
+        // =======================================
+
+        const fechaHoraReserva = new Date(
+            `${fecha}T${hora_inicio}:00-06:00`
+        );
+
+        const ahora = new Date();
+
+        const horasDeAnticipacion =
+            (fechaHoraReserva - ahora) / (1000 * 60 * 60);
+
+        if (horasDeAnticipacion < 24) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Las reservas deben hacerse con al menos 24 horas de anticipación."
+            });
+
+        }
+
+        // =======================================
         // Regla: domingos bloqueados (la U no abre)
         // =======================================
 
@@ -882,7 +911,8 @@ router.put('/:id/cancelar', requiereSesion, async (req, res) => {
 
     try {
 
-     const motivoCancelacion = (req.body.motivo_cancelacion || '').trim();
+        const motivoCancelacion =
+            req.body.motivo_cancelacion?.trim();
 
         // El estudiante debe indicar un motivo
         if (

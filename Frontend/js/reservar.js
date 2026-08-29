@@ -252,14 +252,9 @@ async function cargarHoras() {
 
   wrap.innerHTML = '<p style="font-size:13px;color:var(--subtexto)">Cargando horarios...</p>';
 
-  // ¿La fecha seleccionada es HOY?
-  const hoyStr =
-    `${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}-${String(TODAY.getDate()).padStart(2,'0')}`;
-
-  const esHoy = fechaSel === hoyStr;
-
-  const ahora = new Date();
-  const horaActualMinutos = ahora.getHours() * 60 + ahora.getMinutes();
+  // No se necesita nada aquí — el chequeo de 24h
+  // reemplaza al viejo "yaPaso" (que solo miraba
+  // el mismo día). Se calcula por cada horario más abajo.
 
 // Consulta al backend qué horas ya están ocupadas o agotadas
 let horasOcupadas = [];
@@ -372,10 +367,7 @@ try {
   wrap.innerHTML = horas.map(h => {
 
     const [horaInicioStr, horaFinStr] = h.split('–');
-    const [hh, mm] = horaFinStr.split(':').map(Number);
-    const finMinutos = hh * 60 + mm;
 
-    const yaPaso = esHoy && finMinutos <= horaActualMinutos;
     const estaOcupada = horasOcupadas.includes(h);
     const estaBloqueada = esHorarioBloqueado(fechaSel, h);
     const esPropiaOcupada = horasPropiasOcupadas.includes(h);
@@ -383,9 +375,18 @@ try {
     // Texto visible con AM/PM
     const textoVisible = `${formatear12h(horaInicioStr)} – ${formatear12h(horaFinStr)}`;
 
-   if (yaPaso) {
+    // Regla de 24h de anticipación (mismo cálculo que el
+    // backend, con el offset de Honduras explícito para
+    // no depender de la zona horaria del navegador).
+    // Cubre tanto horas que ya pasaron HOY como horas
+    // de MAÑANA que igual caen dentro de las próximas 24h.
+    const fechaHoraSlot = new Date(`${fechaSel}T${horaInicioStr}:00-06:00`);
+    const horasFaltantes = (fechaHoraSlot - new Date()) / (1000 * 60 * 60);
+    const noCumple24h = horasFaltantes < 24;
+
+   if (noCumple24h) {
   return `
-    <button class="hora-chip pasada" disabled>
+    <button class="hora-chip pasada" disabled title="Debes reservar con al menos 24 horas de anticipación">
       ${textoVisible}
     </button>
   `;
