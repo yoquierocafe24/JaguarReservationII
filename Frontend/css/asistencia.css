@@ -1,24 +1,13 @@
 /* ======================================
-   ASISTENCIA — ADMINISTRADOR
-
-   Depende de admin.css para:
-   - Colores institucionales
-   - Sidebar
-   - Topbar
-   - Tipografía general
+   JAGUAR RESERVATION — ASISTENCIA (ADMIN)
+   Reutiliza la identidad visual del panel
+   (admin.css + estudiantes-admin.css) y
+   añade SOLO lo propio de asistencia:
+   - color por estado en las tarjetas KPI
+   - el badge que genera asistencia.js
+   - las celdas propias de la tabla
+   - la paginación que genera asistencia.js
 ====================================== */
-
-
-/* ======================================
-   CONTENIDO
-====================================== */
-
-.page-content {
-    width: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 24px;
-}
 
 
 /* ======================================
@@ -26,296 +15,103 @@
 ====================================== */
 
 .page-title {
-    margin-bottom: 20px;
+    margin-bottom: 6px;
 }
 
 .page-title h2 {
-    margin: 0 0 4px;
-    font-size: 24px;
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--carmine);
     font-weight: 700;
-    color: var(--texto);
 }
 
 .page-title p {
-    margin: 0;
-    font-size: 13px;
-    color: var(--subtexto);
+    margin: 2px 0 0;
+    font-size: .85rem;
+    color: var(--muted, #6b7280);
 }
 
 
 /* ======================================
-   TARJETAS DE RESUMEN
+   TARJETAS KPI — color por estado
+   (.stat-card base ya viene de estudiantes-admin.css,
+   acá solo se le agrega el tinte)
 ====================================== */
 
-.resumen-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
-}
-
-.resumen-item {
-    background: var(--blanco);
-    border: 1px solid var(--borde);
-    border-radius: 16px;
-    padding: 18px 20px;
-}
-
-.resumen-item span {
-    display: block;
-    margin-bottom: 2px;
-
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--subtexto);
-
-    text-transform: uppercase;
-    letter-spacing: .5px;
-}
-
-.resumen-item strong {
-    display: block;
-
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--texto);
-}
-
-.resumen-item small {
-    display: block;
-    margin-top: 3px;
-
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--subtexto);
-}
-
-
-/* Resaltar únicamente el total principal */
-.resumen-item:first-child strong {
-    color: var(--crimson);
-}
-
-
-/* ======================================
-   TARJETA GENERAL
-====================================== */
-
-.card-jaguar {
-    background: var(--blanco);
-    border: 1px solid var(--borde);
-    border-radius: 16px;
-
-    padding: 24px;
-    margin-bottom: 20px;
-}
-
-
-/* ======================================
-   FILTROS
-====================================== */
-
-.filtros-grid {
-    display: grid;
-    grid-template-columns:
-        repeat(4, minmax(0, 1fr));
-    gap: 14px;
-}
-
-
-/* Buscar ocupa más espacio */
-.filtro-busqueda {
-    grid-column: span 2;
-}
-
-
-.filtro label {
-    display: block;
-    margin-bottom: 6px;
-
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--subtexto);
-}
-
-
-.filtro select,
-.filtro input {
-    width: 100%;
-
-    padding: 11px 14px;
-
-    border: 1.5px solid var(--borde);
-    border-radius: 12px;
-
-    background: var(--fondo);
-
-    font-family: 'Poppins', sans-serif;
-    font-size: 14px;
-    font-weight: 400;
-    color: var(--texto);
-
-    transition:
-        border-color .2s,
-        background .2s;
-}
-
-
-.filtro select:focus,
-.filtro input:focus {
-    outline: none;
-    border-color: var(--crimson);
-    background: var(--blanco);
-}
-
-
-.filtro input::placeholder {
-    color: var(--subtexto);
-}
-
-
-/* ======================================
-   BOTÓN LIMPIAR FILTROS
-====================================== */
-
-.filtros-acciones {
+.stat-card .label {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 14px;
-}
-
-
-.btn-limpiar {
-    display: inline-flex;
     align-items: center;
-    gap: 7px;
-
-    padding: 8px 16px;
-
-    border: 1.5px solid var(--borde);
-    border-radius: 10px;
-
-    background: none;
-
-    font-family: 'Poppins', sans-serif;
-    font-size: 13px;
-    font-weight: 400;
-    color: var(--subtexto);
-
-    cursor: pointer;
-
-    transition: .2s;
+    gap: 6px;
 }
 
-
-.btn-limpiar:hover {
-    border-color: var(--crimson);
-    color: var(--crimson);
+.stat-esperados {
+    background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+    border-color: rgba(37, 99, 235, .18);
 }
+.stat-esperados .value,
+.stat-esperados .label i { color: #2563eb; }
+
+.stat-presentes {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+    border-color: rgba(22, 163, 74, .18);
+}
+.stat-presentes .value,
+.stat-presentes .label i { color: #16a34a; }
+
+.stat-pendientes {
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-color: rgba(217, 119, 6, .18);
+}
+.stat-pendientes .value,
+.stat-pendientes .label i { color: #d97706; }
+
+.stat-inasistencias {
+    background: linear-gradient(135deg, #fff2f2 0%, #ffffff 100%);
+    border-color: rgba(147, 6, 30, .18);
+}
+.stat-inasistencias .value,
+.stat-inasistencias .label i { color: var(--carmine); }
 
 
 /* ======================================
-   TABLA
+   FILTROS — 5 columnas en vez de las 3
+   por defecto de .filters-panel
 ====================================== */
 
-.tabla-wrap {
-    width: 100%;
-    overflow-x: auto;
+@media (max-width: 1150px) {
+    .filters-panel { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
 
-
-.tabla-asistencia {
-    width: 100%;
-    min-width: 900px;
-
-    border-collapse: collapse;
-
-    font-family: 'Poppins', sans-serif;
-}
-
-
-/* Encabezados */
-
-.tabla-asistencia thead th {
-    padding: 0 14px 12px;
-
-    border-bottom: 1px solid var(--borde);
-
-    text-align: left;
-
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--subtexto);
-
-    text-transform: uppercase;
-    letter-spacing: .5px;
-
-    white-space: nowrap;
-}
-
-
-/* Celdas */
-
-.tabla-asistencia tbody td {
-    padding: 14px;
-
-    border-bottom: 1px solid var(--gris);
-
-    font-size: 13px;
-    font-weight: 400;
-    color: var(--texto);
-
-    vertical-align: middle;
-}
-
-
-.tabla-asistencia tbody tr:last-child td {
-    border-bottom: none;
-}
-
-
-.tabla-asistencia tbody tr:hover {
-    background: var(--fondo);
+@media (max-width: 700px) {
+    .filters-panel { grid-template-columns: 1fr !important; }
 }
 
 
 /* ======================================
-   PERSONA
+   CELDAS PROPIAS DE LA TABLA
+   (th/td genéricos ya vienen de estudiantes-admin.css,
+   estas son solo las que asistencia.js genera adentro)
 ====================================== */
 
 .celda-persona strong {
     display: block;
-
     font-size: 13px;
     font-weight: 600;
-    color: var(--texto);
+    color: var(--text);
 }
-
 
 .celda-persona small {
     display: block;
-
     margin-top: 1px;
-
     font-size: 11px;
     font-weight: 400;
-    color: var(--subtexto);
+    color: var(--muted);
 }
-
-
-/* ======================================
-   HORA
-====================================== */
 
 .celda-hora {
     white-space: nowrap;
     font-weight: 500;
 }
-
-
-/* ======================================
-   CÓDIGO DE RESERVA
-====================================== */
 
 .celda-id {
     font-weight: 600;
@@ -324,87 +120,81 @@
 
 
 /* ======================================
-   TIPO DE INGRESO
+   BADGE DE ESTADO
+   Clase real generada por asistencia.js:
+   <span class="badge-asistencia ${estadoVisual.clase}">
 ====================================== */
 
-.badge-ingreso {
+.badge-asistencia {
     display: inline-block;
-
     padding: 5px 12px;
-
     border-radius: 50px;
-
     font-size: 11px;
     font-weight: 600;
-
     white-space: nowrap;
 }
 
-
-/* Ingreso relacionado con una reserva */
-.badge-ingreso.reserva {
-    background: #d1fae5;
-    color: #065f46;
+.badge-asistencia.presente {
+    background: rgba(22, 163, 74, .12);
+    color: #16a34a;
 }
 
+.badge-asistencia.pendiente {
+    background: rgba(217, 119, 6, .12);
+    color: #d97706;
+}
 
-/* Ingreso libre mediante QR */
-.badge-ingreso.libre {
-    background: #fef3c7;
-    color: #92400e;
+.badge-asistencia.inasistencia {
+    background: rgba(147, 6, 30, .12);
+    color: var(--carmine);
 }
 
 
 /* ======================================
    PAGINACIÓN
+   Los <button class="paginacion-btn"> y
+   .activa los genera renderPaginacion()
+   en asistencia.js — acá solo se estilizan.
 ====================================== */
 
-.paginacion-asistencia {
+#paginacion-asistencia {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-
     gap: 8px;
     margin-top: 14px;
 }
 
-
 .paginacion-btn {
     width: 36px;
     height: 36px;
-
     display: inline-flex;
     align-items: center;
     justify-content: center;
-
-    border: 1px solid var(--borde);
+    border: 1px solid var(--border);
     border-radius: 10px;
-
-    background: var(--blanco);
-
+    background: var(--surface);
     font-family: 'Poppins', sans-serif;
     font-size: 13px;
     font-weight: 500;
-    color: var(--texto);
-
+    color: var(--text);
     cursor: pointer;
-
     transition: .2s;
 }
 
-
 .paginacion-btn:hover:not(:disabled) {
-    border-color: var(--crimson);
-    color: var(--crimson);
+    border-color: var(--carmine);
+    color: var(--carmine);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, .08);
 }
-
 
 .paginacion-btn.activa {
-    background: var(--crimson);
-    border-color: var(--crimson);
-    color: var(--blanco);
+    background: var(--carmine);
+    border-color: var(--carmine);
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(147, 6, 30, .25);
 }
-
 
 .paginacion-btn:disabled {
     opacity: .45;
@@ -413,177 +203,11 @@
 
 
 /* ======================================
-   TABLA VACÍA
-====================================== */
-
-.tabla-vacia {
-    padding: 44px 20px;
-
-    text-align: center;
-
-    font-size: 14px;
-    color: var(--subtexto);
-}
-
-
-.tabla-vacia i {
-    display: block;
-
-    margin-bottom: 10px;
-
-    font-size: 32px;
-    color: var(--borde);
-}
-
-
-/* ======================================
-   SCROLL DE TABLA
-====================================== */
-
-.tabla-wrap::-webkit-scrollbar {
-    height: 7px;
-}
-
-.tabla-wrap::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.tabla-wrap::-webkit-scrollbar-thumb {
-    background: var(--borde);
-    border-radius: 10px;
-}
-
-
-/* ======================================
-   RESPONSIVE — TABLET
-====================================== */
-
-@media (max-width: 992px) {
-
-    .resumen-grid {
-        grid-template-columns:
-            repeat(3, 1fr);
-    }
-
-    .filtros-grid {
-        grid-template-columns:
-            repeat(2, 1fr);
-    }
-
-    .filtro-busqueda {
-        grid-column: span 2;
-    }
-
-}
-
-
-/* ======================================
    RESPONSIVE — MÓVIL
 ====================================== */
 
 @media (max-width: 600px) {
-
-    .page-content {
-        padding: 16px;
-    }
-
-
-    .page-title h2 {
-        font-size: 21px;
-    }
-
-
-    .resumen-grid {
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-
-    .resumen-item {
-        padding: 15px 16px;
-    }
-
-
-    .resumen-item strong {
-        font-size: 24px;
-    }
-
-
-    .card-jaguar {
-        padding: 18px 16px;
-    }
-
-
-    .filtros-grid {
-        grid-template-columns: 1fr;
-    }
-
-
-    .filtro-busqueda {
-        grid-column: auto;
-    }
-
-
-    .filtros-acciones {
-        justify-content: stretch;
-    }
-
-
-    .btn-limpiar {
-        width: 100%;
+    #paginacion-asistencia {
         justify-content: center;
-    }
-
-
-    .paginacion-asistencia {
-        justify-content: center;
-    }
-
-}
-
-/* ======================================
-   TARJETAS DE RESUMEN — COLOR POR ESTADO
-====================================== */
-
-.resumen-grid.asistencia-resumen {
-    grid-template-columns: repeat(4, 1fr);
-}
-
-.resumen-item span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.resumen-item span i {
-    font-size: 13px;
-}
-
-/* Ya no forzamos el color solo en el primero */
-.resumen-item:first-child strong {
-    color: var(--texto);
-}
-
-.item-esperados strong { color: #2563eb; }
-.item-esperados span i { color: #2563eb; }
-
-.item-presentes strong { color: #16a34a; }
-.item-presentes span i { color: #16a34a; }
-
-.item-pendientes strong { color: #d97706; }
-.item-pendientes span i { color: #d97706; }
-
-.item-inasistencias strong { color: var(--crimson); }
-.item-inasistencias span i { color: var(--crimson); }
-
-@media (max-width: 992px) {
-    .resumen-grid.asistencia-resumen {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 600px) {
-    .resumen-grid.asistencia-resumen {
-        grid-template-columns: 1fr;
     }
 }

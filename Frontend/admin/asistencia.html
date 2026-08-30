@@ -25,58 +25,34 @@
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
-
-
     <!-- Bootstrap Icons -->
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
         rel="stylesheet"
     >
-
-
     <!-- Poppins -->
     <link
         href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
-
-
-    <!-- CSS -->
-    <link
-        rel="stylesheet"
-        href="../css/admin.css?v=12"
-    >
-
-    <link
-        rel="stylesheet"
-        href="../css/asistencia.css?v=12"
-    >
-
+    <link rel="stylesheet" href="../css/admin.css?v=12">
+    <link rel="stylesheet" href="../css/estudiantes-admin.css">
+    <link rel="stylesheet" href="../css/asistencia.css?v=12">
 </head>
-
 
 <body>
 
-
 <div class="admin-layout">
-
-
     <!-- =====================================
          SIDEBAR
     ====================================== -->
-
     <aside class="sidebar-admin">
-
-
         <div class="sidebar-brand">
-
             <img
                 src="../img/V.E CEUTEC logo-03.png"
                 alt="Jaguares CEUTEC"
                 class="sidebar-logo"
             >
-
-
             <div class="sidebar-brand-text">
 
                 <h1>
@@ -91,15 +67,10 @@
 
         </div>
 
-
         <div class="sidebar-section-title">
             Administración
         </div>
-
-
         <nav class="sidebar-menu">
-
-
             <a
                 href="dashboard.html"
                 class="sidebar-link"
@@ -107,8 +78,6 @@
                 <i class="bi bi-house-door"></i>
                 <span>Inicio</span>
             </a>
-
-
             <a
                 href="reservaciones.html"
                 class="sidebar-link"
@@ -295,321 +264,135 @@
 
 
         <!-- =====================================
-             CONTENIDO
+             CONTENIDO — mismo esqueleto que reportes.html
         ====================================== -->
 
-        <section class="page-content">
+        <div class="content">
 
+            <section class="panel">
 
-            <!-- TÍTULO -->
+                <!-- TÍTULO -->
+                <div class="page-title">
+                    <h2>Control de asistencia</h2>
+                    <p>Consulta la asistencia de estudiantes en las reservas del polideportivo.</p>
+                </div>
 
-            <div class="page-title">
+                <!-- TARJETAS KPI (clases compartidas: stats-grid / stat-card) -->
+                <div class="stats-grid">
 
-                <h2>
-                    Control de asistencia
-                </h2>
+                    <article class="stat-card stat-esperados">
+                        <div class="label"><i class="bi bi-people-fill"></i> Esperados hoy</div>
+                        <div id="total-esperados" class="value">0</div>
+                        <div class="hint">Personas con reserva aprobada</div>
+                    </article>
 
-                <p>
-                    Consulta la asistencia de estudiantes en las reservas del polideportivo.
-                </p>
+                    <article class="stat-card stat-presentes">
+                        <div class="label"><i class="bi bi-check-circle-fill"></i> Presentes</div>
+                        <div id="total-presentes" class="value">0</div>
+                        <div class="hint">Ya registraron entrada</div>
+                    </article>
 
-            </div>
+                    <article class="stat-card stat-pendientes">
+                        <div class="label"><i class="bi bi-hourglass-split"></i> Pendientes</div>
+                        <div id="total-pendientes" class="value">0</div>
+                        <div class="hint">Su horario aún no termina</div>
+                    </article>
 
+                    <article class="stat-card stat-inasistencias">
+                        <div class="label"><i class="bi bi-x-circle-fill"></i> Inasistencias</div>
+                        <div id="total-inasistencias" class="value">0</div>
+                        <div class="hint">El horario ya terminó, no llegaron</div>
+                    </article>
 
+                </div>
 
-         <div class="resumen-grid asistencia-resumen">
+                <!-- FILTROS (clases compartidas: filters-panel / filter-group) -->
+                <div class="filters-panel" style="grid-template-columns: repeat(5, minmax(0,1fr));">
 
-    <div class="resumen-item item-esperados">
-        <span><i class="bi bi-people-fill"></i> Esperados hoy</span>
-        <strong id="total-esperados">0</strong>
-        <small>Personas con reserva aprobada</small>
-    </div>
-
-    <div class="resumen-item item-presentes">
-        <span><i class="bi bi-check-circle-fill"></i> Presentes</span>
-        <strong id="total-presentes">0</strong>
-        <small>Ya registraron entrada</small>
-    </div>
-
-    <div class="resumen-item item-pendientes">
-        <span><i class="bi bi-hourglass-split"></i> Pendientes</span>
-        <strong id="total-pendientes">0</strong>
-        <small>Su horario aún no termina</small>
-    </div>
-
-    <div class="resumen-item item-inasistencias">
-        <span><i class="bi bi-x-circle-fill"></i> Inasistencias</span>
-        <strong id="total-inasistencias">0</strong>
-        <small>El horario ya terminó, no llegaron</small>
-    </div>
-
-</div>
-
-
-
-            <!-- =====================================
-                 FILTROS
-            ====================================== -->
-
-            <div class="card-jaguar">
-
-
-                <div class="filtros-grid asistencia-filtros">
-
-
-                    <!-- FECHA -->
-
-                    <div class="filtro">
-
-                        <label for="filtro-fecha">
-                            Fecha
-                        </label>
-
-                        <input
-                            type="date"
-                            id="filtro-fecha"
-                        >
-
+                    <div class="filter-group">
+                        <label for="filtro-fecha">Fecha</label>
+                        <input type="date" id="filtro-fecha">
                     </div>
 
-
-
-                    <!-- ESPACIO -->
-
-                    <div class="filtro">
-
-                        <label for="filtro-espacio">
-                            Espacio
-                        </label>
-
-
+                    <div class="filter-group">
+                        <label for="filtro-espacio">Espacio</label>
                         <select id="filtro-espacio">
-
-                            <option value="">
-                                Todos
-                            </option>
-
-                            <option value="1">
-                                Fútbol
-                            </option>
-
-                            <option value="2">
-                                Baloncesto
-                            </option>
-
-                            <option value="3">
-                                Voleibol
-                            </option>
-
-                            <option value="4">
-                                Zona Jaguar
-                            </option>
-
+                            <option value="">Todos</option>
+                            <option value="1">Fútbol</option>
+                            <option value="2">Baloncesto</option>
+                            <option value="3">Voleibol</option>
+                            <option value="4">Zona Jaguar</option>
                         </select>
-
                     </div>
 
-
-
-                    <!-- TIPO -->
-
-                    <div class="filtro">
-
-                        <label for="filtro-tipo">
-                            Tipo
-                        </label>
-
-
+                    <div class="filter-group">
+                        <label for="filtro-tipo">Tipo</label>
                         <select id="filtro-tipo">
-
-                            <option value="">
-                                Todos
-                            </option>
-
-                            <option value="titular">
-                                Titular
-                            </option>
-
-                            <option value="acompanante">
-                                Acompañante
-                            </option>
-
+                            <option value="">Todos</option>
+                            <option value="titular">Titular</option>
+                            <option value="acompanante">Acompañante</option>
                         </select>
-
                     </div>
 
-
-
-                    <!-- ESTADO -->
-
-                    <div class="filtro">
-
-                        <label for="filtro-estado">
-                            Estado
-                        </label>
-
-
+                    <div class="filter-group">
+                        <label for="filtro-estado">Estado</label>
                         <select id="filtro-estado">
-
-                            <option value="">
-                                Todos
-                            </option>
-
-                            <option value="presente">
-                                Presente
-                            </option>
-
-                            <option value="pendiente">
-                                Pendiente
-                            </option>
-
-                            <option value="inasistencia">
-                                Inasistencia
-                            </option>
-
+                            <option value="">Todos</option>
+                            <option value="presente">Presente</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="inasistencia">Inasistencia</option>
                         </select>
-
                     </div>
 
-
-
-                    <!-- BUSCAR -->
-
-                    <div class="filtro filtro-busqueda">
-
-                        <label for="filtro-buscar">
-                            Buscar
-                        </label>
-
-                        <input
-                            type="text"
-                            id="filtro-buscar"
-                            placeholder="Nombre, cuenta o reserva"
-                        >
-
+                    <div class="filter-group">
+                        <label for="filtro-buscar">Buscar</label>
+                        <input type="text" id="filtro-buscar" placeholder="Nombre, cuenta o reserva">
                     </div>
-
 
                 </div>
 
-
-
-                <!-- LIMPIAR FILTROS -->
-
-                <div class="filtros-acciones">
-
-                    <button
-                        type="button"
-                        class="btn-limpiar"
-                        onclick="limpiarFiltros()"
-                    >
-
-                        <i class="bi bi-x-circle"></i>
-
-                        Limpiar filtros
-
+                <div class="actions-row" style="margin-top:14px; margin-bottom:0; justify-content:flex-end;">
+                    <button type="button" class="btn-secondary" onclick="limpiarFiltros()">
+                        <i class="bi bi-x-circle"></i> Limpiar filtros
                     </button>
-
                 </div>
 
+                <!-- TABLA (tabla "pelada", el th/td ya vienen de estudiantes-admin.css) -->
+                <div class="table-wrapper" style="margin-top:18px;">
 
-            </div>
-
-
-
-            <!-- =====================================
-                 TABLA
-            ====================================== -->
-
-            <div class="card-jaguar">
-
-
-                <div class="tabla-wrap">
-
-
-                    <table class="tabla-asistencia">
-
+                    <table>
 
                         <thead>
-
                             <tr>
-
-                                <th>
-                                    Hora entrada
-                                </th>
-
-                                <th>
-                                    Persona
-                                </th>
-
-                                <th>
-                                    Tipo
-                                </th>
-
-                                <th>
-                                    Reserva
-                                </th>
-
-                                <th>
-                                    Espacio
-                                </th>
-
-                                <th>
-                                    Horario
-                                </th>
-
-                                <th>
-                                    Guardia
-                                </th>
-
-                                <th>
-                                    Estado
-                                </th>
-
+                                <th>Hora entrada</th>
+                                <th>Persona</th>
+                                <th>Tipo</th>
+                                <th>Reserva</th>
+                                <th>Espacio</th>
+                                <th>Horario</th>
+                                <th>Guardia</th>
+                                <th>Estado</th>
                             </tr>
-
                         </thead>
-
 
                         <tbody id="tabla-body">
                         </tbody>
 
-
                     </table>
 
+                    <div class="empty-state" id="tabla-vacia" style="display:none;">
+                        <i class="bi bi-inbox"></i>
+                        No hay registros de asistencia que coincidan con los filtros.
+                    </div>
 
                 </div>
 
+                <!-- PAGINACIÓN (contenedor fijo, los botones los arma asistencia.js) -->
+                <div id="paginacion-asistencia"></div>
 
+            </section>
 
-                <!-- PAGINACIÓN -->
-
-                <div
-                    class="paginacion-asistencia"
-                    id="paginacion-asistencia"
-                ></div>
-
-
-
-                <!-- TABLA VACÍA -->
-
-                <div
-                    class="tabla-vacia"
-                    id="tabla-vacia"
-                    style="display:none;"
-                >
-
-                    <i class="bi bi-inbox"></i>
-
-                    No hay registros de asistencia que coincidan con los filtros.
-
-                </div>
-
-
-            </div>
-
-
-        </section>
+        </div>
 
 
     </main>
