@@ -497,5 +497,104 @@ router.post('/crear-admin', requiereSesion, requiereSuperAdmin, async (req, res)
 
 });
 
+// ===============================
+// LISTAR ADMINISTRADORES
+// Solo el superadmin puede verlos
+// GET /api/auth/administradores
+// ===============================
+router.get('/administradores', requiereSesion, requiereSuperAdmin, async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+            `SELECT id_admin, nombre, correo, es_superadmin
+             FROM administradores
+             ORDER BY nombre ASC`
+        );
+
+        res.json({
+            ok: true,
+            administradores: rows
+        });
+
+    } catch (error) {
+
+        console.error('ERROR LISTANDO ADMINISTRADORES:', error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor.'
+        });
+    }
+});
+
+
+// ===============================
+// ELIMINAR ADMINISTRADOR
+// Solo el superadmin puede hacerlo. No se puede eliminar
+// a sí mismo ni a otro superadmin (evita dejar el sistema
+// sin administrador principal).
+// DELETE /api/auth/administradores/:id
+// ===============================
+router.delete('/administradores/:id', requiereSesion, requiereSuperAdmin, async (req, res) => {
+
+    try {
+
+        const id_admin = Number(req.params.id);
+
+        if (!id_admin) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'ID de administrador inválido.'
+            });
+        }
+
+        if (id_admin === req.session.usuario.id) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'No puede eliminarse a sí mismo.'
+            });
+        }
+
+        const [rows] = await db.query(
+            'SELECT id_admin, es_superadmin FROM administradores WHERE id_admin = ?',
+            [id_admin]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: 'Administrador no encontrado.'
+            });
+        }
+
+        if (rows[0].es_superadmin) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'No se puede eliminar a un administrador principal.'
+            });
+        }
+
+        await db.query(
+            'DELETE FROM administradores WHERE id_admin = ?',
+            [id_admin]
+        );
+
+        res.json({
+            ok: true,
+            mensaje: 'Administrador eliminado correctamente.'
+        });
+
+    } catch (error) {
+
+        console.error('ERROR ELIMINANDO ADMINISTRADOR:', error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor.'
+        });
+    }
+});
+
 
 module.exports = router;
