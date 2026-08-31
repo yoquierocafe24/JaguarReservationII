@@ -842,6 +842,29 @@ router.put('/:id/aprobar', requiereSesion, requiereAdmin, async (req, res) => {
 router.put('/:id/rechazar', requiereSesion, requiereAdmin, async (req, res) => {
     try {
 
+        const motivoRechazo = (req.body.motivo_rechazo || '').trim();
+
+        if (!motivoRechazo) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar el motivo del rechazo."
+            });
+        }
+
+        if (motivoRechazo.length < 5) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "El motivo debe tener al menos 5 caracteres."
+            });
+        }
+
+        if (motivoRechazo.length > 250) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "El motivo no puede superar los 250 caracteres."
+            });
+        }
+
         const [rows] = await db.query(
             `SELECT estado, fecha, hora_fin
              FROM reservas
@@ -881,9 +904,10 @@ router.put('/:id/rechazar', requiereSesion, requiereAdmin, async (req, res) => {
 
         await db.query(
             `UPDATE reservas
-             SET estado = 'rechazada'
+             SET estado = 'rechazada',
+                 motivo_rechazo = ?
              WHERE id_reserva = ?`,
-            [req.params.id]
+            [motivoRechazo, req.params.id]
         );
 
         res.json({
