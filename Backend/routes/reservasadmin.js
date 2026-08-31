@@ -63,21 +63,17 @@ async function generarIdReserva() {
 
 // =======================================
 // ADMIN - Crear reserva en nombre de un
-// estudiante, un equipo, o una persona externa
+// estudiante o de un equipo
 // POST /api/reservas-admin
 //
 // body:
-//   modo: "individual" | "equipo" | "exterior"
+//   modo: "individual" | "equipo"
 //
 //   -- modo individual --
 //   id_estudiante  (obligatorio)
 //
 //   -- modo equipo --
 //   id_equipo      (obligatorio)
-//
-//   -- modo exterior --
-//   nombre_externo      (obligatorio)
-//   documento_externo   (opcional)
 //
 //   -- siempre --
 //   id_espacio, fecha, hora_inicio, hora_fin
@@ -92,8 +88,6 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             modo,
             id_estudiante: idEstudianteBody,
             id_equipo,
-            nombre_externo,
-            documento_externo,
             id_espacio,
             id_item,
             fecha,
@@ -104,10 +98,10 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             cant_acompanantes
         } = req.body;
 
-        if (!["individual", "equipo", "exterior"].includes(modo)) {
+        if (!["individual", "equipo"].includes(modo)) {
             return res.status(400).json({
                 ok: false,
-                mensaje: "Debe indicar el modo: individual, equipo o exterior."
+                mensaje: "Debe indicar el modo: individual o equipo."
             });
         }
 
@@ -147,8 +141,6 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
         let id_estudiante = null;
         let tipoReservaFinal = modo;
         let idEquipoFinal = null;
-        let nombreExternoFinal = null;
-        let documentoExternoFinal = null;
 
         if (modo === "individual") {
 
@@ -219,46 +211,10 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             id_estudiante = lider[0].id_estudiante;
             idEquipoFinal = id_equipo;
 
-        } else {
-
-            // modo === "exterior"
-            // No hay estudiante ni equipo asociado. La reserva
-            // queda a nombre de una persona/grupo externo a la
-            // universidad. id_estudiante se guarda como NULL.
-
-            if (!nombre_externo || !nombre_externo.trim()) {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje: "Debe indicar el nombre de la persona o grupo externo."
-                });
-            }
-
-            if (nombre_externo.length > 150) {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje: "El nombre no puede superar los 150 caracteres."
-                });
-            }
-
-            if (!telefono) {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje: "Debe indicar un teléfono de contacto para reservas externas."
-                });
-            }
-
-            nombreExternoFinal = nombre_externo.trim();
-            documentoExternoFinal = documento_externo
-                ? String(documento_externo).trim()
-                : null;
-
         }
 
         // =======================================
         // Choque de horario del titular
-        // (solo aplica si hay un id_estudiante real;
-        // una reserva externa no tiene historial propio
-        // que revisar en esta tabla)
         // =======================================
 
         if (id_estudiante) {
@@ -285,8 +241,6 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 
         // =======================================
         // Espacios que comparten cancha física
-        // (esta validación sí aplica a los 3 modos,
-        // porque depende del ESPACIO, no de quién reserva)
         // =======================================
 
         const CANCHA_COMPARTIDA = {
@@ -380,8 +334,8 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 
         // El QR de acompañantes solo aplica a reservas individuales
         // de estudiantes reales (el flujo de "unirse por QR" exige
-        // que el acompañante sea un estudiante matriculado, algo que
-        // no aplica a equipos ni a personas externas).
+        // que el acompañante sea un estudiante matriculado, algo
+        // que no aplica a equipos).
         let qr_token = null;
 
         if (tipoReservaFinal === "individual" && cantidadAcompanantes > 0) {
@@ -402,8 +356,6 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 id_item,
                 tipo_reserva,
                 id_equipo,
-                nombre_externo,
-                documento_externo,
                 fecha,
                 hora_inicio,
                 hora_fin,
@@ -413,7 +365,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 estado,
                 qr_token
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [
                 id_reserva,
                 id_estudiante,
@@ -421,8 +373,6 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 id_item || null,
                 tipoReservaFinal,
                 idEquipoFinal,
-                nombreExternoFinal,
-                documentoExternoFinal,
                 fecha,
                 hora_inicio,
                 hora_fin,
