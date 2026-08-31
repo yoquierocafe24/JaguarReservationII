@@ -116,7 +116,7 @@ app.use('/api/qr', qrRoutes);
 app.use('/api/asistencia', asistenciaRoutes);
 app.use('/api/calendario', calendarioRoutes);
 app.use('/api/reportes', reportesRoutes);
-app.use('/api/reservasadmin', reservasadminRoutes);
+app.use('/api/reservas-admin', reservasadminRoutes);
 
 
 
