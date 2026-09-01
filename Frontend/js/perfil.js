@@ -686,6 +686,33 @@ function verDetalleReserva(idReserva) {
 
     }
 
+    // ======================================
+    // Datos de rechazo
+    // ======================================
+ 
+    const grupoMotivoRechazo =
+        document.getElementById(
+            "grupo-motivo-rechazo"
+        );
+ 
+    if (reserva.estado === "rechazada") {
+ 
+        grupoMotivoRechazo.hidden = false;
+ 
+        document
+            .getElementById(
+                "detalle-motivo-rechazo"
+            )
+            .textContent =
+                reserva.motivo_rechazo ||
+                "Sin motivo registrado";
+ 
+    } else {
+ 
+        grupoMotivoRechazo.hidden = true;
+ 
+    }
+
 
     const modal =
         new bootstrap.Modal(

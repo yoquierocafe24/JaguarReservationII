@@ -11,6 +11,7 @@ const RESERVAS_POR_PAGINA = 6;
 let reservas = [];
 let paginaActual = 1;
 let reservaIdParaCancelar = null;
+let reservaIdParaRechazar = null;
 
 
 // ── Topbar fecha ──
@@ -287,7 +288,7 @@ function renderPaginacion(totalPaginas) {
   botones.push(`
     <button
       type="button"
-      class="paginacion-btn"
+      class="pagination-btn"
       onclick="cambiarPagina(${Math.max(1, paginaActual - 1)})"
       ${paginaActual === 1 ? 'disabled' : ''}
     >
@@ -299,7 +300,7 @@ function renderPaginacion(totalPaginas) {
     botones.push(`
       <button
         type="button"
-        class="paginacion-btn ${i === paginaActual ? 'activa' : ''}"
+        class="pagination-btn ${i === paginaActual ? 'activa' : ''}"
         onclick="cambiarPagina(${i})"
       >
         ${i}
@@ -310,7 +311,7 @@ function renderPaginacion(totalPaginas) {
   botones.push(`
     <button
       type="button"
-      class="paginacion-btn"
+      class="pagination-btn"
       onclick="cambiarPagina(${Math.min(totalPaginas, paginaActual + 1)})"
       ${paginaActual === totalPaginas ? 'disabled' : ''}
     >
@@ -318,7 +319,12 @@ function renderPaginacion(totalPaginas) {
     </button>
   `);
 
-  contenedor.innerHTML = botones.join('');
+  contenedor.innerHTML = `
+    <span class="pagination-page">Página ${paginaActual} de ${totalPaginas}</span>
+    <div class="pagination-buttons">
+      ${botones.join('')}
+    </div>
+  `;
   contenedor.style.display = 'flex';
 }
 
@@ -449,7 +455,7 @@ function renderTabla() {
         </td>
 
         <td>
-          <span class="badge-estado ${estadoVisual.clase}">
+          <span class="badge ${estadoVisual.clase}">
             ${estadoVisual.texto}
           </span>
         </td>
@@ -458,7 +464,7 @@ function renderTabla() {
           <div class="acciones">
             <button
               type="button"
-              class="btn-accion ver"
+              class="action-btn action-btn-ver"
               title="Ver detalle"
               onclick="verDetalle('${r.id_reserva}')"
             >
@@ -485,7 +491,7 @@ function accionesDe(r) {
     return `
       <button
         type="button"
-        class="btn-accion aprobar"
+        class="action-btn action-btn-aprobar"
         title="Aprobar"
         onclick="resolver('${r.id_reserva}','aprobar')"
       >
@@ -494,9 +500,9 @@ function accionesDe(r) {
 
       <button
         type="button"
-        class="btn-accion rechazar"
+        class="action-btn"
         title="Rechazar"
-        onclick="resolver('${r.id_reserva}','rechazar')"
+        onclick="rechazar('${r.id_reserva}')"
       >
         <i class="bi bi-x-lg"></i>
       </button>
@@ -507,7 +513,7 @@ function accionesDe(r) {
     return `
       <button
         type="button"
-        class="btn-accion cancelar"
+        class="action-btn"
         title="Cancelar"
         onclick="cancelar('${r.id_reserva}')"
       >
@@ -688,6 +694,134 @@ async function confirmarCancelacionAdmin() {
     }
 }
 
+
+// ── RECHAZAR (con motivo) ──
+function rechazar(id) {
+
+    const reserva = reservas.find(
+        r => r.id_reserva === id
+    );
+
+    if (!reserva) {
+        mostrarToast(
+            'No se encontró la reserva.',
+            'danger'
+        );
+        return;
+    }
+
+    if (reserva.estado !== 'pendiente') {
+        mostrarToast(
+            'Solo se pueden rechazar reservas pendientes.',
+            'warning'
+        );
+        return;
+    }
+
+    reservaIdParaRechazar = id;
+
+    document.getElementById(
+        'motivo-rechazo-admin'
+    ).value = '';
+
+    document.getElementById(
+        'rechazo-status'
+    ).textContent = '';
+
+    abrirModal(
+        document.getElementById(
+            'modal-rechazar-reserva'
+        )
+    );
+}
+
+async function confirmarRechazoAdmin() {
+
+    if (!reservaIdParaRechazar) return;
+
+    const motivo =
+        document.getElementById(
+            'motivo-rechazo-admin'
+        ).value.trim();
+
+    const status =
+        document.getElementById(
+            'rechazo-status'
+        );
+
+    status.classList.remove('error');
+    status.textContent = '';
+
+    if (!motivo) {
+        status.textContent =
+            'Debe indicar el motivo del rechazo.';
+        status.classList.add('error');
+        return;
+    }
+
+    if (motivo.length < 5) {
+        status.textContent =
+            'El motivo debe tener al menos 5 caracteres.';
+        status.classList.add('error');
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/api/reservas/${encodeURIComponent(reservaIdParaRechazar)}/rechazar`,
+            {
+                method: 'PUT',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    motivo_rechazo: motivo
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.mensaje ||
+                'No se pudo rechazar la reserva.'
+            );
+        }
+
+        cerrarModal(
+            document.getElementById(
+                'modal-rechazar-reserva'
+            )
+        );
+
+        reservaIdParaRechazar = null;
+
+        mostrarToast(
+            data.mensaje || 'Reserva rechazada correctamente.',
+            'success'
+        );
+
+        await cargarReservas();
+
+    } catch (error) {
+
+        console.error(
+            'Error rechazando reserva:',
+            error
+        );
+
+        status.textContent =
+            error.message ||
+            'Ocurrió un error al rechazar la reserva.';
+
+        status.classList.add('error');
+    }
+}
+
+
 // ── MODALES ──
 function abrirModal(modal) {
   if (!modal) return;
@@ -732,6 +866,46 @@ document.addEventListener('click', (event) => {
   const status =
     document.getElementById(
       'cancelacion-status'
+    );
+
+  if (motivo) {
+    motivo.value = '';
+  }
+
+  if (status) {
+    status.textContent = '';
+    status.classList.remove('error');
+  }
+
+});
+
+// ── CERRAR MODAL DE RECHAZO ──
+document.addEventListener('click', (event) => {
+
+  const botonCerrar =
+    event.target.closest(
+      '[data-action="close-rechazar-reserva"]'
+    );
+
+  if (!botonCerrar) return;
+
+  const modal =
+    document.getElementById(
+      'modal-rechazar-reserva'
+    );
+
+  cerrarModal(modal);
+
+  reservaIdParaRechazar = null;
+
+  const motivo =
+    document.getElementById(
+      'motivo-rechazo-admin'
+    );
+
+  const status =
+    document.getElementById(
+      'rechazo-status'
     );
 
   if (motivo) {
@@ -907,6 +1081,16 @@ async function verDetalle(id) {
       );
     }
 
+    if (r.estado === 'rechazada') {
+
+      campos.push(
+        [
+          'Motivo de rechazo',
+          r.motivo_rechazo || '—'
+        ]
+      );
+    }
+
 
     // =======================================
     // MOSTRAR DETALLE
@@ -974,6 +1158,8 @@ async function verDetalle(id) {
 
   }
 }
+
+
 
 
 function obtenerNombreEspacio(id) {
@@ -1062,6 +1248,315 @@ async function cerrarSesion() {
 
 }
 
+// =======================================
+// CREAR RESERVA (ADMIN) — Alumno o Equipo
+// =======================================
+
+let estudiantesCache = null;   // lista completa, se carga una vez y se filtra en el navegador
+let estudianteSeleccionado = null;
+
+function abrirModalCrearReserva() {
+
+    // Reset del formulario
+    cambiarModoReserva('individual');
+
+    document.getElementById('buscar-cuenta-reserva').value = '';
+    document.getElementById('resultados-alumno').innerHTML = '';
+    document.getElementById('id-estudiante-seleccionado').value = '';
+    document.getElementById('alumno-seleccionado-info').style.display = 'none';
+    estudianteSeleccionado = null;
+
+    document.getElementById('reserva-espacio').value = '1';
+    document.getElementById('bloque-juego').style.display = 'none';
+    document.getElementById('reserva-fecha').value = '';
+    document.getElementById('reserva-horario').selectedIndex = 0;
+    document.getElementById('reserva-telefono').value = '';
+    document.getElementById('reserva-acompanantes').value = '0';
+    document.getElementById('reserva-solicitud').value = '';
+
+    const status = document.getElementById('crear-reserva-status');
+    status.textContent = '';
+    status.classList.remove('error');
+
+    cargarEquiposParaReserva();
+
+    abrirModal(document.getElementById('modal-crear-reserva'));
+}
+
+function cambiarModoReserva(modo) {
+
+    document.getElementById('modo-btn-individual').classList.toggle('activo', modo === 'individual');
+    document.getElementById('modo-btn-equipo').classList.toggle('activo', modo === 'equipo');
+
+    document.getElementById('bloque-alumno').style.display = modo === 'individual' ? 'block' : 'none';
+    document.getElementById('bloque-equipo').style.display = modo === 'equipo' ? 'block' : 'none';
+
+    // Los acompañantes con QR solo aplican a reservas individuales
+    // (un equipo ya tiene su roster conocido de antemano)
+    document.getElementById('bloque-acompanantes').style.display = modo === 'individual' ? 'block' : 'none';
+}
+
+function alCambiarEspacioReserva() {
+
+    const esZonaJaguar = document.getElementById('reserva-espacio').value === '4';
+
+    document.getElementById('bloque-juego').style.display = esZonaJaguar ? 'block' : 'none';
+
+    if (esZonaJaguar) {
+        cargarJuegosParaReserva();
+    }
+}
+
+async function cargarJuegosParaReserva() {
+
+    try {
+
+        const res = await fetch(`${API_URL}/api/inventario/juegos`, {
+            credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        const select = document.getElementById('reserva-juego');
+
+        select.innerHTML = '<option value="">Selecciona un juego</option>' +
+            (data.juegos || []).map(j =>
+                `<option value="${j.id_item}">${escapar(j.nombre)}</option>`
+            ).join('');
+
+    } catch (error) {
+        console.error('Error cargando juegos:', error);
+    }
+}
+
+async function cargarEquiposParaReserva() {
+
+    const select = document.getElementById('select-equipo-reserva');
+
+    try {
+
+        const res = await fetch(`${API_URL}/api/equipos`, {
+            credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudieron cargar los equipos.');
+        }
+
+        const equipos = (data.equipos || []).filter(e => Number(e.activo) === 1);
+
+        select.innerHTML = '<option value="">Selecciona un equipo</option>' +
+            equipos.map(e =>
+                `<option value="${e.id_equipo}">${escapar(e.nombre)} (${escapar(e.deporte || '')})</option>`
+            ).join('');
+
+    } catch (error) {
+
+        // El módulo de Equipos puede aún estar en desarrollo —
+        // se avisa sin romper el resto del formulario.
+        console.error('Error cargando equipos:', error);
+        select.innerHTML = '<option value="">No se pudieron cargar los equipos</option>';
+    }
+}
+
+// Búsqueda de alumno por cuenta — se trae la lista completa una
+// sola vez (mismo endpoint que ya usa la pantalla de Estudiantes)
+// y se filtra en el navegador conforme el usuario escribe.
+document.getElementById('buscar-cuenta-reserva')?.addEventListener('input', async (evento) => {
+
+    const texto = evento.target.value.trim().toLowerCase();
+
+    const contenedor = document.getElementById('resultados-alumno');
+
+    if (!texto) {
+        contenedor.innerHTML = '';
+        return;
+    }
+
+    if (!estudiantesCache) {
+
+        try {
+
+            const res = await fetch(`${API_URL}/estudiantes`, {
+                credentials: 'include'
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.ok) {
+                throw new Error(data.mensaje || 'No se pudieron cargar los estudiantes.');
+            }
+
+            estudiantesCache = data.estudiantes || [];
+
+        } catch (error) {
+            console.error('Error cargando estudiantes:', error);
+            contenedor.innerHTML = '<div class="resultado-item">No se pudo cargar la lista de estudiantes.</div>';
+            return;
+        }
+
+    }
+
+    const coincidencias = estudiantesCache
+        .filter(e => Number(e.activo) === 1)
+        .filter(e =>
+            String(e.cuenta || '').toLowerCase().includes(texto) ||
+            String(e.nombre || '').toLowerCase().includes(texto)
+        )
+        .slice(0, 6);
+
+    contenedor.innerHTML = coincidencias.map(e => `
+        <div class="resultado-item" onclick='seleccionarEstudianteReserva(${JSON.stringify(e)})'>
+            <strong>${escapar(e.nombre)}</strong> — ${escapar(e.cuenta)}
+        </div>
+    `).join('');
+
+});
+
+function seleccionarEstudianteReserva(estudiante) {
+
+    estudianteSeleccionado = estudiante;
+
+    document.getElementById('id-estudiante-seleccionado').value = estudiante.id_estudiante;
+    document.getElementById('buscar-cuenta-reserva').value = '';
+    document.getElementById('resultados-alumno').innerHTML = '';
+
+    const info = document.getElementById('alumno-seleccionado-info');
+    info.style.display = 'block';
+    info.textContent = `Seleccionado: ${estudiante.nombre} (${estudiante.cuenta})`;
+}
+
+async function confirmarCrearReservaAdmin() {
+
+    const status = document.getElementById('crear-reserva-status');
+    status.textContent = '';
+    status.classList.remove('error');
+
+    const modo = document.getElementById('modo-btn-equipo').classList.contains('activo')
+        ? 'equipo'
+        : 'individual';
+
+    const id_espacio = Number(document.getElementById('reserva-espacio').value);
+    const fecha = document.getElementById('reserva-fecha').value;
+    const [hora_inicio, hora_fin] = document.getElementById('reserva-horario').value.split('|');
+    const telefono = document.getElementById('reserva-telefono').value.trim();
+    const solicitud_especial = document.getElementById('reserva-solicitud').value.trim();
+    const cant_acompanantes = Number(document.getElementById('reserva-acompanantes').value) || 0;
+
+    if (!fecha) {
+        status.textContent = 'Debe seleccionar una fecha.';
+        status.classList.add('error');
+        return;
+    }
+
+    if (!/^\d{8}$/.test(telefono)) {
+        status.textContent = 'El teléfono debe tener exactamente 8 dígitos.';
+        status.classList.add('error');
+        return;
+    }
+
+    const body = {
+        modo,
+        id_espacio,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        telefono,
+        solicitud_especial,
+        cant_acompanantes
+    };
+
+    if (id_espacio === 4) {
+        const idItem = document.getElementById('reserva-juego').value;
+
+        if (!idItem) {
+            status.textContent = 'Debe seleccionar un juego.';
+            status.classList.add('error');
+            return;
+        }
+
+        body.id_item = idItem;
+    }
+
+    if (modo === 'individual') {
+
+        const idEstudiante = document.getElementById('id-estudiante-seleccionado').value;
+
+        if (!idEstudiante) {
+            status.textContent = 'Debe buscar y seleccionar un alumno.';
+            status.classList.add('error');
+            return;
+        }
+
+        body.id_estudiante = Number(idEstudiante);
+
+    } else {
+
+        const idEquipo = document.getElementById('select-equipo-reserva').value;
+
+        if (!idEquipo) {
+            status.textContent = 'Debe seleccionar un equipo.';
+            status.classList.add('error');
+            return;
+        }
+
+        body.id_equipo = Number(idEquipo);
+    }
+
+    try {
+
+        document.getElementById('btn-confirmar-crear-reserva').disabled = true;
+
+        const res = await fetch(`${API_URL}/api/reservas-admin`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo crear la reserva.');
+        }
+
+        cerrarModal(document.getElementById('modal-crear-reserva'));
+
+        mostrarToast(
+            `Reserva ${data.id_reserva} creada correctamente.`,
+            'success'
+        );
+
+        await cargarReservas();
+
+    } catch (error) {
+
+        console.error('Error creando reserva (admin):', error);
+
+        status.textContent = error.message || 'Ocurrió un error al crear la reserva.';
+        status.classList.add('error');
+
+    } finally {
+        document.getElementById('btn-confirmar-crear-reserva').disabled = false;
+    }
+
+}
+
+// Cierra el modal desde el botón "Cancelar" o el fondo,
+// igual que ya hace tu modal de cancelación.
+document.addEventListener('click', (event) => {
+
+    const boton = event.target.closest('[data-action="close-crear-reserva"]');
+
+    if (!boton) return;
+
+    cerrarModal(document.getElementById('modal-crear-reserva'));
+});
+
+
+
 // ── INICIO ──
 document.addEventListener(
   'DOMContentLoaded',
@@ -1088,6 +1583,20 @@ document.addEventListener(
       ?.addEventListener(
         'click',
         confirmarCancelacionAdmin
+      );
+
+    document
+      .getElementById('btn-confirmar-rechazo-admin')
+      ?.addEventListener(
+        'click',
+        confirmarRechazoAdmin
+      );
+
+    document
+      .getElementById('btn-confirmar-crear-reserva')
+      ?.addEventListener(
+        'click',
+        confirmarCrearReservaAdmin
       );
 
     // Auto-actualizar reservas cada 30 segundos

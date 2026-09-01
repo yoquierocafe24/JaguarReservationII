@@ -1,14 +1,15 @@
 /* ======================================
    CSS RESERVAS — ADMINISTRADOR
-   Depende de estilo.css (layout, sidebar, topbar, variables).
-   Aqui solo va lo propio de esta vista.
+   El layout base (stats-grid, stat-card, filters-panel, filter-group,
+   tabla, badge, action-btn, btn-primary/secondary, custom-modal) lo pone
+   estudiantes-admin.css. Aqui solo va lo que es propio de reservas:
+   colores de estado, columnas de la tabla, formulario de cancelacion.
 ====================================== */
 
 
 /* VARIABLES DE ESTADO
    La paleta institucional es roja y no alcanza para distinguir
-   aprobada/pendiente, asi que los estados usan color semantico.
-   El rojo de "rechazada" es el mismo de .msg-error del estudiante. */
+   aprobada/pendiente, asi que los estados usan color semantico. */
 
 :root{
     --est-pendiente-bg:#fef3c7;
@@ -23,159 +24,157 @@
 
 
 /* ======================================
-        TARJETA
+        CONTENEDOR DE PAGINA
+        Le da el margen/padding alrededor de la card blanca —
+        sin esto el panel se pega a los bordes de la pantalla.
 ====================================== */
 
-.card-jaguar{
-    background:var(--blanco);
-    border-radius:16px;
+.page-content{
+    width:100%;
+    max-width:1400px;
+    margin:0 auto;
     padding:24px;
-    border:1px solid var(--borde);
-    margin-bottom:20px;
 }
 
 
 /* ======================================
-        RESUMEN
+        PANEL GENERAL
+        Todo (titulo, resumen, filtros, tabla) vive dentro de un
+        solo .panel, igual que en Asistencia. Aqui solo separamos
+        los bloques internos.
 ====================================== */
 
-.resumen-grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:16px;
-    margin-bottom:20px;
+.panel-reservas .stats-grid{
+    margin-bottom:22px;
 }
 
-.resumen-item{
-    background:var(--blanco);
-    border:1px solid var(--borde);
-    border-radius:16px;
-    padding:18px 20px;
+.filtros-bloque{
+    margin-bottom:22px;
 }
 
-.resumen-item span{
-    display:block;
-    font-size:11px;
-    font-weight:600;
-    color:var(--subtexto);
-    text-transform:uppercase;
-    letter-spacing:.5px;
+
+/* ======================================
+        RESUMEN — un color distinto por card, como en asistencia
+====================================== */
+
+.stat-card .label{
+    display:flex;
+    align-items:center;
+    gap:6px;
 }
 
-.resumen-item strong{
-    font-size:26px;
-    font-weight:700;
-    color:var(--texto);
+.stat-card.stat-pendientes{
+    background:linear-gradient(135deg,#fffbeb 0%,#ffffff 100%);
+    border-color:rgba(217,119,6,.2);
 }
 
-.resumen-item.pendientes strong{
+.stat-card.stat-pendientes .label i,
+.stat-card.stat-pendientes .value{
+    color:#d97706;
+}
+
+.stat-card.stat-aprobadas{
+    background:linear-gradient(135deg,#f0fdf4 0%,#ffffff 100%);
+    border-color:rgba(22,163,74,.2);
+}
+
+.stat-card.stat-aprobadas .label i,
+.stat-card.stat-aprobadas .value{
+    color:#16a34a;
+}
+
+.stat-card.stat-rechazadas{
+    background:linear-gradient(135deg,#fef2f2 0%,#ffffff 100%);
+    border-color:rgba(147,6,30,.2);
+}
+
+.stat-card.stat-rechazadas .label i,
+.stat-card.stat-rechazadas .value{
     color:var(--crimson);
 }
 
+.stat-card.stat-canceladas{
+    background:linear-gradient(135deg,#f8fafc 0%,#ffffff 100%);
+    border-color:rgba(100,116,139,.2);
+}
+
+.stat-card.stat-canceladas .label i,
+.stat-card.stat-canceladas .value{
+    color:#64748b;
+}
+
+
+.panel-reservas .page-header-row{
+    margin-bottom:22px;
+}
+
+.page-header-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+}
+
+.page-header-row .page-title{
+    margin-bottom:0;
+}
+
+@media (max-width:576px){
+    .page-header-row{
+        flex-direction:column;
+    }
+
+    .page-header-row .actions-buttons{
+        width:100%;
+    }
+
+    .page-header-row .actions-buttons .btn-primary{
+        width:100%;
+        justify-content:center;
+    }
+}
+
 
 /* ======================================
-        FILTROS
+        FILTROS — reservas tiene 4 filtros en vez de 3
 ====================================== */
 
-.filtros-grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:14px;
-}
-
-.filtro label{
-    display:block;
-    font-size:12px;
-    font-weight:500;
-    color:var(--subtexto);
-    margin-bottom:6px;
-}
-
-.filtro select,
-.filtro input{
-    width:100%;
-    padding:11px 14px;
-    border:1.5px solid var(--borde);
-    border-radius:12px;
-    font-family:'Poppins',sans-serif;
-    font-size:14px;
-    color:var(--texto);
-    background:var(--fondo);
-    transition:border-color .2s;
-}
-
-.filtro select:focus,
-.filtro input:focus{
-    outline:none;
-    border-color:var(--crimson);
-    background:var(--blanco);
+.filters-panel.filters-panel-reservas{
+    grid-template-columns:repeat(4,minmax(0,1fr));
 }
 
 .filtros-acciones{
-    display:flex;
-    justify-content:flex-end;
     margin-top:14px;
 }
 
-.btn-limpiar{
-    background:none;
-    border:1.5px solid var(--borde);
-    border-radius:10px;
-    padding:8px 16px;
-    font-family:'Poppins',sans-serif;
-    font-size:13px;
-    color:var(--subtexto);
-    cursor:pointer;
-    transition:.2s;
+@media (max-width:900px){
+    .filters-panel.filters-panel-reservas{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
 }
 
-.btn-limpiar:hover{
-    border-color:var(--crimson);
-    color:var(--crimson);
+@media (max-width:576px){
+    .filters-panel.filters-panel-reservas{
+        grid-template-columns:1fr;
+    }
 }
 
 
 /* ======================================
-        TABLA
+        PAGINACIÓN — resaltar la página activa
+        (pagination-btn base ya viene de estudiantes-admin.css)
 ====================================== */
 
-.tabla-wrap{
-    overflow-x:auto;
+.pagination-btn.activa{
+    background:linear-gradient(135deg,var(--carmine),var(--crimson));
+    border-color:var(--crimson);
+    color:var(--blanco);
 }
 
-.tabla-reservas{
-    width:100%;
-    border-collapse:collapse;
-    min-width:900px;
-}
 
-.tabla-reservas thead th{
-    text-align:left;
-    font-size:11px;
-    font-weight:600;
-    color:var(--subtexto);
-    text-transform:uppercase;
-    letter-spacing:.5px;
-    padding:0 14px 12px;
-    border-bottom:1px solid var(--borde);
-    white-space:nowrap;
-}
-
-.tabla-reservas tbody td{
-    padding:14px;
-    font-size:13px;
-    color:var(--texto);
-    border-bottom:1px solid var(--gris);
-    vertical-align:middle;
-}
-
-.tabla-reservas tbody tr:last-child td{
-    border-bottom:none;
-}
-
-.tabla-reservas tbody tr:hover{
-    background:var(--fondo);
-}
+/* ======================================
+        COLUMNAS DE LA TABLA
+====================================== */
 
 .celda-id{
     font-weight:600;
@@ -205,42 +204,39 @@
 
 
 /* ======================================
-        BADGE DE ESTADO
+        BADGE DE ESTADO — colores propios de reservas
+        (el look de pastilla ya lo pone .badge)
 ====================================== */
 
-.badge-estado{
-    display:inline-block;
-    padding:5px 12px;
-    border-radius:50px;
-    font-size:11px;
-    font-weight:600;
-    text-transform:capitalize;
-    white-space:nowrap;
-}
-
-.badge-estado.pendiente{
+.badge.pendiente{
     background:var(--est-pendiente-bg);
     color:var(--est-pendiente-tx);
 }
 
-.badge-estado.aprobada{
+.badge.aprobada{
     background:var(--est-aprobada-bg);
     color:var(--est-aprobada-tx);
 }
 
-.badge-estado.rechazada{
+.badge.rechazada{
     background:var(--est-rechazada-bg);
     color:var(--est-rechazada-tx);
 }
 
-.badge-estado.cancelada{
+.badge.cancelada{
     background:var(--est-cancelada-bg);
     color:var(--est-cancelada-tx);
 }
 
+.badge.vencida{
+    background:#e5e7eb;
+    color:#6b7280;
+}
+
 
 /* ======================================
-        ACCIONES
+        ACCIONES — misma pastilla que .action-btn,
+        pero como circulo de icono y con color por tipo
 ====================================== */
 
 .acciones{
@@ -249,98 +245,31 @@
     white-space:nowrap;
 }
 
-.btn-accion{
+.acciones .action-btn{
     width:32px;
     height:32px;
-    border-radius:9px;
-    border:1.5px solid var(--borde);
-    background:var(--blanco);
-    color:var(--subtexto);
-    font-size:14px;
-    cursor:pointer;
+    padding:0;
+    border-radius:999px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    transition:.2s;
+    font-size:14px;
 }
 
-.btn-accion:hover{
-    background:var(--fondo);
+.action-btn.action-btn-ver{
+    background:linear-gradient(135deg,#4338ca,#6366f1);
 }
 
-.btn-accion.aprobar:hover{
-    border-color:var(--est-aprobada-tx);
-    color:var(--est-aprobada-tx);
-}
-
-.btn-accion.rechazar:hover,
-.btn-accion.cancelar:hover{
-    border-color:var(--crimson);
-    color:var(--crimson);
-}
-
-.btn-accion.ver:hover{
-    border-color:var(--texto);
-    color:var(--texto);
+.action-btn.action-btn-aprobar{
+    background:linear-gradient(135deg,#15803d,#22c55e);
 }
 
 
 /* ======================================
-        PAGINACIÓN
+        VACIO
 ====================================== */
 
-.paginacion-reservas{
-    display:flex;
-    justify-content:flex-end;
-    align-items:center;
-    gap:8px;
-    margin-top:14px;
-}
-
-.paginacion-btn{
-    width:36px;
-    height:36px;
-    border:1px solid var(--borde);
-    border-radius:10px;
-    background:var(--blanco);
-    color:var(--texto);
-    font-family:'Poppins',sans-serif;
-    font-size:13px;
-    cursor:pointer;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    transition:.2s;
-}
-
-.paginacion-btn:hover:not(:disabled){
-    border-color:var(--crimson);
-    color:var(--crimson);
-}
-
-.paginacion-btn.activa{
-    background:var(--crimson);
-    border-color:var(--crimson);
-    color:var(--blanco);
-}
-
-.paginacion-btn:disabled{
-    opacity:.45;
-    cursor:not-allowed;
-}
-
-/* ======================================
-        VACIO Y CARGA
-====================================== */
-
-.tabla-vacia{
-    text-align:center;
-    padding:44px 20px;
-    color:var(--subtexto);
-    font-size:14px;
-}
-
-.tabla-vacia i{
+.empty-state i{
     display:block;
     font-size:32px;
     margin-bottom:10px;
@@ -349,7 +278,7 @@
 
 
 /* ======================================
-        MODAL DE DETALLE
+        MODAL DE DETALLE (propio de reservas)
 ====================================== */
 
 .modal-content{
@@ -399,13 +328,6 @@
     grid-column:1 / -1;
 }
 
-.page-content{
-    width:100%;
-    max-width:1400px;
-    margin:0 auto;
-    padding:24px;
-}
-
 .page-title{
     margin-bottom:20px;
 }
@@ -423,27 +345,7 @@
     color:var(--subtexto);
 }
 
-.badge-estado.vencida{
-    background:#e5e7eb;
-    color:#6b7280;
-}
-
-/*
-.tabla-reservas tbody tr.fila-vencida{
-    background:#f7f8fa;
-}
-
-.tabla-reservas tbody tr.fila-vencida td{
-    color:#8b929e;
-}
-
-.tabla-reservas tbody tr.fila-vencida:hover{
-    background:#f1f3f6;
-}
-    */
-
-
- .lista-acompanantes{
+.lista-acompanantes{
     margin-top:6px;
     display:flex;
     flex-direction:column;
@@ -471,73 +373,12 @@
     font-weight:400;
 }
 
+
 /* ======================================
-   MODAL CANCELAR RESERVA
+        FORMULARIO DEL MODAL "CANCELAR RESERVA"
+        (el modal en si — custom-modal, backdrop, dialog, header,
+        actions — ya viene de estudiantes-admin.css)
 ====================================== */
-
-.custom-modal{
-    position:fixed;
-    inset:0;
-    z-index:1100;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:20px;
-}
-
-.custom-modal.hidden{
-    display:none;
-}
-
-.custom-modal-backdrop{
-    position:absolute;
-    inset:0;
-    background:rgba(15,23,42,.55);
-}
-
-.custom-modal-dialog{
-    position:relative;
-    width:min(100%,460px);
-    max-height:90vh;
-    overflow-y:auto;
-    background:var(--blanco);
-    border-radius:20px;
-    box-shadow:0 20px 50px rgba(15,23,42,.25);
-    border:1px solid rgba(147,6,30,.16);
-}
-
-.custom-modal-header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:18px 20px;
-    border-bottom:1px solid var(--borde);
-}
-
-.custom-modal-header h3{
-    margin:0;
-    font-size:1.05rem;
-    color:var(--carmine);
-}
-
-.modal-close-btn{
-    border:none;
-    background:transparent;
-    color:var(--subtexto);
-    font-size:1rem;
-    cursor:pointer;
-}
-
-.custom-modal-body{
-    padding:18px 20px 6px;
-}
-
-.custom-modal-actions{
-    display:flex;
-    justify-content:flex-end;
-    gap:10px;
-    padding:16px 20px 20px;
-}
 
 .form-group{
     display:flex;
@@ -572,40 +413,6 @@
     box-shadow:0 0 0 3px rgba(223,27,59,.12);
 }
 
-.btn-jaguar-inline,
-.btn-secondary-jaguar{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    padding:10px 16px;
-    border-radius:12px;
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
-    transition:.2s;
-}
-
-.btn-jaguar-inline{
-    border:none;
-    background:var(--crimson);
-    color:var(--blanco);
-}
-
-.btn-jaguar-inline:hover{
-    background:var(--carmine);
-}
-
-.btn-secondary-jaguar{
-    border:1px solid var(--borde);
-    background:var(--blanco);
-    color:var(--carmine);
-}
-
-.btn-secondary-jaguar:hover{
-    background:var(--gris);
-}
-
 .calendar-status{
     min-height:18px;
     margin-top:4px;
@@ -617,59 +424,141 @@
     color:var(--crimson);
 }
 
-body.modal-open{
-    overflow:hidden;
+
+/* ======================================
+        FORMULARIO DEL MODAL "CREAR RESERVA"
+====================================== */
+
+.form-group input[type="text"],
+.form-group input[type="date"],
+.form-group input[type="number"],
+.form-group select{
+    width:100%;
+    border:1px solid var(--borde);
+    border-radius:10px;
+    padding:10px 12px;
+    font-family:'Poppins',sans-serif;
+    font-size:14px;
+    color:var(--texto);
+    background:var(--blanco);
+    transition:border-color .2s, box-shadow .2s;
 }
 
-@media(max-width:600px){
-    .page-content{
-        padding:16px;
-    }
+.form-group input:focus,
+.form-group select:focus{
+    outline:none;
+    border-color:var(--crimson);
+    box-shadow:0 0 0 3px rgba(223,27,59,.12);
+}
 
-    .page-title h2{
-        font-size:21px;
+.modo-reserva-toggle{
+    display:flex;
+    gap:8px;
+    margin-bottom:4px;
+}
+
+.modo-btn{
+    flex:1;
+    padding:10px;
+    border:1.5px solid var(--borde);
+    border-radius:10px;
+    background:var(--blanco);
+    font-family:'Poppins',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    color:var(--subtexto);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    transition:.2s;
+}
+
+.modo-btn:hover{
+    border-color:var(--crimson);
+    color:var(--crimson);
+}
+
+.modo-btn.activo{
+    background:var(--crimson);
+    border-color:var(--crimson);
+    color:var(--blanco);
+}
+
+.resultados-busqueda{
+    margin-top:6px;
+    max-height:180px;
+    overflow-y:auto;
+}
+
+.resultados-busqueda .resultado-item{
+    padding:8px 10px;
+    border:1px solid var(--borde);
+    border-radius:8px;
+    margin-bottom:4px;
+    cursor:pointer;
+    font-size:13px;
+    transition:.2s;
+}
+
+.resultados-busqueda .resultado-item:hover{
+    background:var(--fondo);
+    border-color:var(--crimson);
+}
+
+.alumno-chip{
+    margin-top:8px;
+    padding:8px 12px;
+    background:var(--est-aprobada-bg);
+    color:var(--est-aprobada-tx);
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+}
+
+.form-row{
+    display:flex;
+    gap:12px;
+}
+
+.form-row .form-group{
+    flex:1;
+    min-width:0;
+}
+
+/* El modal de estudiantes-admin.css esta pensado para 1-2 campos
+   (width:min(100%,460px), overflow:hidden, sin max-height). El
+   formulario de crear reserva tiene muchos mas campos, asi que
+   necesita mas ancho y scroll interno o el contenido se corta. */
+#modal-crear-reserva .custom-modal-dialog{
+    width:min(100%,560px);
+    max-height:90vh;
+    overflow-y:auto;
+}
+
+@media (max-width:576px){
+    .form-row{
+        flex-direction:column;
+        gap:14px;
     }
 }
 
 
 /* ======================================
-        RESPONSIVE
+        RESPONSIVE PROPIO
 ====================================== */
 
-@media (max-width:992px){
-
-    .resumen-grid{
-        grid-template-columns:repeat(2,1fr);
+@media(max-width:600px){
+    .page-title h2{
+        font-size:21px;
     }
-
-    .filtros-grid{
-        grid-template-columns:repeat(2,1fr);
-    }
-
 }
 
 @media (max-width:576px){
 
-    .resumen-grid,
-    .filtros-grid{
-        grid-template-columns:1fr;
-    }
-
     .detalle-grid{
         grid-template-columns:1fr;
     }
-
-    .custom-modal{
-    padding:14px;
-}
-
-.custom-modal-actions{
-    flex-direction:column-reverse;
-}
-
-.btn-jaguar-inline,
-.btn-secondary-jaguar{
-    width:100%;
-}
 
 }
