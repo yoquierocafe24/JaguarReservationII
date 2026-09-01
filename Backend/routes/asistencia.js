@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Fecha/hora de Honduras reutilizable en las queries
+// (mismo patrón ya aplicado en guardias.js, para no
+// depender de la zona horaria del servidor de Railway)
+const HORA_ACTUAL_HN = `CONVERT_TZ(NOW(), '+00:00', '-06:00')`;
 
 // ========================================
 // OBTENER CONTROL DE ASISTENCIA
@@ -93,11 +97,12 @@ router.get('/', async (req, res) => {
                         WHEN a.id_asistencia IS NOT NULL
                         THEN 'presente'
 
-                        /* La reserva terminó y nunca se registró */
+                        /* La reserva terminó (hora de Honduras)
+                           y nunca se registró */
                         WHEN TIMESTAMP(
                             r.fecha,
                             r.hora_fin
-                        ) < NOW()
+                        ) < ${HORA_ACTUAL_HN}
                         THEN 'inasistencia'
 
                         /* La reserva todavía no termina */
@@ -173,7 +178,7 @@ router.get('/', async (req, res) => {
                         WHEN TIMESTAMP(
                             r.fecha,
                             r.hora_fin
-                        ) < NOW()
+                        ) < ${HORA_ACTUAL_HN}
                         THEN 'inasistencia'
 
                         ELSE 'pendiente'
@@ -351,7 +356,7 @@ router.get('/resumen', async (req, res) => {
                     CASE
                         WHEN a.id_asistencia IS NOT NULL
                         THEN 'presente'
-                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < NOW()
+                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < ${HORA_ACTUAL_HN}
                         THEN 'inasistencia'
                         ELSE 'pendiente'
                     END AS estado_asistencia
@@ -369,7 +374,7 @@ router.get('/resumen', async (req, res) => {
                     CASE
                         WHEN a.id_asistencia IS NOT NULL
                         THEN 'presente'
-                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < NOW()
+                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < ${HORA_ACTUAL_HN}
                         THEN 'inasistencia'
                         ELSE 'pendiente'
                     END AS estado_asistencia
