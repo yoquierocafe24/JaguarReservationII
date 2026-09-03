@@ -51,7 +51,7 @@ router.get('/estudiantes/buscar', requiereSesion, requiereAdmin, async (req, res
 
         const [rows] = await db.query(
             `SELECT id_estudiante, nombre, cuenta
-             FROM Estudiantes
+             FROM estudiantes
              WHERE cuenta = ? AND activo = 1`,
             [cuenta]
         );
@@ -103,7 +103,7 @@ router.get('/', requiereSesion, async (req, res) => {
                 eq.activo,
                 lider.nombre AS lider_nombre
             FROM equipos eq
-            INNER JOIN Estudiantes lider
+            INNER JOIN estudiantes lider
                 ON lider.id_estudiante = eq.id_lider
         `;
 
@@ -136,7 +136,7 @@ router.get('/', requiereSesion, async (req, res) => {
                 es.nombre AS estudiante_nombre,
                 es.cuenta AS estudiante_cuenta
              FROM equipo_integrantes ei
-             INNER JOIN Estudiantes es
+             INNER JOIN estudiantes es
                 ON es.id_estudiante = ei.id_estudiante
              WHERE ei.id_equipo IN (?)
              ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), es.nombre ASC`,
@@ -184,7 +184,7 @@ router.get('/:id', requiereSesion, async (req, res) => {
                 eq.activo,
                 lider.nombre AS lider_nombre
              FROM equipos eq
-             INNER JOIN Estudiantes lider
+             INNER JOIN estudiantes lider
                 ON lider.id_estudiante = eq.id_lider
              WHERE eq.id_equipo = ?`,
             [req.params.id]
@@ -209,7 +209,7 @@ router.get('/:id', requiereSesion, async (req, res) => {
                 es.nombre AS estudiante_nombre,
                 es.cuenta AS estudiante_cuenta
              FROM equipo_integrantes ei
-             INNER JOIN Estudiantes es
+             INNER JOIN estudiantes es
                 ON es.id_estudiante = ei.id_estudiante
              WHERE ei.id_equipo = ?
              ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), es.nombre ASC`,
@@ -265,7 +265,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 
         const [estudiantes] = await db.query(
             `SELECT id_estudiante, nombre
-             FROM Estudiantes
+             FROM estudiantes
              WHERE cuenta = ? AND activo = 1`,
             [cuenta_lider]
         );
@@ -532,7 +532,7 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         const [estudiantes] = await db.query(
             `SELECT id_estudiante, nombre
-             FROM Estudiantes
+             FROM estudiantes
              WHERE cuenta = ? AND activo = 1`,
             [cuenta]
         );
