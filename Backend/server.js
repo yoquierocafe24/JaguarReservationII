@@ -23,6 +23,7 @@ const asistenciaRoutes = require('./routes/asistencia');
 const calendarioRoutes = require('./routes/calendario');
 const reportesRoutes = require('./routes/reportes');
 const reservasadminRoutes = require('./routes/reservasadmin');
+const equiposRoutes = require('./routes/equipos');
 
 
 
@@ -117,6 +118,7 @@ app.use('/api/asistencia', asistenciaRoutes);
 app.use('/api/calendario', calendarioRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/reservas-admin', reservasadminRoutes);
+app.use('/api/equipos', equiposRoutes);
 
 
 
