@@ -31,10 +31,10 @@ const ROLES_VALIDOS = ['lider', 'sublider', 'jugador'];
 // =======================================
 // Buscar estudiante activo por cuenta
 // (para autocompletar el nombre al agregar integrante)
-// GET /api/equipos/estudiantes/buscar?cuenta=XXXX
+// GET /api/equipos/estudiantes/estado?cuenta=XXXX
 // =======================================
 
-router.get('/estudiantes/buscar', requiereSesion, requiereAdmin, async (req, res) => {
+router.get('/estudiantes/estado', requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
 
