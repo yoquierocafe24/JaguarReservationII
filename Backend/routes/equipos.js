@@ -31,10 +31,10 @@ const ROLES_VALIDOS = ['lider', 'sublider', 'jugador'];
 // =======================================
 // Buscar estudiante activo por cuenta
 // (para autocompletar el nombre al agregar integrante)
-// GET /api/equipos/estudiantes/estado?cuenta=XXXX
+// GET /api/equipos/estudiante/estado?cuenta=XXXX
 // =======================================
 
-router.get('/estudiantes/estado', requiereSesion, requiereAdmin, async (req, res) => {
+router.get('/estudiante/estado', requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
 
@@ -51,7 +51,7 @@ router.get('/estudiantes/estado', requiereSesion, requiereAdmin, async (req, res
 
         const [rows] = await db.query(
             `SELECT id_estudiante, nombre, cuenta
-             FROM Estudiantes
+             FROM estudiante
              WHERE cuenta = ? AND activo = 1`,
             [cuenta]
         );
@@ -132,7 +132,7 @@ router.get('/', requiereSesion, async (req, res) => {
                 es.nombre AS estudiante_nombre,
                 es.cuenta AS estudiante_cuenta
              FROM equipo_integrantes ei
-             INNER JOIN Estudiantes es
+             INNER JOIN estudiante es
                 ON es.id_estudiante = ei.id_estudiante
              WHERE ei.id_equipo IN (?)
              ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), es.nombre ASC`,
@@ -205,7 +205,7 @@ router.get('/:id', requiereSesion, async (req, res) => {
                 es.nombre AS estudiante_nombre,
                 es.cuenta AS estudiante_cuenta
              FROM equipo_integrantes ei
-             INNER JOIN Estudiantes es
+             INNER JOIN estudiante es
                 ON es.id_estudiante = ei.id_estudiante
              WHERE ei.id_equipo = ?
              ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), es.nombre ASC`,
@@ -497,14 +497,14 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
-        const [estudiantes] = await db.query(
+        const [estudiante] = await db.query(
             `SELECT id_estudiante, nombre
-             FROM Estudiantes
+             FROM estudiante
              WHERE cuenta = ? AND activo = 1`,
             [cuenta]
         );
 
-        if (estudiantes.length === 0) {
+        if (estudiante.length === 0) {
 
             return res.status(404).json({
                 ok: false,
@@ -513,7 +513,7 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
-        const estudiante = estudiantes[0];
+        const estudiante = estudiante[0];
 
         const [yaEnEquipo] = await db.query(
             `SELECT id FROM equipo_integrantes
