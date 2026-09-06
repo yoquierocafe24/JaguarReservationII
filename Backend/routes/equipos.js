@@ -51,7 +51,7 @@ router.get('/estudiantes/estado', requiereSesion, requiereAdmin, async (req, res
 
         const [rows] = await db.query(
             `SELECT id_estudiante, nombre, cuenta
-             FROM estudiantes
+             FROM Estudiantes
              WHERE cuenta = ? AND activo = 1`,
             [cuenta]
         );
@@ -99,12 +99,8 @@ router.get('/', requiereSesion, async (req, res) => {
                 eq.id_equipo,
                 eq.nombre,
                 eq.deporte,
-                eq.id_lider,
-                eq.activo,
-                lider.nombre AS lider_nombre
+                eq.activo
             FROM equipos eq
-            INNER JOIN estudiantes lider
-                ON lider.id_estudiante = eq.id_lider
         `;
 
         if (!incluirInactivos) {
@@ -136,17 +132,25 @@ router.get('/', requiereSesion, async (req, res) => {
                 es.nombre AS estudiante_nombre,
                 es.cuenta AS estudiante_cuenta
              FROM equipo_integrantes ei
-             INNER JOIN estudiantes es
+             INNER JOIN Estudiantes es
                 ON es.id_estudiante = ei.id_estudiante
              WHERE ei.id_equipo IN (?)
              ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), es.nombre ASC`,
             [idsEquipos]
         );
 
-        const equiposConIntegrantes = equipos.map(eq => ({
-            ...eq,
-            integrantes: integrantes.filter(i => i.id_equipo === eq.id_equipo)
-        }));
+        const equiposConIntegrantes = equipos.map(eq => {
+
+            const integrantesDelEquipo = integrantes.filter(i => i.id_equipo === eq.id_equipo);
+            const lider = integrantesDelEquipo.find(i => i.rol === 'lider' && i.activo);
+
+            return {
+                ...eq,
+                lider_nombre: lider ? lider.estudiante_nombre : null,
+                integrantes: integrantesDelEquipo
+            };
+
+        });
 
         res.json({
             ok: true,
@@ -176,17 +180,9 @@ router.get('/:id', requiereSesion, async (req, res) => {
     try {
 
         const [equipos] = await db.query(
-            `SELECT
-                eq.id_equipo,
-                eq.nombre,
-                eq.deporte,
-                eq.id_lider,
-                eq.activo,
-                lider.nombre AS lider_nombre
-             FROM equipos eq
-             INNER JOIN estudiantes lider
-                ON lider.id_estudiante = eq.id_lider
-             WHERE eq.id_equipo = ?`,
+            `SELECT id_equipo, nombre, deporte, activo
+             FROM equipos
+             WHERE id_equipo = ?`,
             [req.params.id]
         );
 
@@ -209,17 +205,20 @@ router.get('/:id', requiereSesion, async (req, res) => {
                 es.nombre AS estudiante_nombre,
                 es.cuenta AS estudiante_cuenta
              FROM equipo_integrantes ei
-             INNER JOIN estudiantes es
+             INNER JOIN Estudiantes es
                 ON es.id_estudiante = ei.id_estudiante
              WHERE ei.id_equipo = ?
              ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), es.nombre ASC`,
             [req.params.id]
         );
 
+        const lider = integrantes.find(i => i.rol === 'lider' && i.activo);
+
         res.json({
             ok: true,
             equipo: {
                 ...equipos[0],
+                lider_nombre: lider ? lider.estudiante_nombre : null,
                 integrantes
             }
         });
@@ -241,68 +240,39 @@ router.get('/:id', requiereSesion, async (req, res) => {
 // Crear equipo
 // POST /api/equipos
 //
-// body: nombre, deporte, cuenta_lider
-// (el equipo siempre nace con un líder, ya
-// que la tabla lo exige; se busca al estudiante
-// por su número de cuenta, igual que al agregar
-// integrantes)
+// body: nombre, deporte
+// (el líder ya no se define aquí; se asigna
+// después agregando un integrante con rol 'lider')
 // =======================================
 
 router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 
     try {
 
-        const { nombre, deporte, cuenta_lider } = req.body;
+        const { nombre, deporte } = req.body;
 
-        if (!nombre || !deporte || !cuenta_lider) {
+        if (!nombre || !deporte) {
 
             return res.status(400).json({
                 ok: false,
-                mensaje: "Debe indicar nombre, deporte y la cuenta del líder."
+                mensaje: "Debe indicar nombre y deporte."
             });
 
         }
 
-        const [estudiantes] = await db.query(
-            `SELECT id_estudiante, nombre
-             FROM estudiantes
-             WHERE cuenta = ? AND activo = 1`,
-            [cuenta_lider]
-        );
+        const [resultado] = await db.query(
 
-        if (estudiantes.length === 0) {
+            `INSERT INTO equipos(nombre, deporte, activo)
+             VALUES(?,?,1)`,
 
-            return res.status(404).json({
-                ok: false,
-                mensaje: "No se encontró un estudiante activo con esa cuenta para asignarlo como líder."
-            });
-
-        }
-
-        const lider = estudiantes[0];
-
-        const [resultadoEquipo] = await db.query(
-
-            `INSERT INTO equipos(nombre, deporte, id_lider, activo)
-             VALUES(?,?,?,1)`,
-
-            [nombre, deporte, lider.id_estudiante]
-
-        );
-
-        await db.query(
-
-            `INSERT INTO equipo_integrantes(id_equipo, id_estudiante, rol, activo)
-             VALUES(?,?,'lider',1)`,
-
-            [resultadoEquipo.insertId, lider.id_estudiante]
+            [nombre, deporte]
 
         );
 
         res.json({
             ok: true,
-            mensaje: "Equipo creado correctamente.",
-            id_equipo: resultadoEquipo.insertId
+            mensaje: "Equipo creado correctamente. Ahora agrega a su líder desde 'Integrantes'.",
+            id_equipo: resultado.insertId
         });
 
     } catch (error) {
@@ -321,9 +291,6 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 // =======================================
 // Editar equipo (nombre, deporte)
 // PUT /api/equipos/:id
-//
-// El líder no se cambia aquí: se usa el
-// endpoint dedicado PUT /:id/lider/:idIntegrante
 // =======================================
 
 router.put('/:id', requiereSesion, requiereAdmin, async (req, res) => {
@@ -532,7 +499,7 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         const [estudiantes] = await db.query(
             `SELECT id_estudiante, nombre
-             FROM estudiantes
+             FROM Estudiantes
              WHERE cuenta = ? AND activo = 1`,
             [cuenta]
         );
@@ -590,17 +557,6 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
             [req.params.id, estudiante.id_estudiante, rol]
 
         );
-
-        // Si se agrega directamente como líder (equipo sin líder previo
-        // registrado como integrante), mantiene sincronizado equipos.id_lider
-        if (rol === 'lider') {
-
-            await db.query(
-                `UPDATE equipos SET id_lider = ? WHERE id_equipo = ?`,
-                [estudiante.id_estudiante, req.params.id]
-            );
-
-        }
 
         res.json({
             ok: true,
@@ -698,8 +654,7 @@ router.put('/:idEquipo/integrantes/:idIntegrante/rol', requiereSesion, requiereA
 // =======================================
 // Cambiar líder de un equipo
 // (degrada al líder anterior a jugador,
-// promueve al integrante indicado, y
-// sincroniza equipos.id_lider)
+// promueve al integrante indicado)
 // PUT /api/equipos/:idEquipo/lider/:idIntegrante
 // =======================================
 
@@ -758,12 +713,6 @@ router.put('/:idEquipo/lider/:idIntegrante', requiereSesion, requiereAdmin, asyn
         await db.query(
             `UPDATE equipo_integrantes SET rol = 'lider' WHERE id = ?`,
             [req.params.idIntegrante]
-        );
-
-        // Sincroniza la referencia en la tabla equipos
-        await db.query(
-            `UPDATE equipos SET id_lider = ? WHERE id_equipo = ?`,
-            [nuevoLider[0].id_estudiante, req.params.idEquipo]
         );
 
         res.json({
