@@ -400,6 +400,14 @@ function renderTabla() {
     const vencida =
       reservaEstaVencida(r);
 
+    // Cantidad a mostrar en la columna ACOMP.:
+    // - Reserva de equipo → cantidad_equipo (integrantes activos)
+    // - Reserva individual → cant_acompanantes, igual que antes
+    const cantidadMostrada =
+      r.tipo_reserva === 'equipo'
+        ? Number(r.cantidad_equipo || 0)
+        : Number(r.cant_acompanantes || 0);
+
     return `
       <tr>
 
@@ -451,7 +459,7 @@ function renderTabla() {
         </td>
 
         <td>
-          ${Number(r.cant_acompanantes || 0)}
+          ${cantidadMostrada}
         </td>
 
         <td>

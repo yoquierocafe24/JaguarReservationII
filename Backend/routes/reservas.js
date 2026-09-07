@@ -557,7 +557,13 @@ router.get('/', requiereSesion, async (req, res) => {
                 e.cuenta AS estudiante_cuenta,
                 e.correo AS estudiante_correo,
                 es.nombre AS espacio_nombre,
-                i.nombre AS item_nombre
+                i.nombre AS item_nombre,
+                (
+                    SELECT COUNT(*)
+                    FROM equipo_integrantes ei
+                    WHERE ei.id_equipo = r.id_equipo
+                      AND ei.activo = 1
+                ) AS cantidad_equipo
             FROM reservas r
             INNER JOIN estudiantes e
                 ON e.id_estudiante = r.id_estudiante
@@ -635,7 +641,6 @@ router.get('/', requiereSesion, async (req, res) => {
         });
     }
 });
-
 // =======================================
 // ADMIN - Detalle de acompañantes
 // GET /api/reservas/:id/acompanantes
