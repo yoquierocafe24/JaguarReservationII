@@ -552,14 +552,14 @@ async function cargarEquipos() {
         const respuesta = await fetch(
             `${API_URL}/api/equipos`,
             {
-                credentials:"include"
+                credentials: "include"
             }
         );
 
         const data = await respuesta.json();
 
         if (!respuesta.ok || !data.ok) {
-            throw new Error();
+            throw new Error(data.mensaje || "No se pudieron cargar los equipos.");
         }
 
         const equipos = Array.isArray(data.equipos)
@@ -567,24 +567,20 @@ async function cargarEquipos() {
             : [];
 
         const activos = equipos.filter(
-            equipo =>
-                Number(equipo.activo) === 1
+            equipo => Number(equipo.activo) === 1
         ).length;
 
-        document.getElementById(
-            "total-equipos"
-        ).textContent = activos;
+        document.getElementById("total-equipos").textContent = activos;
 
     } catch (error) {
 
-        document.getElementById(
-            "total-equipos"
-        ).textContent = "0";
+        console.error("Error cargando equipos en dashboard:", error);
+
+        document.getElementById("total-equipos").textContent = "0";
 
     }
 
 }
-
 
 // =======================================
 // ESTUDIANTES
