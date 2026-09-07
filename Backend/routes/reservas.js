@@ -71,6 +71,16 @@ async function generarIdReserva() {
     return `R${String(nuevoNumero).padStart(3, "0")}-${anioActual}`;
 }
 
+// Quita tildes y pasa a minúsculas, para comparar
+// "Fútbol" con "futbol" como si fueran lo mismo.
+function normalizarTexto(texto) {
+    return (texto || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
 // =======================================
 // Crear Reserva
 // POST /api/reservas
@@ -253,8 +263,8 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
                 });
             }
  
-            const deporteEquipo = (equipo[0].deporte || "").trim().toLowerCase();
-            const nombreEspacio = (espacioEquipo[0].nombre || "").trim().toLowerCase();
+           const deporteEquipo = normalizarTexto(equipo[0].deporte);
+            const nombreEspacio = normalizarTexto(espacioEquipo[0].nombre);         
  
             if (deporteEquipo !== nombreEspacio) {
                 return res.status(400).json({
