@@ -478,7 +478,7 @@ let qr_token = null;
                 id_espacio,
                 id_item,
                 tipo_reserva,
-                idEquipoFinal,
+                id_equipo,
                 fecha,
                 hora_inicio,
                 hora_fin,
