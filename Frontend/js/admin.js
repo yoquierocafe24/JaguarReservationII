@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await Promise.all([
         cargarReservas(),
-        // cargarEquipos(),
+        cargarEquipos(),
         cargarEstudiantes()
     ]);
 
