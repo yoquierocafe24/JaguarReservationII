@@ -708,6 +708,71 @@ router.get('/:id/acompanantes', requiereSesion, requiereAdmin, async (req, res) 
 });
 
 // =======================================
+//  Cantidad de integrantes del equipo
+//  (vista ESTUDIANTE - solo el dueño de la reserva)
+// GET /api/reservas/:id/equipo-cantidad
+// =======================================
+
+router.get('/:id/equipo-cantidad', requiereSesion, requiereEstudiante, async (req, res) => {
+
+    try {
+
+        const id_estudiante = req.session.usuario.id;
+
+        const [reservas] = await db.query(
+            `SELECT id_equipo, tipo_reserva, id_estudiante
+             FROM reservas
+             WHERE id_reserva = ?`,
+            [req.params.id]
+        );
+
+        if (reservas.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Reserva no encontrada."
+            });
+        }
+
+        const reserva = reservas[0];
+
+        // Solo el estudiante dueño de la reserva puede consultarla
+        if (reserva.id_estudiante !== id_estudiante) {
+            return res.status(403).json({
+                ok: false,
+                mensaje: "No tienes permiso para consultar esta reserva."
+            });
+        }
+
+        if (reserva.tipo_reserva !== 'equipo') {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Esta reserva no es de tipo equipo."
+            });
+        }
+
+        const [[{ cantidad }]] = await db.query(
+            `SELECT COUNT(*) AS cantidad
+             FROM equipo_integrantes
+             WHERE id_equipo = ?
+               AND activo = 1`,
+            [reserva.id_equipo]
+        );
+
+        res.json({
+            ok: true,
+            id_equipo: reserva.id_equipo,
+            cantidad
+        });
+
+    } catch (error) {
+        console.error("ERROR OBTENIENDO CANTIDAD DE INTEGRANTES:", error);
+        res.status(500).json({ ok: false, mensaje: "Error del servidor." });
+    }
+
+});
+
+
+// =======================================
 // Obtener horarios ocupados de un ESPACIO
 // GET /api/reservas/horarios/consultar?espacio=1&fecha=2026-07-15
 // =======================================
