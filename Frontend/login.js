@@ -1,4 +1,3 @@
-
 const $ = (s) => document.querySelector(s);
 
 //LO NUEVO
@@ -142,6 +141,15 @@ $('#loginForm').addEventListener('submit', async (e) => {
 
     if (!response.ok || data.ok === false) {
       toast(data.mensaje || 'Credenciales incorrectas.', 'error');
+
+      // Se limpian ambos campos para que el usuario los
+      // vuelva a escribir, en vez de dejar el dato incorrecto
+      // ahí. Aplica a los 3 tipos de usuario, ya que todos
+      // comparten los mismos IDs #lg-a / #lg-b.
+      $('#lg-a').value = '';
+      $('#lg-b').value = '';
+      $('#lg-a').focus();
+
       return;
     }
 
