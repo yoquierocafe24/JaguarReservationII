@@ -22,6 +22,74 @@ const modalReservas =
 
 
 // =====================================
+// MENÚ RESPONSIVE (sidebar / overlay)
+// =====================================
+function abrirMenu() {
+    document
+        .querySelector('.sidebar-admin')
+        ?.classList.add('activo');
+
+    document
+        .getElementById('sidebar-overlay')
+        ?.classList.add('activo');
+}
+
+function cerrarMenu() {
+    document
+        .querySelector('.sidebar-admin')
+        ?.classList.remove('activo');
+
+    document
+        .getElementById('sidebar-overlay')
+        ?.classList.remove('activo');
+}
+
+
+// =====================================
+// FECHA/HORA EN LA TOPBAR
+// =====================================
+function actualizarFechaHora() {
+
+    const elemento =
+        document.getElementById('topbar-date');
+
+    if (!elemento) return;
+
+    const ahora = new Date();
+
+    const fecha = ahora.toLocaleDateString('es-HN', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+
+    const hora = ahora.toLocaleTimeString('es-HN', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    const fechaFinal =
+        fecha.charAt(0).toUpperCase() + fecha.slice(1);
+
+    elemento.textContent = `${fechaFinal} · ${hora}`;
+
+}
+
+
+function obtenerIniciales(nombre = '') {
+    return nombre
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(parte => parte[0])
+        .join('')
+        .toUpperCase() || 'A';
+}
+
+
+// =====================================
 // SESIÓN ADMIN
 // =====================================
 async function verificarSesion() {
@@ -45,6 +113,26 @@ async function verificarSesion() {
         ) {
             window.location.href =
                 '../../login.html';
+
+            return;
+        }
+
+        const nombre =
+            data.usuario.nombre || 'Administrador';
+
+        const nombreElemento =
+            document.getElementById('admin-name');
+
+        const avatarElemento =
+            document.getElementById('admin-avatar');
+
+        if (nombreElemento) {
+            nombreElemento.textContent = nombre;
+        }
+
+        if (avatarElemento) {
+            avatarElemento.textContent =
+                obtenerIniciales(nombre);
         }
 
     } catch (error) {
@@ -898,6 +986,9 @@ function escapar(valor) {
 document.addEventListener(
     'DOMContentLoaded',
     async () => {
+
+        actualizarFechaHora();
+        setInterval(actualizarFechaHora, 60000);
 
         await verificarSesion();
         await cargarInventario();

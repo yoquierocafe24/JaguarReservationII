@@ -1,10 +1,13 @@
 .inventario-main {
     flex: 1;
-    padding: 32px;
     background: #f7f7f8;
     min-height: 100vh;
     margin-left: 260px;
     font-family: 'Poppins', sans-serif;
+}
+
+.inventario-content {
+    padding: 32px;
 }
 
 .inventario-header {
@@ -249,6 +252,9 @@
 
     .inventario-main {
         margin-left: 0;
+    }
+
+    .inventario-content {
         padding: 20px;
     }
 
