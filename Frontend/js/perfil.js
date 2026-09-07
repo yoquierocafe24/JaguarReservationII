@@ -585,12 +585,11 @@ function obtenerReserva(idReserva) {
     );
 }
 
-
 // ======================================
 // Mostrar detalles
 // ======================================
 
-function verDetalleReserva(idReserva) {
+async function verDetalleReserva(idReserva) {
 
     const reserva =
         obtenerReserva(idReserva);
@@ -640,12 +639,76 @@ function verDetalleReserva(idReserva) {
         .textContent =
             estadoVisual.etiqueta;
 
-    document
-        .getElementById("detalle-acompanantes")
-        .textContent =
+    // ======================================
+    // Acompañantes / Integrantes del equipo
+    // ======================================
+
+    const elAcompanantes =
+        document.getElementById(
+            "detalle-acompanantes"
+        );
+
+    const elEtiquetaAcompanantes =
+        document.getElementById(
+            "detalle-acompanantes-label"
+        );
+
+    const esEquipo =
+        reserva.tipo_reserva === "equipo";
+
+    if (elEtiquetaAcompanantes) {
+        elEtiquetaAcompanantes.textContent =
+            esEquipo
+                ? "Integrantes del equipo"
+                : "Acompañantes autorizados";
+    }
+
+    // Valor temporal mientras se resuelve
+    // (evita dejar pegado el número de otra reserva
+    // si el modal se reutiliza).
+    elAcompanantes.textContent = "…";
+
+    if (esEquipo) {
+
+        try {
+
+            const respuesta = await fetch(
+                `${API_URL}/api/reservas/${encodeURIComponent(idReserva)}/equipo-cantidad`,
+                {
+                    method: "GET",
+                    credentials: "include"
+                }
+            );
+
+            const datos = await respuesta.json();
+
+            if (!respuesta.ok || !datos.ok) {
+                throw new Error(
+                    datos.mensaje ||
+                    "No se pudo obtener la cantidad de integrantes."
+                );
+            }
+
+            elAcompanantes.textContent =
+                Number(datos.cantidad) || 0;
+
+        } catch (error) {
+
+            console.error(
+                "Error obteniendo cantidad de integrantes:",
+                error
+            );
+
+            elAcompanantes.textContent = "—";
+        }
+
+    } else {
+
+        elAcompanantes.textContent =
             Number(
                 reserva.cant_acompanantes
             ) || 0;
+    }
 
     document
         .getElementById("detalle-solicitud")
