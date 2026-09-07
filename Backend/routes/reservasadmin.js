@@ -405,4 +405,64 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
 
 });
 
+
+// =======================================
+//  Integrantes de una reserva de equipo
+// GET /api/reservas-admin/:id/equipo-integrantes
+// =======================================
+
+router.get('/:id/equipo-integrantes', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const [reservas] = await db.query(
+            `SELECT id_equipo, tipo_reserva
+             FROM reservas
+             WHERE id_reserva = ?`,
+            [req.params.id]
+        );
+
+        if (reservas.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Reserva no encontrada."
+            });
+        }
+
+        if (reservas[0].tipo_reserva !== 'equipo') {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Esta reserva no es de tipo equipo."
+            });
+        }
+
+        const [integrantes] = await db.query(
+            `SELECT
+                ei.id,
+                ei.id_estudiante,
+                ei.rol,
+                ei.activo,
+                e.nombre,
+                e.cuenta
+             FROM equipo_integrantes ei
+             INNER JOIN estudiantes e ON e.id_estudiante = ei.id_estudiante
+             WHERE ei.id_equipo = ?
+               AND ei.activo = 1
+             ORDER BY FIELD(ei.rol,'lider','sublider','jugador'), e.nombre ASC`,
+            [reservas[0].id_equipo]
+        );
+
+        res.json({
+            ok: true,
+            id_equipo: reservas[0].id_equipo,
+            integrantes
+        });
+
+    } catch (error) {
+        console.error("ERROR OBTENIENDO INTEGRANTES DE EQUIPO:", error);
+        res.status(500).json({ ok: false, mensaje: "Error del servidor." });
+    }
+
+});
+
 module.exports = router;
