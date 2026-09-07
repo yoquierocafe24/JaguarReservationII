@@ -928,67 +928,139 @@ async function verDetalle(id) {
 
   if (!r) return;
 
+  const esEquipo = r.tipo_reserva === 'equipo';
+
   try {
 
-    const respuesta = await fetch(
-      `${API_URL}/api/reservas/${encodeURIComponent(id)}/acompanantes`,
-      {
-        method: "GET",
-        credentials: "include"
-      }
-    );
-
-    const datos = await respuesta.json();
-
-    if (!respuesta.ok || !datos.ok) {
-      throw new Error(
-        datos.mensaje ||
-        "No se pudieron consultar los acompañantes."
-      );
-    }
-
-    const estadoVisual =
-      obtenerEstadoVisual(r);
-
-    const cantidadPermitida =
-      Number(
-        datos.cantidad_permitida ??
-        r.cant_acompanantes ??
-        0
-      );
-
-    const acompanantes =
-      datos.acompanantes || [];
-
+    let cantidadPermitida;
     let listaAcompanantes;
+    let etiquetaLista;
 
-    if (cantidadPermitida === 0) {
+    if (esEquipo) {
 
-      listaAcompanantes = `
-        <span class="sin-registros">
-          No aplica
-        </span>
-      `;
+      // =======================================
+      // RESERVA DE EQUIPO → consultar integrantes
+      // =======================================
 
-    } else if (acompanantes.length === 0) {
+      etiquetaLista = 'Integrantes del equipo';
 
-      listaAcompanantes = `
-        <span class="sin-registros">
-          Sin registros todavía
-        </span>
-      `;
+      const respuesta = await fetch(
+        `${API_URL}/api/reservas-admin/${encodeURIComponent(id)}/equipo-integrantes`,
+        {
+          method: "GET",
+          credentials: "include"
+        }
+      );
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok || !datos.ok) {
+        throw new Error(
+          datos.mensaje ||
+          "No se pudieron consultar los integrantes del equipo."
+        );
+      }
+
+      const integrantes = datos.integrantes || [];
+
+      cantidadPermitida = integrantes.length;
+
+      if (integrantes.length === 0) {
+
+        listaAcompanantes = `
+          <span class="sin-registros">
+            Sin integrantes registrados
+          </span>
+        `;
+
+      } else {
+
+        const etiquetaRol = rol => {
+          if (rol === 'lider') return 'Líder';
+          if (rol === 'sublider') return 'Sublíder';
+          return 'Jugador';
+        };
+
+        listaAcompanantes =
+          integrantes.map(persona => `
+            <div class="acompanante-registrado">
+              ${escapar(persona.nombre)}
+              —
+              ${escapar(persona.cuenta)}
+              <span class="rol-integrante">
+                (${etiquetaRol(persona.rol)})
+              </span>
+            </div>
+          `).join("");
+      }
 
     } else {
 
-      listaAcompanantes =
-        acompanantes.map(persona => `
-          <div class="acompanante-registrado">
-            ${escapar(persona.nombre)}
-            —
-            ${escapar(persona.cuenta)}
-          </div>
-        `).join("");
+      // =======================================
+      // RESERVA INDIVIDUAL → consultar acompañantes (QR)
+      // =======================================
+
+      etiquetaLista = 'Acompañantes registrados';
+
+      const respuesta = await fetch(
+        `${API_URL}/api/reservas/${encodeURIComponent(id)}/acompanantes`,
+        {
+          method: "GET",
+          credentials: "include"
+        }
+      );
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok || !datos.ok) {
+        throw new Error(
+          datos.mensaje ||
+          "No se pudieron consultar los acompañantes."
+        );
+      }
+
+      cantidadPermitida =
+        Number(
+          datos.cantidad_permitida ??
+          r.cant_acompanantes ??
+          0
+        );
+
+      const acompanantes =
+        datos.acompanantes || [];
+
+      if (cantidadPermitida === 0) {
+
+        listaAcompanantes = `
+          <span class="sin-registros">
+            No aplica
+          </span>
+        `;
+
+      } else if (acompanantes.length === 0) {
+
+        listaAcompanantes = `
+          <span class="sin-registros">
+            Sin registros todavía
+          </span>
+        `;
+
+      } else {
+
+        listaAcompanantes =
+          acompanantes.map(persona => `
+            <div class="acompanante-registrado">
+              ${escapar(persona.nombre)}
+              —
+              ${escapar(persona.cuenta)}
+            </div>
+          `).join("");
+      }
     }
+
+
+    const estadoVisual =
+      obtenerEstadoVisual(r);
 
 
     // =======================================
@@ -1052,7 +1124,9 @@ async function verDetalle(id) {
       ],
 
       [
-        'Acompañantes permitidos',
+        esEquipo
+          ? 'Integrantes del equipo'
+          : 'Acompañantes permitidos',
         cantidadPermitida
       ]
     ];
@@ -1115,7 +1189,7 @@ async function verDetalle(id) {
       `
         <div class="detalle-item ancho">
           <span>
-            Acompañantes registrados
+            ${etiquetaLista}
           </span>
 
           <div class="lista-acompanantes">
@@ -1158,8 +1232,6 @@ async function verDetalle(id) {
 
   }
 }
-
-
 
 
 function obtenerNombreEspacio(id) {
