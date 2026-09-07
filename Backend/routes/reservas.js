@@ -185,6 +185,86 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
             });
 
         }
+                // =======================================
+        // Normaliza el tipo de reserva
+        // =======================================
+ 
+        const tipoReservaFinal =
+            tipo_reserva === "equipo" ? "equipo" : "individual";
+ 
+        let idEquipoFinal = null;
+    
+      // =======================================
+        // Regla (Fase 2): reserva de EQUIPO —
+        // quien envía debe ser líder o sublíder
+        // activo del equipo, y el deporte del
+        // equipo debe coincidir con el espacio.
+        // =======================================
+ 
+        if (tipoReservaFinal === "equipo") {
+ 
+            if (!id_equipo) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: "Debe indicar el equipo."
+                });
+            }
+ 
+            const [equipo] = await db.query(
+                `SELECT id_equipo, deporte, activo
+                 FROM equipos
+                 WHERE id_equipo = ?`,
+                [id_equipo]
+            );
+ 
+            if (equipo.length === 0 || !equipo[0].activo) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje: "El equipo no existe o está inactivo."
+                });
+            }
+ 
+            const [membresia] = await db.query(
+                `SELECT rol
+                 FROM equipo_integrantes
+                 WHERE id_equipo = ?
+                 AND id_estudiante = ?
+                 AND activo = 1
+                 AND rol IN ('lider','sublider')`,
+                [id_equipo, id_estudiante]
+            );
+ 
+            if (membresia.length === 0) {
+                return res.status(403).json({
+                    ok: false,
+                    mensaje: "Solo el líder o sublíder del equipo pueden reservar en su nombre."
+                });
+            }
+ 
+            const [espacioEquipo] = await db.query(
+                `SELECT nombre FROM espacios WHERE id_espacio = ?`,
+                [id_espacio]
+            );
+ 
+            if (espacioEquipo.length === 0) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje: "El espacio indicado no existe."
+                });
+            }
+ 
+            const deporteEquipo = (equipo[0].deporte || "").trim().toLowerCase();
+            const nombreEspacio = (espacioEquipo[0].nombre || "").trim().toLowerCase();
+ 
+            if (deporteEquipo !== nombreEspacio) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: `Este equipo es de ${equipo[0].deporte}, no puede reservar en ${espacioEquipo[0].nombre}.`
+                });
+            }
+ 
+            idEquipoFinal = id_equipo;
+        }
 
         // =======================================
         // Regla: el mismo estudiante no puede tener
@@ -361,41 +441,13 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
 const cantidadAcompanantes =
     Number(cant_acompanantes) || 0;
 
-// Normaliza el tipo de reserva.
-// Solo existen dos tipos:
-// - "individual"
-// - "equipo"
-// Si no viene ningún valor, por defecto será "individual".
-const tipoReservaFinal =
-    tipo_reserva === "equipo"
-        ? "equipo"
-        : "individual";
-
-// Indica si la reserva es de tipo equipo.
-const esReservaEquipo =
-    tipoReservaFinal === "equipo";
 
 // Por defecto la reserva no tendrá código QR.
 let qr_token = null;
 
-// Reglas para generar el QR:
-//
-// 1. Reserva individual:
-//    Solo genera QR cuando lleva uno o más acompañantes.
-//
-// 2. Reserva de equipo:
-//    Siempre genera QR para que los visitantes puedan registrarse.
-if (
-    esReservaEquipo ||
-    cantidadAcompanantes > 0
-    
-) {
- 
-
-    // Genera un identificador único para el QR.
-    qr_token = crypto.randomUUID();
-}
-
+        if (tipoReservaFinal === "individual" && cantidadAcompanantes > 0) {
+            qr_token = crypto.randomUUID();
+        }
         // Estado
 
         let estado = "aprobada";
@@ -416,7 +468,7 @@ if (
                 id_espacio,
                 id_item,
                 tipo_reserva,
-                id_equipo,
+                idEquipoFinal,
                 fecha,
                 hora_inicio,
                 hora_fin,
@@ -437,7 +489,7 @@ if (
                 id_espacio,
                 id_item,
                 tipoReservaFinal,
-                id_equipo,
+                idEquipoFinal,
                 fecha,
                 hora_inicio,
                 hora_fin,
