@@ -328,6 +328,9 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
             `SELECT
                 r.id_reserva,
+                r.id_estudiante,
+                r.tipo_reserva,
+                r.id_equipo,
                 r.fecha,
                 r.hora_inicio,
                 r.hora_fin,
@@ -359,74 +362,141 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
         const reserva = reservas[0];
 
-        // Titular y acompañantes autorizados
-        const [personas] = await db.query(
+        let personas;
 
-            `SELECT
-                lista.id_estudiante,
-                lista.nombre,
-                lista.cuenta,
-                lista.tipo_asistencia,
+        if (reserva.tipo_reserva === 'equipo') {
 
-                CASE
-                    WHEN a.id_asistencia IS NULL THEN 0
-                    ELSE 1
-                END AS asistio,
+            // =======================================
+            // RESERVA DE EQUIPO
+            // El líder/sublíder que reservó = "titular"
+            // (coincide con reserva.id_estudiante).
+            // El resto de integrantes activos = "integrante".
+            // =======================================
 
-                a.hora_entrada
+            const [filas] = await db.query(
 
-            FROM (
-
-                /* Titular de la reserva */
-                SELECT
-                    r.id_estudiante,
+                `SELECT
+                    ei.id_estudiante,
                     e.nombre,
                     e.cuenta,
-                    'titular' AS tipo_asistencia
 
-                FROM reservas r
+                    CASE
+                        WHEN ei.id_estudiante = ? THEN 'titular'
+                        ELSE 'integrante'
+                    END AS tipo_asistencia,
 
-                INNER JOIN estudiantes e
-                    ON e.id_estudiante = r.id_estudiante
+                    CASE
+                        WHEN a.id_asistencia IS NULL THEN 0
+                        ELSE 1
+                    END AS asistio,
 
-                WHERE r.id_reserva = ?
+                    a.hora_entrada
 
-                UNION ALL
-
-                /* Acompañantes registrados mediante QR */
-                SELECT
-                    ra.id_estudiante,
-                    e.nombre,
-                    e.cuenta,
-                    'acompanante' AS tipo_asistencia
-
-                FROM reserva_acompanantes ra
+                FROM equipo_integrantes ei
 
                 INNER JOIN estudiantes e
-                    ON e.id_estudiante = ra.id_estudiante
+                    ON e.id_estudiante = ei.id_estudiante
 
-                WHERE ra.id_reserva = ?
-                AND ra.confirmado = 1
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = ?
+                    AND a.id_estudiante = ei.id_estudiante
 
-            ) AS lista
+                WHERE ei.id_equipo = ?
+                  AND ei.activo = 1
 
-            LEFT JOIN asistencia a
-                ON a.id_reserva = ?
-                AND a.id_estudiante = lista.id_estudiante
+                ORDER BY
+                    CASE
+                        WHEN ei.id_estudiante = ? THEN 1
+                        ELSE 2
+                    END,
+                    e.nombre`,
 
-            ORDER BY
-                CASE
-                    WHEN lista.tipo_asistencia = 'titular' THEN 1
-                    ELSE 2
-                END,
-                lista.nombre`,
+                [
+                    reserva.id_estudiante,
+                    req.params.id,
+                    reserva.id_equipo,
+                    reserva.id_estudiante
+                ]
+            );
 
-            [
-                req.params.id,
-                req.params.id,
-                req.params.id
-            ]
-        );
+            personas = filas;
+
+        } else {
+
+            // =======================================
+            // RESERVA INDIVIDUAL (comportamiento original)
+            // =======================================
+
+            const [filas] = await db.query(
+
+                `SELECT
+                    lista.id_estudiante,
+                    lista.nombre,
+                    lista.cuenta,
+                    lista.tipo_asistencia,
+
+                    CASE
+                        WHEN a.id_asistencia IS NULL THEN 0
+                        ELSE 1
+                    END AS asistio,
+
+                    a.hora_entrada
+
+                FROM (
+
+                    /* Titular de la reserva */
+                    SELECT
+                        r.id_estudiante,
+                        e.nombre,
+                        e.cuenta,
+                        'titular' AS tipo_asistencia
+
+                    FROM reservas r
+
+                    INNER JOIN estudiantes e
+                        ON e.id_estudiante = r.id_estudiante
+
+                    WHERE r.id_reserva = ?
+
+                    UNION ALL
+
+                    /* Acompañantes registrados mediante QR */
+                    SELECT
+                        ra.id_estudiante,
+                        e.nombre,
+                        e.cuenta,
+                        'acompanante' AS tipo_asistencia
+
+                    FROM reserva_acompanantes ra
+
+                    INNER JOIN estudiantes e
+                        ON e.id_estudiante = ra.id_estudiante
+
+                    WHERE ra.id_reserva = ?
+                    AND ra.confirmado = 1
+
+                ) AS lista
+
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = ?
+                    AND a.id_estudiante = lista.id_estudiante
+
+                ORDER BY
+                    CASE
+                        WHEN lista.tipo_asistencia = 'titular' THEN 1
+                        ELSE 2
+                    END,
+                    lista.nombre`,
+
+                [
+                    req.params.id,
+                    req.params.id,
+                    req.params.id
+                ]
+            );
+
+            personas = filas;
+        }
 
         const [vigencia] = await db.query(
 
@@ -468,7 +538,6 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
 });
 
-
 // =======================================
 // GUARDIA - Guardar asistencia
 // PUT /api/reservas/guardia/:id/asistencia
@@ -507,6 +576,9 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 
     `SELECT
         id_reserva,
+        id_estudiante,
+        tipo_reserva,
+        id_equipo,
         fecha,
         hora_inicio,
         hora_fin,
@@ -662,8 +734,43 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 
                 autorizado = titular.length > 0;
 
+            } else if (tipo_asistencia === "integrante") {
+
+                // Solo válido si la reserva es de tipo equipo.
+                // Se verifica que el estudiante sea integrante
+                // activo del equipo dueño de esta reserva.
+
+                if (reserva.tipo_reserva !== 'equipo' || !reserva.id_equipo) {
+
+                    await conexion.rollback();
+
+                    return res.status(400).json({
+                        ok: false,
+                        mensaje: "Esta reserva no es de tipo equipo."
+                    });
+
+                }
+
+                const [integrante] = await conexion.query(
+
+                    `SELECT id
+                     FROM equipo_integrantes
+                     WHERE id_equipo = ?
+                     AND id_estudiante = ?
+                     AND activo = 1`,
+
+                    [
+                        reserva.id_equipo,
+                        id_estudiante
+                    ]
+
+                );
+
+                autorizado = integrante.length > 0;
+
             } else {
 
+                // "acompanante" / "visitante"
                 const [acompanante] = await conexion.query(
 
                     `SELECT id
