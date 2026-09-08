@@ -234,9 +234,14 @@
                 <input type="text" id="equipo-nombre" maxlength="100" required>
             </div>
 
-            <div class="form-group">
+           <div class="form-group">
                 <label for="equipo-deporte">Deporte</label>
-                <input type="text" id="equipo-deporte" maxlength="50" required placeholder="Ej: Fútbol, Voleibol, Baloncesto">
+                <select id="equipo-deporte" required>
+                    <option value="" disabled selected>Selecciona un deporte</option>
+                    <option value="Fútbol">Fútbol</option>
+                    <option value="Voleibol">Voleibol</option>
+                    <option value="Baloncesto">Baloncesto</option>
+                </select>
             </div>
 
             <div id="equipo-form-status" class="status-message"></div>
