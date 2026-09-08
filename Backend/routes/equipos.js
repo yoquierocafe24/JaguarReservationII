@@ -83,6 +83,67 @@ router.get('/estudiantes/estado', requiereSesion, requiereAdmin, async (req, res
 
 });
 
+
+// =======================================
+// Mis equipos como líder o sublíder
+// (para el formulario de reserva: saber si
+// el estudiante puede reservar "como equipo",
+// y en cuáles equipos)
+// GET /api/equipos/mis-equipos?deporte=Futbol
+// =======================================
+
+router.get('/mis-equipos', requiereSesion, async (req, res) => {
+
+    try {
+
+        const id_estudiante = req.session.usuario.id;
+        const { deporte } = req.query;
+
+        let consulta = `
+            SELECT
+                eq.id_equipo,
+                eq.nombre,
+                eq.deporte,
+                ei.rol
+            FROM equipo_integrantes ei
+            INNER JOIN equipos eq
+                ON eq.id_equipo = ei.id_equipo
+            WHERE ei.id_estudiante = ?
+              AND ei.activo = 1
+              AND eq.activo = 1
+              AND ei.rol IN ('lider', 'sublider')
+        `;
+
+        const valores = [id_estudiante];
+
+        if (deporte) {
+            consulta += ` AND LOWER(eq.deporte) = LOWER(?)`;
+            valores.push(deporte);
+        }
+
+        consulta += ` ORDER BY eq.nombre ASC`;
+
+        const [equipos] = await db.query(consulta, valores);
+
+        res.json({
+            ok: true,
+            equipos
+        });
+
+    } catch (error) {
+
+        console.error("ERROR OBTENIENDO MIS EQUIPOS:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+
 // =======================================
 // Listar equipos, con sus integrantes
 // GET /api/equipos?incluir_inactivos=true
