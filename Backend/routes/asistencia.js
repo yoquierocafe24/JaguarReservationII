@@ -51,7 +51,12 @@ router.get('/', async (req, res) => {
             esperadas en cada reserva:
 
             - Titular: viene directamente de reservas.
-            - Acompañantes: vienen de reserva_acompanantes.
+            - Acompañantes: vienen de reserva_acompanantes
+              (solo reservas individuales).
+            - Integrantes de equipo: vienen de
+              equipo_integrantes (solo reservas de equipo,
+              excluyendo al líder/sublíder que ya cuenta
+              como "titular").
         */
 
         let consulta = `
@@ -139,7 +144,7 @@ router.get('/', async (req, res) => {
 
 
                 /* =====================================
-                   ACOMPAÑANTES
+                   ACOMPAÑANTES (reservas individuales)
                 ===================================== */
 
                 SELECT
@@ -215,12 +220,99 @@ router.get('/', async (req, res) => {
                     AND ra.confirmado = 1
                     AND ra.rol = 'acompanante'
 
+
+                UNION ALL
+
+
+                /* =====================================
+                   INTEGRANTES DE EQUIPO
+                   (reservas de tipo equipo; excluye al
+                   líder/sublíder que ya se contó como
+                   "titular" arriba)
+                ===================================== */
+
+                SELECT
+
+                    r.id_reserva,
+
+                    ei.id_estudiante,
+
+                    e.nombre AS estudiante_nombre,
+
+                    e.cuenta AS estudiante_cuenta,
+
+                    'integrante' AS tipo,
+
+                    r.fecha,
+
+                    r.hora_inicio,
+
+                    r.hora_fin,
+
+                    r.id_espacio,
+
+                    es.nombre AS espacio_nombre,
+
+                    a.id_asistencia,
+
+                    a.hora_entrada,
+
+                    g.nombre AS guardia_nombre,
+
+                    CASE
+
+                        WHEN a.id_asistencia IS NOT NULL
+                        THEN 'presente'
+
+                        WHEN TIMESTAMP(
+                            r.fecha,
+                            r.hora_fin
+                        ) < ${HORA_ACTUAL_HN}
+                        THEN 'inasistencia'
+
+                        ELSE 'pendiente'
+
+                    END AS estado_asistencia
+
+                FROM reservas r
+
+                INNER JOIN equipo_integrantes ei
+                    ON ei.id_equipo =
+                       r.id_equipo
+                    AND ei.activo = 1
+                    AND ei.id_estudiante <>
+                        r.id_estudiante
+
+                INNER JOIN estudiantes e
+                    ON e.id_estudiante =
+                       ei.id_estudiante
+
+                INNER JOIN espacios es
+                    ON es.id_espacio =
+                       r.id_espacio
+
+                LEFT JOIN asistencia a
+                    ON a.id_reserva =
+                       r.id_reserva
+                    AND a.id_estudiante =
+                        ei.id_estudiante
+
+                LEFT JOIN guardia g
+                    ON g.id_guardia =
+                       a.id_guardia
+
+                WHERE
+                    r.fecha = ?
+                    AND r.estado = 'aprobada'
+                    AND r.tipo_reserva = 'equipo'
+
             ) AS control
 
             WHERE 1 = 1
         `;
 
         const valores = [
+            fecha,
             fecha,
             fecha
         ];
@@ -260,7 +352,7 @@ router.get('/', async (req, res) => {
 
 
         // Mostrar primero las reservas más tempranas
-        // y dentro de ellas titular antes que acompañantes
+        // y dentro de ellas titular antes que los demás
         consulta += `
 
             ORDER BY
@@ -339,9 +431,10 @@ router.get('/resumen', async (req, res) => {
         /*
             Mismo universo de personas que la ruta principal
             (titulares + acompañantes confirmados de reservas
-            aprobadas ese día), agrupado por estado_asistencia
-            para contar presentes, pendientes e inasistencias
-            en una sola consulta.
+            individuales + integrantes de reservas de equipo),
+            agrupado por estado_asistencia para contar
+            presentes, pendientes e inasistencias en una
+            sola consulta.
         */
 
         const [filas] = await db.query(
@@ -389,10 +482,33 @@ router.get('/resumen', async (req, res) => {
                 AND ra.confirmado = 1
                 AND ra.rol = 'acompanante'
 
+                UNION ALL
+
+                SELECT
+                    r.id_reserva,
+                    CASE
+                        WHEN a.id_asistencia IS NOT NULL
+                        THEN 'presente'
+                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < ${HORA_ACTUAL_HN}
+                        THEN 'inasistencia'
+                        ELSE 'pendiente'
+                    END AS estado_asistencia
+                FROM reservas r
+                INNER JOIN equipo_integrantes ei
+                    ON ei.id_equipo = r.id_equipo
+                    AND ei.activo = 1
+                    AND ei.id_estudiante <> r.id_estudiante
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = r.id_reserva
+                    AND a.id_estudiante = ei.id_estudiante
+                WHERE r.fecha = ?
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'equipo'
+
              ) AS control
              GROUP BY control.estado_asistencia`,
 
-            [fecha, fecha]
+            [fecha, fecha, fecha]
 
         );
 
