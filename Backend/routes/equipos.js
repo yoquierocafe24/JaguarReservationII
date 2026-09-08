@@ -143,7 +143,6 @@ router.get('/mis-equipos', requiereSesion, async (req, res) => {
 
 });
 
-
 // =======================================
 // Listar equipos, con sus integrantes
 // GET /api/equipos?incluir_inactivos=true
