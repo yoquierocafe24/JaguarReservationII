@@ -24,6 +24,7 @@ const calendarioRoutes = require('./routes/calendario');
 const reportesRoutes = require('./routes/reportes');
 const reservasadminRoutes = require('./routes/reservasadmin');
 const equiposRoutes = require('./routes/equipos');
+const clubesRoutes = require('./routes/clubes');
 
 
 
@@ -119,6 +120,7 @@ app.use('/api/calendario', calendarioRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/reservas-admin', reservasadminRoutes);
 app.use('/api/equipos', equiposRoutes);
+app.use('/api/clubes', clubesRoutes);
 
 
 
