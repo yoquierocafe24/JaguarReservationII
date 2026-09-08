@@ -460,13 +460,9 @@ function mostrarPersonasEncontradas(resultados) {
 
                 <div class="resultado-persona-superior">
                     <div>
-                        <span class="resultado-etiqueta">
-                            ${
-                                persona.tipo_asistencia === "titular"
-                                    ? "Titular"
-                                    : "Acompañante"
-                            }
-                        </span>
+                     <span class="resultado-etiqueta">
+                 ${etiquetaTipoAsistencia(persona.tipo_asistencia)}
+                    </span>
 
                         <h3>
                             ${escaparHTML(persona.nombre)}
@@ -616,11 +612,9 @@ function mostrarPersonaEncontrada(persona) {
         obtenerIniciales(persona.nombre);
 
     document.getElementById(
-        "resultado-tipo"
+    "resultado-tipo"
     ).textContent =
-        persona.tipo_asistencia === "titular"
-            ? "Titular"
-            : "Acompañante";
+    etiquetaTipoAsistencia(persona.tipo_asistencia);
 
     document.getElementById(
         "resultado-nombre"
@@ -969,13 +963,9 @@ function renderizarPersonas(personas, puedeRegistrar) {
                    <small>
                         ${escaparHTML(persona.cuenta)}
                     </small>
-                   <span class="persona-rol">
-                        ${
-                            persona.tipo_asistencia === "titular"
-                                ? "Titular"
-                                : "Acompañante"
-                        }
-                    </span>
+                  <span class="persona-rol">
+                  ${etiquetaTipoAsistencia(persona.tipo_asistencia)}
+                </span>
                    ${
                         asistio && persona.hora_entrada
                             ? `
@@ -1469,4 +1459,17 @@ function mostrarToast(mensaje, tipo = "danger") {
         bootstrap.Toast.getOrCreateInstance(toast);
    instancia.show();
 
+}
+
+function etiquetaTipoAsistencia(tipo) {
+
+    if (tipo === "titular") {
+        return "Titular";
+    }
+
+    if (tipo === "integrante") {
+        return "Integrante";
+    }
+
+    return "Acompañante";
 }
