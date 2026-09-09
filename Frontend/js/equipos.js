@@ -618,7 +618,7 @@ function renderIntegrantes(integrantes) {
 
                 ${i.activo
                     ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
-                    : ''
+                    : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`
                 }
             </div>
         </div>
@@ -632,15 +632,13 @@ function renderIntegrantes(integrantes) {
         btn.addEventListener('click', () => cambiarRolIntegrante(btn.dataset.cambiarRol, btn.dataset.nuevoRol));
     });
 
-     elements.integrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
+    elements.integrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
         btn.addEventListener('click', () => solicitarConfirmacionInactivarIntegrante(btn.dataset.inactivarIntegrante));
     });
 
     elements.integrantesList.querySelectorAll('[data-activar-integrante]').forEach(btn => {
-    btn.addEventListener('click', () => solicitarConfirmacionActivarIntegrante(btn.dataset.activarIntegrante));
-});
-
-   
+        btn.addEventListener('click', () => solicitarConfirmacionActivarIntegrante(btn.dataset.activarIntegrante));
+    });
 }
 
 // =======================================
@@ -1179,16 +1177,20 @@ function renderIntegrantesClub(integrantes) {
             <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
 
             <div class="integrante-acciones">
-             ${i.activo
-             ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
-             : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`
-}
+                ${i.activo
+                    ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
+                    : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`
+                }
             </div>
         </div>
     `).join('');
 
-     elements.integrantesList.querySelectorAll('[data-activar-integrante]').forEach(btn => {
-     btn.addEventListener('click', () => activarIntegrante(btn.dataset.activarIntegrante));
+    elements.clubIntegrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
+        btn.addEventListener('click', () => solicitarConfirmacionInactivarIntegranteClub(btn.dataset.inactivarIntegrante));
+    });
+
+    elements.clubIntegrantesList.querySelectorAll('[data-activar-integrante]').forEach(btn => {
+        btn.addEventListener('click', () => solicitarConfirmacionActivarIntegranteClub(btn.dataset.activarIntegrante));
     });
 }
 
@@ -1313,6 +1315,38 @@ function cerrarModal(modalEl) {
     modalEl.classList.add('hidden');
     modalEl.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
+}
+
+function solicitarConfirmacionActivarIntegranteClub(idIntegrante) {
+    abrirModalConfirmacion({
+        title: 'Reactivar integrante',
+        message: '¿Deseas reactivar a este integrante del club?',
+        confirmText: 'Activar',
+        onConfirm: async () => {
+            await activarIntegranteClub(idIntegrante);
+        }
+    });
+}
+
+async function activarIntegranteClub(idIntegrante) {
+    try {
+        const response = await fetch(`${API_URL}/api/clubes/${state.clubIdActivo}/integrantes/${idIntegrante}/activar`, {
+            method: 'PUT',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo reactivar al integrante.');
+        }
+
+        await recargarDetalleClub();
+
+    } catch (error) {
+        console.error(error);
+        setClubIntegranteFormStatus(error.message || 'Ocurrió un error al reactivar al integrante.', true);
+    }
 }
 
 // =======================================
