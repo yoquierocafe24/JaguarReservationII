@@ -1271,8 +1271,8 @@ async function agregarIntegranteClub() {
 function solicitarConfirmacionInactivarIntegranteClub(idIntegrante) {
     abrirModalConfirmacion({
         title: 'Retirar integrante',
-        message: '¿Deseas retirar a este integrante del club?',
-        confirmText: 'Retirar',
+        message: '¿Deseas inactivar a este integrante del club?',
+        confirmText: 'Inactivar',
         onConfirm: async () => {
             await inactivarIntegranteClub(idIntegrante);
         }
