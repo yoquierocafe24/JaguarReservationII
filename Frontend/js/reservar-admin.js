@@ -4,7 +4,7 @@ const API_URL =
 const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SM = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const TODAY   = new Date();
-const RESERVAS_POR_PAGINA = 6;
+const RESERVAS_POR_PAGINA = 10;
 
 // Ultimas reservas traidas del backend. La busqueda por nombre filtra
 // sobre esto en el navegador; estado/espacio/fecha los filtra el servidor.

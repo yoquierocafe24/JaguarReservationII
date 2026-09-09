@@ -121,10 +121,10 @@ async function verificarSesion() {
             data.usuario.nombre || 'Administrador';
 
         const nombreElemento =
-            document.getElementById('admin-name');
+            document.getElementById('usuario-nombre');
 
         const avatarElemento =
-            document.getElementById('admin-avatar');
+            document.getElementById('usuario-avatar');
 
         if (nombreElemento) {
             nombreElemento.textContent = nombre;

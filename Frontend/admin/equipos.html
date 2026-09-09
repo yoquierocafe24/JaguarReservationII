@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <link rel="stylesheet" href="../css/admin.css">
-    <link rel="stylesheet" href="../css/equipos-admin.css">
+    <link rel="stylesheet" href="../css/equipos-admin.css?v=4">
 </head>
 
 <body>
@@ -58,10 +58,10 @@
                 <span>Zona Jaguar</span>
             </a>
 
-            <a href="equipos.html" class="sidebar-link active">
-                <i class="bi bi-people"></i>
-                <span>Equipos</span>
-            </a>
+            <a href="equipos.html" class="sidebar-link">
+                    <i class="bi bi-people"></i>
+                    <span>Equipos/Clubes</span>
+                </a>
 
             <a href="asistencia.html" class="sidebar-link">
                 <i class="bi bi-clipboard-check"></i>
@@ -107,7 +107,7 @@
                     <i class="bi bi-list"></i>
                 </button>
 
-                <span class="topbar-page-title">Equipos</span>
+                <span class="topbar-page-title">Equipos/Clubes</span>
             </div>
 
             <div class="topbar-right">
@@ -156,12 +156,17 @@
 
                 <div class="actions-row">
 
-                    <div>
-                        <h2 class="panel-title">Equipos</h2>
-                        <p class="panel-subtitle">Administra los equipos del polideportivo y sus integrantes.</p>
-                    </div>
+        <div class="panel-title-con-icono">
+            <div class="panel-icono panel-icono-equipos">
+                <i class="bi bi-trophy"></i>
+            </div>
+            <div>
+                <h2 class="panel-title">Equipos</h2>
+                <p class="panel-subtitle">Administra los equipos del polideportivo y sus integrantes.</p>
+            </div>
+        </div>
 
-                    <div class="actions-buttons">
+        <div class="actions-buttons">
                         <label class="checkbox-inline">
                             <input type="checkbox" id="incluir-inactivos-check">
                             Mostrar inactivos
@@ -204,9 +209,71 @@
                             </tr>
                         </tbody>
                     </table>
+                  
                 </div>
-
+             <div id="equipos-paginacion" class="paginacion"></div>
             </section>
+<section class="panel">
+
+    <div class="actions-row">
+
+        <div class="panel-title-con-icono">
+            <div class="panel-icono panel-icono-clubes">
+                <i class="bi bi-people"></i>
+            </div>
+            <div>
+                <h2 class="panel-title">Clubes</h2>
+                <p class="panel-subtitle">Administra los clubes de la universidad y sus integrantes.</p>
+            </div>
+        </div>
+
+        <div class="actions-buttons">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="incluir-inactivos-club-check">
+                Mostrar inactivos
+            </label>
+
+            <button id="nuevo-club-btn" class="btn-primary" type="button">
+                <i class="bi bi-plus-lg"></i>
+                Nuevo club
+            </button>
+
+            <button id="refresh-club-btn" class="btn-secondary" type="button">
+                Actualizar
+            </button>
+        </div>
+
+    </div>
+
+    <div id="status-message-club" class="status-message">
+        Esperando datos...
+    </div>
+
+    <div class="table-wrapper table-clubes">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Integrantes</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody id="clubes-table-body">
+                <tr>
+                    <td colspan="4" class="empty-state">
+                        Cargando clubes...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="clubes-paginacion" class="paginacion"></div>
+
+</section>
+
 
         </div>
 
@@ -312,6 +379,89 @@
 
         <div class="custom-modal-actions">
             <button type="button" class="btn-secondary" data-action="close-integrantes">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CREAR / EDITAR CLUB -->
+<div id="club-modal" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close-club"></div>
+    <div class="custom-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="club-modal-title">
+        <div class="custom-modal-header">
+            <h3 id="club-modal-title">Nuevo club</h3>
+            <button type="button" class="modal-close-btn" data-action="close-club" aria-label="Cerrar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <form id="club-form" class="custom-modal-body">
+
+            <input type="hidden" id="club-id">
+
+            <div class="form-group">
+                <label for="club-nombre">Nombre del club</label>
+                <input type="text" id="club-nombre" maxlength="100" required>
+            </div>
+
+            <div id="club-form-status" class="status-message"></div>
+
+        </form>
+
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary" data-action="close-club">Cancelar</button>
+            <button type="submit" form="club-form" class="btn-primary" id="club-guardar-btn">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: GESTIONAR INTEGRANTES DE CLUB -->
+<div id="club-integrantes-modal" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close-club-integrantes"></div>
+    <div class="custom-modal-dialog custom-modal-dialog-lg" role="dialog" aria-modal="true" aria-labelledby="club-integrantes-modal-title">
+        <div class="custom-modal-header">
+            <h3 id="club-integrantes-modal-title">Integrantes</h3>
+            <button type="button" class="modal-close-btn" data-action="close-club-integrantes" aria-label="Cerrar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="custom-modal-body">
+
+            <!-- Agregar integrante -->
+            <div class="agregar-integrante-box">
+
+                <h4>Agregar integrante</h4>
+
+                <div class="agregar-integrante-row">
+
+                    <div class="form-group form-group-cuenta">
+                        <label for="club-integrante-cuenta">Número de cuenta</label>
+                        <input type="text" id="club-integrante-cuenta" placeholder="Ej: 20231000123">
+                    </div>
+
+                    <button type="button" id="btn-agregar-integrante-club" class="btn-primary">
+                        <i class="bi bi-plus-lg"></i>
+                        Agregar
+                    </button>
+
+                </div>
+
+                <p id="club-integrante-estudiante-preview" class="form-hint"></p>
+                <div id="club-integrante-form-status" class="status-message"></div>
+
+            </div>
+
+            <!-- Lista de integrantes -->
+            <h4 class="integrantes-lista-titulo">Integrantes del club</h4>
+
+            <div id="club-integrantes-list" class="integrantes-list">
+                <p class="empty-state">Cargando integrantes...</p>
+            </div>
+
+        </div>
+
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary" data-action="close-club-integrantes">Cerrar</button>
         </div>
     </div>
 </div>
@@ -422,7 +572,7 @@
 </div>
 
 
-<script src="../js/equipos.js"></script>
+<script src="../js/equipos.js?v=17"></script>
 <script src="../js/perfil-admin.js?v=14"></script>
 </body>
 </html>

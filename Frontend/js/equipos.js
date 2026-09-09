@@ -135,6 +135,7 @@ const elements = {
     refreshBtn: document.getElementById('refresh-btn'),
     nuevoEquipoBtn: document.getElementById('nuevo-equipo-btn'),
     incluirInactivosCheck: document.getElementById('incluir-inactivos-check'),
+    equiposPaginacion: document.getElementById('equipos-paginacion'),
 
     equipoModal: document.getElementById('equipo-modal'),
     equipoModalTitle: document.getElementById('equipo-modal-title'),
@@ -160,14 +161,46 @@ const elements = {
     confirmModalConfirmBtn: document.querySelector('#confirm-modal [data-action="confirm"]'),
     confirmModalCancelBtn: document.querySelector('#confirm-modal [data-action="cancel"]'),
     confirmModalCloseBtn: document.querySelector('#confirm-modal .modal-close-btn'),
-    confirmModalBackdrop: document.querySelector('#confirm-modal .custom-modal-backdrop')
+    confirmModalBackdrop: document.querySelector('#confirm-modal .custom-modal-backdrop'),
+
+    clubTableBody: document.getElementById('clubes-table-body'),
+    statusMessageClub: document.getElementById('status-message-club'),
+    refreshClubBtn: document.getElementById('refresh-club-btn'),
+    nuevoClubBtn: document.getElementById('nuevo-club-btn'),
+    incluirInactivosClubCheck: document.getElementById('incluir-inactivos-club-check'),
+    clubesPaginacion: document.getElementById('clubes-paginacion'),
+
+    clubModal: document.getElementById('club-modal'),
+    clubModalTitle: document.getElementById('club-modal-title'),
+    clubForm: document.getElementById('club-form'),
+    clubId: document.getElementById('club-id'),
+    clubNombre: document.getElementById('club-nombre'),
+    clubFormStatus: document.getElementById('club-form-status'),
+    clubGuardarBtn: document.getElementById('club-guardar-btn'),
+
+    clubIntegrantesModal: document.getElementById('club-integrantes-modal'),
+    clubIntegrantesModalTitle: document.getElementById('club-integrantes-modal-title'),
+    clubIntegrantesList: document.getElementById('club-integrantes-list'),
+    clubIntegranteCuenta: document.getElementById('club-integrante-cuenta'),
+    clubIntegranteEstudiantePreview: document.getElementById('club-integrante-estudiante-preview'),
+    clubIntegranteFormStatus: document.getElementById('club-integrante-form-status'),
+    btnAgregarIntegranteClub: document.getElementById('btn-agregar-integrante-club')
 };
+
+const EQUIPOS_POR_PAGINA = 5;
+const CLUBES_POR_PAGINA = 5;
 
 const state = {
     equipos: [],
     equipoIdActivo: null, // equipo cuyo modal de integrantes está abierto
     confirmAction: null,
-    buscaCuentaTimeout: null
+    buscaCuentaTimeout: null,
+    paginaActualEquipos: 1,
+
+    clubes: [],
+    clubIdActivo: null, // club cuyo modal de integrantes está abierto
+    buscaCuentaClubTimeout: null,
+    paginaActualClubes: 1
 };
 
 function escapeHtml(value = '') {
@@ -252,6 +285,7 @@ async function cargarEquipos() {
         }
 
         state.equipos = data.equipos || [];
+        state.paginaActualEquipos = 1;
 
         setStatus(`${state.equipos.length} equipo(s) registrados.`);
         renderEquipos();
@@ -267,10 +301,32 @@ function renderEquipos() {
 
     if (!state.equipos.length) {
         elements.tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay equipos registrados.</td></tr>';
+
+        if (elements.equiposPaginacion) {
+            elements.equiposPaginacion.innerHTML = '';
+        }
+
         return;
     }
 
-    elements.tableBody.innerHTML = state.equipos.map((equipo) => {
+    const totalPaginas = Math.max(
+        1,
+        Math.ceil(state.equipos.length / EQUIPOS_POR_PAGINA)
+    );
+
+    state.paginaActualEquipos = Math.min(
+        state.paginaActualEquipos,
+        totalPaginas
+    );
+
+    const inicio = (state.paginaActualEquipos - 1) * EQUIPOS_POR_PAGINA;
+
+    const equiposDeLaPagina = state.equipos.slice(
+        inicio,
+        inicio + EQUIPOS_POR_PAGINA
+    );
+
+    elements.tableBody.innerHTML = equiposDeLaPagina.map((equipo) => {
 
         const integrantesActivos = (equipo.integrantes || []).filter(i => i.activo).length;
 
@@ -295,6 +351,41 @@ function renderEquipos() {
         `;
 
     }).join('');
+
+    renderPaginacionEquipos(totalPaginas);
+}
+
+function renderPaginacionEquipos(totalPaginas) {
+    if (!elements.equiposPaginacion) return;
+
+    if (totalPaginas <= 1) {
+        elements.equiposPaginacion.innerHTML = '';
+        return;
+    }
+
+    elements.equiposPaginacion.innerHTML = `
+        <button
+            type="button"
+            class="btn-secondary"
+            data-pagina-equipos="anterior"
+            ${state.paginaActualEquipos === 1 ? 'disabled' : ''}
+        >
+            Anterior
+        </button>
+
+        <span class="paginacion-texto">
+            Página ${state.paginaActualEquipos} de ${totalPaginas}
+        </span>
+
+        <button
+            type="button"
+            class="btn-secondary"
+            data-pagina-equipos="siguiente"
+            ${state.paginaActualEquipos === totalPaginas ? 'disabled' : ''}
+        >
+            Siguiente
+        </button>
+    `;
 }
 
 function manejarClicTabla(event) {
@@ -698,6 +789,477 @@ async function inactivarIntegrante(idIntegrante) {
 }
 
 // =======================================
+// CLUBES
+// =======================================
+
+function setStatusClub(message, isError = false) {
+    if (!elements.statusMessageClub) return;
+    elements.statusMessageClub.textContent = message;
+    elements.statusMessageClub.classList.toggle('error', isError);
+}
+
+function setClubFormStatus(message, isError = false) {
+    if (!elements.clubFormStatus) return;
+    elements.clubFormStatus.textContent = message;
+    elements.clubFormStatus.classList.toggle('error', isError);
+}
+
+function setClubIntegranteFormStatus(message, isError = false) {
+    if (!elements.clubIntegranteFormStatus) return;
+    elements.clubIntegranteFormStatus.textContent = message;
+    elements.clubIntegranteFormStatus.classList.toggle('error', isError);
+}
+
+async function cargarClubes() {
+    try {
+        setStatusClub('Cargando clubes...');
+
+        const params = new URLSearchParams();
+
+        if (elements.incluirInactivosClubCheck?.checked) {
+            params.set('incluir_inactivos', 'true');
+        }
+
+        const response = await fetch(`${API_URL}/api/clubes?${params.toString()}`, {
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudieron cargar los clubes');
+        }
+
+        state.clubes = data.clubes || [];
+        state.paginaActualClubes = 1;
+
+        setStatusClub(`${state.clubes.length} club(es) registrados.`);
+        renderClubes();
+
+    } catch (error) {
+        console.error(error);
+        setStatusClub(error.message || 'Ocurrió un error al cargar los clubes.', true);
+    }
+}
+
+function renderClubes() {
+    if (!elements.clubTableBody) return;
+
+    if (!state.clubes.length) {
+        elements.clubTableBody.innerHTML = '<tr><td colspan="4" class="empty-state">No hay clubes registrados.</td></tr>';
+
+        if (elements.clubesPaginacion) {
+            elements.clubesPaginacion.innerHTML = '';
+        }
+
+        return;
+    }
+
+    const totalPaginas = Math.max(
+        1,
+        Math.ceil(state.clubes.length / CLUBES_POR_PAGINA)
+    );
+
+    state.paginaActualClubes = Math.min(
+        state.paginaActualClubes,
+        totalPaginas
+    );
+
+    const inicio = (state.paginaActualClubes - 1) * CLUBES_POR_PAGINA;
+
+    const clubesDeLaPagina = state.clubes.slice(
+        inicio,
+        inicio + CLUBES_POR_PAGINA
+    );
+
+    elements.clubTableBody.innerHTML = clubesDeLaPagina.map((club) => {
+
+        const integrantesActivos = (club.integrantes || []).filter(i => i.activo).length;
+
+        return `
+            <tr class="${club.activo ? '' : 'inactivo'}">
+                <td>${escapeHtml(club.nombre)}</td>
+                <td><span class="integrantes-count">${integrantesActivos} activo(s)</span></td>
+                <td><span class="chip ${club.activo ? 'activo' : 'inactivo'}">${club.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td>
+                    <div class="acciones-celda">
+                        <button type="button" class="action-btn" data-club-integrantes="${club.id_club}">Integrantes</button>
+                        <button type="button" class="action-btn secundario" data-club-editar="${club.id_club}">Editar</button>
+                        ${club.activo
+                            ? `<button type="button" class="action-btn secundario" data-club-inactivar="${club.id_club}">Inactivar</button>`
+                            : `<button type="button" class="action-btn exito" data-club-activar="${club.id_club}">Activar</button>`
+                        }
+                    </div>
+                </td>
+            </tr>
+        `;
+
+    }).join('');
+
+    renderPaginacionClubes(totalPaginas);
+}
+
+function renderPaginacionClubes(totalPaginas) {
+    if (!elements.clubesPaginacion) return;
+
+    if (totalPaginas <= 1) {
+        elements.clubesPaginacion.innerHTML = '';
+        return;
+    }
+
+    elements.clubesPaginacion.innerHTML = `
+        <button
+            type="button"
+            class="btn-secondary"
+            data-pagina-clubes="anterior"
+            ${state.paginaActualClubes === 1 ? 'disabled' : ''}
+        >
+            Anterior
+        </button>
+
+        <span class="paginacion-texto">
+            Página ${state.paginaActualClubes} de ${totalPaginas}
+        </span>
+
+        <button
+            type="button"
+            class="btn-secondary"
+            data-pagina-clubes="siguiente"
+            ${state.paginaActualClubes === totalPaginas ? 'disabled' : ''}
+        >
+            Siguiente
+        </button>
+    `;
+}
+
+function manejarClicTablaClub(event) {
+    const btnIntegrantes = event.target.closest('[data-club-integrantes]');
+    const btnEditar = event.target.closest('[data-club-editar]');
+    const btnInactivar = event.target.closest('[data-club-inactivar]');
+    const btnActivar = event.target.closest('[data-club-activar]');
+
+    if (btnIntegrantes) {
+        abrirModalIntegrantesClub(btnIntegrantes.dataset.clubIntegrantes);
+        return;
+    }
+
+    if (btnEditar) {
+        abrirModalClub(btnEditar.dataset.clubEditar);
+        return;
+    }
+
+    if (btnInactivar) {
+        solicitarConfirmacionInactivarClub(btnInactivar.dataset.clubInactivar);
+        return;
+    }
+
+    if (btnActivar) {
+        activarClub(btnActivar.dataset.clubActivar);
+    }
+}
+
+// =======================================
+// Crear / editar club
+// =======================================
+
+function abrirModalClub(idClub) {
+    elements.clubForm.reset();
+    setClubFormStatus('');
+
+    if (idClub) {
+
+        const club = state.clubes.find(c => String(c.id_club) === String(idClub));
+        if (!club) return;
+
+        elements.clubModalTitle.textContent = 'Editar club';
+        elements.clubId.value = club.id_club;
+        elements.clubNombre.value = club.nombre;
+
+    } else {
+
+        elements.clubModalTitle.textContent = 'Nuevo club';
+        elements.clubId.value = '';
+
+    }
+
+    abrirModal(elements.clubModal);
+}
+
+async function guardarClub(event) {
+    event.preventDefault();
+
+    const idClub = elements.clubId.value;
+
+    const payload = {
+        nombre: elements.clubNombre.value.trim()
+    };
+
+    if (!payload.nombre) {
+        setClubFormStatus('Debes indicar el nombre del club.', true);
+        return;
+    }
+
+    try {
+        elements.clubGuardarBtn.disabled = true;
+        setClubFormStatus('Guardando...');
+
+        const response = await fetch(
+            idClub ? `${API_URL}/api/clubes/${idClub}` : `${API_URL}/api/clubes`,
+            {
+                method: idClub ? 'PUT' : 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo guardar el club.');
+        }
+
+        cerrarModal(elements.clubModal);
+        await cargarClubes();
+
+        if (!idClub && data.id_club) {
+            abrirModalIntegrantesClub(data.id_club);
+        }
+
+    } catch (error) {
+        console.error(error);
+        setClubFormStatus(error.message || 'Ocurrió un error al guardar el club.', true);
+    } finally {
+        elements.clubGuardarBtn.disabled = false;
+    }
+}
+
+// =======================================
+// Inactivar / activar club
+// =======================================
+
+function solicitarConfirmacionInactivarClub(idClub) {
+    const club = state.clubes.find(c => String(c.id_club) === String(idClub));
+
+    abrirModalConfirmacion({
+        title: 'Inactivar club',
+        message: `¿Deseas inactivar a ${club ? club.nombre : 'este club'}? No se eliminará, solo dejará de estar disponible.`,
+        confirmText: 'Inactivar',
+        onConfirm: async () => {
+            await cambiarEstadoClub(idClub, 'inactivar');
+        }
+    });
+}
+
+async function activarClub(idClub) {
+    await cambiarEstadoClub(idClub, 'activar');
+}
+
+async function cambiarEstadoClub(idClub, accion) {
+    try {
+        setStatusClub(accion === 'activar' ? 'Activando club...' : 'Inactivando club...');
+
+        const response = await fetch(`${API_URL}/api/clubes/${idClub}/${accion}`, {
+            method: 'PUT',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo actualizar el club.');
+        }
+
+        await cargarClubes();
+
+    } catch (error) {
+        console.error(error);
+        setStatusClub(error.message || 'Ocurrió un error al actualizar el club.', true);
+    }
+}
+
+// =======================================
+// Modal de integrantes de club
+// =======================================
+
+async function abrirModalIntegrantesClub(idClub) {
+    state.clubIdActivo = idClub;
+
+    elements.clubIntegranteCuenta.value = '';
+    elements.clubIntegranteEstudiantePreview.textContent = '';
+    setClubIntegranteFormStatus('');
+
+    abrirModal(elements.clubIntegrantesModal);
+    await recargarDetalleClub();
+}
+
+async function recargarDetalleClub() {
+    if (!state.clubIdActivo) return;
+
+    try {
+        elements.clubIntegrantesList.innerHTML = '<p class="empty-state">Cargando integrantes...</p>';
+
+        const response = await fetch(`${API_URL}/api/clubes/${state.clubIdActivo}`, {
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo cargar el club.');
+        }
+
+        elements.clubIntegrantesModalTitle.textContent = `Integrantes — ${data.club.nombre}`;
+        renderIntegrantesClub(data.club.integrantes || []);
+
+        const idx = state.clubes.findIndex(c => String(c.id_club) === String(state.clubIdActivo));
+        if (idx !== -1) {
+            state.clubes[idx] = { ...state.clubes[idx], ...data.club };
+            renderClubes();
+        }
+
+    } catch (error) {
+        console.error(error);
+        elements.clubIntegrantesList.innerHTML = `<p class="empty-state">${escapeHtml(error.message || 'Ocurrió un error al cargar los integrantes.')}</p>`;
+    }
+}
+
+function renderIntegrantesClub(integrantes) {
+    if (!integrantes.length) {
+        elements.clubIntegrantesList.innerHTML = '<p class="empty-state">Este club todavía no tiene integrantes.</p>';
+        return;
+    }
+
+    elements.clubIntegrantesList.innerHTML = integrantes.map(i => `
+        <div class="integrante-item">
+            <div class="integrante-info">
+                <span class="integrante-nombre">${escapeHtml(i.estudiante_nombre)}</span>
+                <span class="integrante-cuenta">Cuenta: ${escapeHtml(i.estudiante_cuenta)}</span>
+            </div>
+
+            <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
+
+            <div class="integrante-acciones">
+                ${i.activo
+                    ? `<button type="button" class="action-btn secundario" data-club-inactivar-integrante="${i.id}">Inactivar</button>`
+                    : ''
+                }
+            </div>
+        </div>
+    `).join('');
+
+    elements.clubIntegrantesList.querySelectorAll('[data-club-inactivar-integrante]').forEach(btn => {
+        btn.addEventListener('click', () => solicitarConfirmacionInactivarIntegranteClub(btn.dataset.clubInactivarIntegrante));
+    });
+}
+
+// =======================================
+// Buscar estudiante por cuenta (autocompletar nombre)
+// =======================================
+
+function manejarInputCuentaClub() {
+    clearTimeout(state.buscaCuentaClubTimeout);
+
+    const cuenta = elements.clubIntegranteCuenta.value.trim();
+    elements.clubIntegranteEstudiantePreview.textContent = '';
+
+    if (!cuenta) return;
+
+    state.buscaCuentaClubTimeout = setTimeout(async () => {
+
+        try {
+            const response = await fetch(`${API_URL}/api/equipos/estudiantes/estado?cuenta=${encodeURIComponent(cuenta)}`, {
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                elements.clubIntegranteEstudiantePreview.textContent = data.mensaje || 'No se encontró un estudiante activo con esa cuenta.';
+                return;
+            }
+
+            elements.clubIntegranteEstudiantePreview.textContent = `✓ ${data.estudiante.nombre}`;
+
+        } catch (error) {
+            console.error(error);
+        }
+
+    }, 400);
+}
+
+async function agregarIntegranteClub() {
+    const cuenta = elements.clubIntegranteCuenta.value.trim();
+
+    if (!cuenta) {
+        setClubIntegranteFormStatus('Debes indicar el número de cuenta.', true);
+        return;
+    }
+
+    try {
+        elements.btnAgregarIntegranteClub.disabled = true;
+        setClubIntegranteFormStatus('Agregando...');
+
+        const response = await fetch(`${API_URL}/api/clubes/${state.clubIdActivo}/integrantes`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cuenta })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo agregar al integrante.');
+        }
+
+        elements.clubIntegranteCuenta.value = '';
+        elements.clubIntegranteEstudiantePreview.textContent = '';
+        setClubIntegranteFormStatus('');
+
+        await recargarDetalleClub();
+
+    } catch (error) {
+        console.error(error);
+        setClubIntegranteFormStatus(error.message || 'Ocurrió un error al agregar al integrante.', true);
+    } finally {
+        elements.btnAgregarIntegranteClub.disabled = false;
+    }
+}
+
+function solicitarConfirmacionInactivarIntegranteClub(idIntegrante) {
+    abrirModalConfirmacion({
+        title: 'Retirar integrante',
+        message: '¿Deseas retirar a este integrante del club?',
+        confirmText: 'Retirar',
+        onConfirm: async () => {
+            await inactivarIntegranteClub(idIntegrante);
+        }
+    });
+}
+
+async function inactivarIntegranteClub(idIntegrante) {
+    try {
+        const response = await fetch(`${API_URL}/api/clubes/${state.clubIdActivo}/integrantes/${idIntegrante}/inactivar`, {
+            method: 'PUT',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo retirar al integrante.');
+        }
+
+        await recargarDetalleClub();
+
+    } catch (error) {
+        console.error(error);
+        setClubIntegranteFormStatus(error.message || 'Ocurrió un error al retirar al integrante.', true);
+    }
+}
+
+// =======================================
 // Modales genéricos
 // =======================================
 
@@ -733,6 +1295,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.incluirInactivosCheck?.addEventListener('change', cargarEquipos);
     elements.nuevoEquipoBtn?.addEventListener('click', () => abrirModalEquipo(null));
     elements.tableBody?.addEventListener('click', manejarClicTabla);
+
+    elements.equiposPaginacion?.addEventListener('click', (event) => {
+        const boton = event.target.closest('[data-pagina-equipos]');
+        if (!boton) return;
+
+        if (boton.dataset.paginaEquipos === 'anterior') {
+            state.paginaActualEquipos = Math.max(1, state.paginaActualEquipos - 1);
+        } else {
+            state.paginaActualEquipos += 1;
+        }
+
+        renderEquipos();
+    });
     elements.equipoForm?.addEventListener('submit', guardarEquipo);
 
     elements.integranteCuenta?.addEventListener('input', manejarInputCuenta);
@@ -776,7 +1351,54 @@ document.addEventListener('DOMContentLoaded', async () => {
             cerrarModal(elements.integrantesModal);
             state.equipoIdActivo = null;
         }
+
+        if (elements.clubModal && !elements.clubModal.classList.contains('hidden')) {
+            cerrarModal(elements.clubModal);
+        }
+
+        if (elements.clubIntegrantesModal && !elements.clubIntegrantesModal.classList.contains('hidden')) {
+            cerrarModal(elements.clubIntegrantesModal);
+            state.clubIdActivo = null;
+        }
+    });
+
+    // =======================================
+    // Listeners de Clubes
+    // =======================================
+
+    elements.refreshClubBtn?.addEventListener('click', cargarClubes);
+    elements.incluirInactivosClubCheck?.addEventListener('change', cargarClubes);
+    elements.nuevoClubBtn?.addEventListener('click', () => abrirModalClub(null));
+    elements.clubTableBody?.addEventListener('click', manejarClicTablaClub);
+    elements.clubForm?.addEventListener('submit', guardarClub);
+
+    elements.clubIntegranteCuenta?.addEventListener('input', manejarInputCuentaClub);
+    elements.btnAgregarIntegranteClub?.addEventListener('click', agregarIntegranteClub);
+
+    elements.clubesPaginacion?.addEventListener('click', (event) => {
+        const boton = event.target.closest('[data-pagina-clubes]');
+        if (!boton) return;
+
+        if (boton.dataset.paginaClubes === 'anterior') {
+            state.paginaActualClubes = Math.max(1, state.paginaActualClubes - 1);
+        } else {
+            state.paginaActualClubes += 1;
+        }
+
+        renderClubes();
+    });
+
+    document.querySelectorAll('#club-modal [data-action="close-club"]').forEach(el => {
+        el.addEventListener('click', () => cerrarModal(elements.clubModal));
+    });
+
+    document.querySelectorAll('#club-integrantes-modal [data-action="close-club-integrantes"]').forEach(el => {
+        el.addEventListener('click', () => {
+            cerrarModal(elements.clubIntegrantesModal);
+            state.clubIdActivo = null;
+        });
     });
 
     await cargarEquipos();
+    await cargarClubes();
 });

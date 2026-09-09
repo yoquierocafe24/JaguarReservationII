@@ -177,7 +177,7 @@ const state = {
     periodoActivo: '',
     confirmAction: null,
     currentPage: 1,
-    pageSize: 5
+    pageSize: 15
 };
 
 function escapeHtml(value = '') {
