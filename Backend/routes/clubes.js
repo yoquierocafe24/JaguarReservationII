@@ -532,4 +532,105 @@ router.put('/:idClub/integrantes/:idIntegrante/inactivar', requiereSesion, requi
 
 });
 
+// =======================================
+// Reactivar integrante
+// PUT /api/clubes/:idClub/integrantes/:idIntegrante/activar
+//
+// Reglas:
+// - El club debe estar activo.
+// - No puede quedar duplicado: si el mismo
+//   estudiante ya tiene otro registro activo
+//   en este club, se bloquea.
+// =======================================
+
+router.put('/:idClub/integrantes/:idIntegrante/activar', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const [clubes] = await db.query(
+            `SELECT activo FROM clubes WHERE id_club = ?`,
+            [req.params.idClub]
+        );
+
+        if (clubes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Club no encontrado."
+            });
+
+        }
+
+        if (!clubes[0].activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se pueden reactivar integrantes de un club inactivo."
+            });
+
+        }
+
+        const [integrantes] = await db.query(
+            `SELECT id, id_estudiante, activo
+             FROM club_integrantes
+             WHERE id = ? AND id_club = ?`,
+            [req.params.idIntegrante, req.params.idClub]
+        );
+
+        if (integrantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Integrante no encontrado en este club."
+            });
+
+        }
+
+        if (integrantes[0].activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Este integrante ya está activo."
+            });
+
+        }
+
+        const [yaActivo] = await db.query(
+            `SELECT id FROM club_integrantes
+             WHERE id_club = ? AND id_estudiante = ? AND activo = 1`,
+            [req.params.idClub, integrantes[0].id_estudiante]
+        );
+
+        if (yaActivo.length > 0) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Este estudiante ya tiene otro registro activo en este club."
+            });
+
+        }
+
+        await db.query(
+            `UPDATE club_integrantes SET activo = 1 WHERE id = ?`,
+            [req.params.idIntegrante]
+        );
+
+        res.json({
+            ok: true,
+            mensaje: "Integrante reactivado correctamente."
+        });
+
+    } catch (error) {
+
+        console.error("ERROR REACTIVANDO INTEGRANTE DE CLUB:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
 module.exports = router;
