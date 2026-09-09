@@ -27,6 +27,18 @@ function requiereAdmin(req, res, next) {
     next();
 }
 
+// Quita acentos y pasa a minúsculas, para comparar
+// nombres de deporte/espacio sin importar tildes.
+// (Misma lógica usada en reservas.js para el flujo
+// del estudiante; se duplica aquí a propósito, ya
+// que este archivo es independiente).
+function normalizarTexto(texto = '') {
+    return String(texto)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
 // =======================================
 // Generar ID de reserva (R001-2026, R002-2026...)
 // Se reinicia cada año.
@@ -177,7 +189,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             }
 
             const [equipo] = await db.query(
-                `SELECT id_equipo FROM equipos
+                `SELECT id_equipo, deporte FROM equipos
                  WHERE id_equipo = ?
                  AND activo = 1`,
                 [id_equipo]
@@ -187,6 +199,34 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 return res.status(404).json({
                     ok: false,
                     mensaje: "El equipo no existe o está inactivo."
+                });
+            }
+
+            // =======================================
+            // Validar que el deporte del equipo coincida
+            // con el espacio elegido (misma regla que ya
+            // existe en el flujo del estudiante).
+            // =======================================
+
+            const [espacioReserva] = await db.query(
+                `SELECT nombre FROM espacios WHERE id_espacio = ?`,
+                [id_espacio]
+            );
+
+            if (espacioReserva.length === 0) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje: "El espacio indicado no existe."
+                });
+            }
+
+            const deporteEquipo = normalizarTexto(equipo[0].deporte);
+            const nombreEspacio = normalizarTexto(espacioReserva[0].nombre);
+
+            if (deporteEquipo !== nombreEspacio) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: `Este equipo es de ${equipo[0].deporte}, no puede reservar en ${espacioReserva[0].nombre}.`
                 });
             }
 

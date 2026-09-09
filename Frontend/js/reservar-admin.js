@@ -1347,6 +1347,7 @@ function abrirModalCrearReserva() {
     estudianteSeleccionado = null;
 
     document.getElementById('reserva-espacio').value = '1';
+    document.getElementById('reserva-espacio').disabled = false;
     document.getElementById('bloque-juego').style.display = 'none';
     document.getElementById('reserva-fecha').value = '';
     document.getElementById('reserva-horario').selectedIndex = 0;
@@ -1374,6 +1375,71 @@ function cambiarModoReserva(modo) {
     // Los acompañantes con QR solo aplican a reservas individuales
     // (un equipo ya tiene su roster conocido de antemano)
     document.getElementById('bloque-acompanantes').style.display = modo === 'individual' ? 'block' : 'none';
+
+    const selectEspacio = document.getElementById('reserva-espacio');
+
+    if (modo === 'individual') {
+
+        // Al volver a modo individual, se libera el espacio
+        // (puede que haya quedado bloqueado desde modo equipo)
+        selectEspacio.disabled = false;
+
+    } else {
+
+        // En modo equipo, el espacio se auto-selecciona y
+        // se bloquea según el equipo elegido (ver
+        // actualizarEspacioSegunEquipo). Si todavía no hay
+        // equipo elegido, se deja bloqueado para evitar
+        // que quede un espacio incorrecto seleccionado.
+        const selectEquipo = document.getElementById('select-equipo-reserva');
+
+        if (selectEquipo.value) {
+            actualizarEspacioSegunEquipo();
+        } else {
+            selectEspacio.disabled = true;
+        }
+    }
+}
+
+// =======================================
+// Autocompletar y bloquear el espacio según
+// el deporte del equipo seleccionado
+// =======================================
+function actualizarEspacioSegunEquipo() {
+
+    const selectEquipo = document.getElementById('select-equipo-reserva');
+    const selectEspacio = document.getElementById('reserva-espacio');
+
+    const opcionEquipo = selectEquipo.options[selectEquipo.selectedIndex];
+    const deporte = opcionEquipo?.dataset.deporte || '';
+
+    if (!deporte) {
+        selectEspacio.disabled = true;
+        return;
+    }
+
+    // Busca, entre las opciones de espacio, la que tenga
+    // el mismo texto que el deporte del equipo (sin
+    // importar mayúsculas/tildes).
+    const normalizar = (texto) =>
+        String(texto)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+    const opcionEspacio = Array.from(selectEspacio.options).find(
+        opt => normalizar(opt.textContent) === normalizar(deporte)
+    );
+
+    if (opcionEspacio) {
+        selectEspacio.value = opcionEspacio.value;
+        selectEspacio.disabled = true;
+        alCambiarEspacioReserva();
+    } else {
+        // No hay un espacio que coincida con ese deporte
+        // (caso raro, pero se evita dejar un valor incorrecto)
+        selectEspacio.disabled = true;
+    }
 }
 
 function alCambiarEspacioReserva() {
@@ -1429,7 +1495,7 @@ async function cargarEquiposParaReserva() {
 
         select.innerHTML = '<option value="">Selecciona un equipo</option>' +
             equipos.map(e =>
-                `<option value="${e.id_equipo}">${escapar(e.nombre)} (${escapar(e.deporte || '')})</option>`
+                `<option value="${e.id_equipo}" data-deporte="${escapar(e.deporte || '')}">${escapar(e.nombre)} (${escapar(e.deporte || '')})</option>`
             ).join('');
 
     } catch (error) {
@@ -1440,6 +1506,12 @@ async function cargarEquiposParaReserva() {
         select.innerHTML = '<option value="">No se pudieron cargar los equipos</option>';
     }
 }
+
+// Cuando cambia el equipo elegido, se actualiza el espacio
+document.getElementById('select-equipo-reserva')?.addEventListener(
+    'change',
+    actualizarEspacioSegunEquipo
+);
 
 // Búsqueda de alumno por cuenta — se trae la lista completa una
 // sola vez (mismo endpoint que ya usa la pantalla de Estudiantes)
