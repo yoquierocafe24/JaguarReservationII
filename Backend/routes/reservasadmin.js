@@ -74,6 +74,52 @@ async function generarIdReserva() {
 }
 
 // =======================================
+// Revisa si un estudiante ya tiene un choque
+// de horario, considerando:
+//   - Sus reservas personales (individuales,
+//     o donde él sea el titular/líder de un
+//     equipo).
+//   - Cualquier reserva de EQUIPO donde sea
+//     integrante activo (aunque no haya sido
+//     él quien la creó).
+//
+// Esto evita que una misma persona quede
+// "reservada" en dos lugares a la vez, sin
+// importar si fue una reserva individual o
+// de equipo la que generó el choque.
+// =======================================
+async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, horaFin) {
+
+    const [conflicto] = await db.query(
+
+        `SELECT r.id_reserva
+         FROM reservas r
+         WHERE r.estado IN ('pendiente','aprobada')
+         AND r.fecha = ?
+         AND r.hora_inicio < ?
+         AND r.hora_fin > ?
+         AND (
+             r.id_estudiante = ?
+             OR (
+                 r.tipo_reserva = 'equipo'
+                 AND EXISTS (
+                     SELECT 1
+                     FROM equipo_integrantes ei
+                     WHERE ei.id_equipo = r.id_equipo
+                     AND ei.id_estudiante = ?
+                     AND ei.activo = 1
+                 )
+             )
+         )
+         LIMIT 1`,
+
+        [fecha, horaFin, horaInicio, idEstudiante, idEstudiante]
+    );
+
+    return conflicto.length > 0;
+}
+
+// =======================================
 // ADMIN - Crear reserva en nombre de un
 // estudiante o de un equipo
 // POST /api/reservas-admin
@@ -254,27 +300,60 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
         }
 
         // =======================================
-        // Choque de horario del titular
+        // Choque de horario
+        //
+        // - Modo individual: se revisa solo al
+        //   estudiante que hace la reserva.
+        // - Modo equipo: se revisa a CADA integrante
+        //   activo del equipo (líder, sublíder y
+        //   jugadores), no solo al líder — así se
+        //   evita que alguien quede "reservado" en
+        //   dos lugares a la misma hora.
         // =======================================
 
-        if (id_estudiante) {
+        if (modo === "individual" && id_estudiante) {
 
-            const [choqueEstudiante] = await db.query(
-                `SELECT *
-                 FROM reservas
-                 WHERE id_estudiante = ?
-                 AND fecha = ?
-                 AND estado IN ('pendiente','aprobada')
-                 AND hora_inicio < ?
-                 AND hora_fin > ?`,
-                [id_estudiante, fecha, hora_fin, hora_inicio]
+            const hayConflicto = await estudianteTieneConflictoHorario(
+                id_estudiante,
+                fecha,
+                hora_inicio,
+                hora_fin
             );
 
-            if (choqueEstudiante.length > 0) {
+            if (hayConflicto) {
                 return res.status(400).json({
                     ok: false,
-                    mensaje: "Ya existe una reserva en ese horario para este estudiante/equipo."
+                    mensaje: "Ya existe una reserva en ese horario para este estudiante."
                 });
+            }
+
+        } else if (modo === "equipo" && idEquipoFinal) {
+
+            const [integrantesEquipo] = await db.query(
+                `SELECT ei.id_estudiante, e.nombre
+                 FROM equipo_integrantes ei
+                 INNER JOIN estudiantes e ON e.id_estudiante = ei.id_estudiante
+                 WHERE ei.id_equipo = ?
+                 AND ei.activo = 1`,
+                [idEquipoFinal]
+            );
+
+            for (const integrante of integrantesEquipo) {
+
+                const hayConflicto = await estudianteTieneConflictoHorario(
+                    integrante.id_estudiante,
+                    fecha,
+                    hora_inicio,
+                    hora_fin
+                );
+
+                if (hayConflicto) {
+                    return res.status(400).json({
+                        ok: false,
+                        mensaje: `${integrante.nombre} ya tiene una reserva en ese horario. No se puede reservar para el equipo.`
+                    });
+                }
+
             }
 
         }

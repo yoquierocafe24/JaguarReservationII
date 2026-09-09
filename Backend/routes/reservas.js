@@ -82,6 +82,52 @@ function normalizarTexto(texto) {
 }
 
 // =======================================
+// Revisa si un estudiante ya tiene un choque
+// de horario, considerando:
+//   - Sus reservas personales (individuales,
+//     o donde él sea el titular/líder de un
+//     equipo).
+//   - Cualquier reserva de EQUIPO donde sea
+//     integrante activo (aunque no haya sido
+//     él quien la creó).
+//
+// Esto evita que una misma persona quede
+// "reservada" en dos lugares a la vez, sin
+// importar si fue una reserva individual o
+// de equipo la que generó el choque.
+// =======================================
+async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, horaFin) {
+
+    const [conflicto] = await db.query(
+
+        `SELECT r.id_reserva
+         FROM reservas r
+         WHERE r.estado IN ('pendiente','aprobada')
+         AND r.fecha = ?
+         AND r.hora_inicio < ?
+         AND r.hora_fin > ?
+         AND (
+             r.id_estudiante = ?
+             OR (
+                 r.tipo_reserva = 'equipo'
+                 AND EXISTS (
+                     SELECT 1
+                     FROM equipo_integrantes ei
+                     WHERE ei.id_equipo = r.id_equipo
+                     AND ei.id_estudiante = ?
+                     AND ei.activo = 1
+                 )
+             )
+         )
+         LIMIT 1`,
+
+        [fecha, horaFin, horaInicio, idEstudiante, idEstudiante]
+    );
+
+    return conflicto.length > 0;
+}
+
+// =======================================
 // Crear Reserva
 // POST /api/reservas
 // =======================================
@@ -195,7 +241,7 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
             });
 
         }
-                // =======================================
+        // =======================================
         // Normaliza el tipo de reserva
         // =======================================
  
@@ -277,36 +323,66 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
         }
 
         // =======================================
-        // Regla: el mismo estudiante no puede tener
-        // otra reserva (en cualquier espacio) que
-        // se traslape con este horario
+        // Choque de horario
+        //
+        // - Reserva individual: se revisa solo al
+        //   estudiante que hace la reserva.
+        // - Reserva de equipo: se revisa a CADA
+        //   integrante activo del equipo (líder,
+        //   sublíder y jugadores), no solo a quien
+        //   la está creando — así se evita que
+        //   alguien quede "reservado" en dos
+        //   lugares a la misma hora.
         // =======================================
 
-        const [choqueEstudiante] = await db.query(
+        if (tipoReservaFinal === "individual") {
 
-            `SELECT *
-             FROM reservas
-             WHERE id_estudiante = ?
-             AND fecha = ?
-             AND estado IN ('pendiente','aprobada')
-             AND hora_inicio < ?
-             AND hora_fin > ?`,
-
-            [
+            const hayConflicto = await estudianteTieneConflictoHorario(
                 id_estudiante,
                 fecha,
-                hora_fin,
-                hora_inicio
-            ]
+                hora_inicio,
+                hora_fin
+            );
 
-        );
+            if (hayConflicto) {
 
-        if (choqueEstudiante.length > 0) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: "Ya tienes una reserva en ese horario. No puedes tener dos reservas al mismo tiempo."
+                });
 
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Ya tienes una reserva en ese horario. No puedes tener dos reservas al mismo tiempo."
-            });
+            }
+
+        } else if (tipoReservaFinal === "equipo" && idEquipoFinal) {
+
+            const [integrantesEquipo] = await db.query(
+                `SELECT ei.id_estudiante, e.nombre
+                 FROM equipo_integrantes ei
+                 INNER JOIN estudiantes e ON e.id_estudiante = ei.id_estudiante
+                 WHERE ei.id_equipo = ?
+                 AND ei.activo = 1`,
+                [idEquipoFinal]
+            );
+
+            for (const integrante of integrantesEquipo) {
+
+                const hayConflicto = await estudianteTieneConflictoHorario(
+                    integrante.id_estudiante,
+                    fecha,
+                    hora_inicio,
+                    hora_fin
+                );
+
+                if (hayConflicto) {
+
+                    return res.status(400).json({
+                        ok: false,
+                        mensaje: `${integrante.nombre} ya tiene una reserva en ese horario. No se puede reservar para el equipo.`
+                    });
+
+                }
+
+            }
 
         }
 
@@ -851,6 +927,14 @@ router.get('/horarios/consultar', requiereSesion, async (req, res) => {
 // (sin importar el espacio) — se usa para
 // avisar ANTES de enviar el formulario que
 // ya tiene otra reserva a esa hora.
+//
+// Incluye también las horas donde el
+// estudiante está comprometido por ser
+// integrante activo de un equipo con
+// reserva ese día (no solo sus reservas
+// personales), para que el aviso visual
+// coincida con la validación real del
+// backend.
 // GET /api/reservas/mis-horarios?fecha=2026-08-20
 // =======================================
 
@@ -871,13 +955,25 @@ router.get('/mis-horarios', requiereSesion, requiereEstudiante, async (req, res)
 
         const [rows] = await db.query(
 
-            `SELECT hora_inicio, hora_fin
-             FROM reservas
-             WHERE id_estudiante = ?
-             AND fecha = ?
-             AND estado IN ('pendiente','aprobada')`,
+            `SELECT r.hora_inicio, r.hora_fin
+             FROM reservas r
+             WHERE r.fecha = ?
+             AND r.estado IN ('pendiente','aprobada')
+             AND (
+                 r.id_estudiante = ?
+                 OR (
+                     r.tipo_reserva = 'equipo'
+                     AND EXISTS (
+                         SELECT 1
+                         FROM equipo_integrantes ei
+                         WHERE ei.id_equipo = r.id_equipo
+                         AND ei.id_estudiante = ?
+                         AND ei.activo = 1
+                     )
+                 )
+             )`,
 
-            [req.session.usuario.id, fecha]
+            [fecha, req.session.usuario.id, req.session.usuario.id]
 
         );
 
