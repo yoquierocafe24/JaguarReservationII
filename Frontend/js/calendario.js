@@ -360,9 +360,11 @@ function renderCalendario() {
         celdas.push({ numero: dia, otroMes: false, iso });
     }
 
-    // Relleno final hasta completar semanas de 7
+   // Relleno final hasta completar semanas de 7
+    let diaMesSiguiente = 1;
     while (celdas.length % 7 !== 0) {
-        celdas.push({ numero: celdas.length, otroMes: true, iso: null });
+    celdas.push({ numero: diaMesSiguiente, otroMes: true, iso: null });
+    diaMesSiguiente++;
     }
 
     elements.grid.innerHTML = celdas.map(celda => {
