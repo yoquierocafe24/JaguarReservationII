@@ -853,4 +853,130 @@ router.put('/:idEquipo/integrantes/:idIntegrante/inactivar', requiereSesion, req
 
 });
 
+// =======================================
+// Reactivar integrante
+// PUT /api/equipos/:idEquipo/integrantes/:idIntegrante/activar
+//
+// Reglas:
+// - El equipo debe estar activo.
+// - Si el integrante era líder, y ya hay OTRO
+//   líder activo en el equipo, no se puede
+//   reactivar como líder (evita 2 líderes a
+//   la vez) — hay que usar "Hacer líder"
+//   primero, o reactivarlo y luego cambiarle
+//   el rol manualmente.
+// - No puede quedar duplicado: si el mismo
+//   estudiante ya tiene otro registro activo
+//   en este equipo, se bloquea.
+// =======================================
+
+router.put('/:idEquipo/integrantes/:idIntegrante/activar', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const [equipos] = await db.query(
+            `SELECT activo FROM equipos WHERE id_equipo = ?`,
+            [req.params.idEquipo]
+        );
+
+        if (equipos.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Equipo no encontrado."
+            });
+
+        }
+
+        if (!equipos[0].activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se pueden reactivar integrantes de un equipo inactivo."
+            });
+
+        }
+
+        const [integrantes] = await db.query(
+            `SELECT id, id_estudiante, rol, activo
+             FROM equipo_integrantes
+             WHERE id = ? AND id_equipo = ?`,
+            [req.params.idIntegrante, req.params.idEquipo]
+        );
+
+        if (integrantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Integrante no encontrado en este equipo."
+            });
+
+        }
+
+        if (integrantes[0].activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Este integrante ya está activo."
+            });
+
+        }
+
+        const [yaActivo] = await db.query(
+            `SELECT id FROM equipo_integrantes
+             WHERE id_equipo = ? AND id_estudiante = ? AND activo = 1`,
+            [req.params.idEquipo, integrantes[0].id_estudiante]
+        );
+
+        if (yaActivo.length > 0) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Este estudiante ya tiene otro registro activo en este equipo."
+            });
+
+        }
+
+        if (integrantes[0].rol === 'lider') {
+
+            const [liderActivo] = await db.query(
+                `SELECT id FROM equipo_integrantes
+                 WHERE id_equipo = ? AND rol = 'lider' AND activo = 1`,
+                [req.params.idEquipo]
+            );
+
+            if (liderActivo.length > 0) {
+
+                return res.status(409).json({
+                    ok: false,
+                    mensaje: "Este equipo ya tiene un líder activo. Usa 'Hacer líder' para reasignarlo."
+                });
+
+            }
+
+        }
+
+        await db.query(
+            `UPDATE equipo_integrantes SET activo = 1 WHERE id = ?`,
+            [req.params.idIntegrante]
+        );
+
+        res.json({
+            ok: true,
+            mensaje: "Integrante reactivado correctamente."
+        });
+
+    } catch (error) {
+
+        console.error("ERROR REACTIVANDO INTEGRANTE:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
 module.exports = router;

@@ -632,9 +632,15 @@ function renderIntegrantes(integrantes) {
         btn.addEventListener('click', () => cambiarRolIntegrante(btn.dataset.cambiarRol, btn.dataset.nuevoRol));
     });
 
-    elements.integrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
+     elements.integrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
         btn.addEventListener('click', () => solicitarConfirmacionInactivarIntegrante(btn.dataset.inactivarIntegrante));
     });
+
+    elements.integrantesList.querySelectorAll('[data-activar-integrante]').forEach(btn => {
+    btn.addEventListener('click', () => solicitarConfirmacionActivarIntegrante(btn.dataset.activarIntegrante));
+});
+
+   
 }
 
 // =======================================
@@ -785,6 +791,39 @@ async function inactivarIntegrante(idIntegrante) {
     } catch (error) {
         console.error(error);
         setIntegranteFormStatus(error.message || 'Ocurrió un error al inactivar al integrante.', true);
+    }
+}
+
+function solicitarConfirmacionActivarIntegrante(idIntegrante) {
+    abrirModalConfirmacion({
+        title: 'Reactivar integrante',
+        message: '¿Deseas reactivar a este integrante del equipo?',
+        confirmText: 'Activar',
+        onConfirm: async () => {
+            await activarIntegrante(idIntegrante);
+        }
+    });
+}
+ 
+
+async function activarIntegrante(idIntegrante) {
+    try {
+        const response = await fetch(`${API_URL}/api/equipos/${state.equipoIdActivo}/integrantes/${idIntegrante}/activar`, {
+            method: 'PUT',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo reactivar al integrante.');
+        }
+
+        await recargarDetalleEquipo();
+
+    } catch (error) {
+        console.error(error);
+        setIntegranteFormStatus(error.message || 'Ocurrió un error al reactivar al integrante.', true);
     }
 }
 
@@ -1140,16 +1179,16 @@ function renderIntegrantesClub(integrantes) {
             <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
 
             <div class="integrante-acciones">
-                ${i.activo
-                    ? `<button type="button" class="action-btn secundario" data-club-inactivar-integrante="${i.id}">Inactivar</button>`
-                    : ''
-                }
+             ${i.activo
+             ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
+             : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`
+}
             </div>
         </div>
     `).join('');
 
-    elements.clubIntegrantesList.querySelectorAll('[data-club-inactivar-integrante]').forEach(btn => {
-        btn.addEventListener('click', () => solicitarConfirmacionInactivarIntegranteClub(btn.dataset.clubInactivarIntegrante));
+     elements.integrantesList.querySelectorAll('[data-activar-integrante]').forEach(btn => {
+     btn.addEventListener('click', () => activarIntegrante(btn.dataset.activarIntegrante));
     });
 }
 
@@ -1258,6 +1297,7 @@ async function inactivarIntegranteClub(idIntegrante) {
         setClubIntegranteFormStatus(error.message || 'Ocurrió un error al retirar al integrante.', true);
     }
 }
+
 
 // =======================================
 // Modales genéricos
