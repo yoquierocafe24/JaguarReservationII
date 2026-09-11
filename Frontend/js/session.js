@@ -1,22 +1,27 @@
-
-
 const API_URL =
     "https://jaguarreservationii-production.up.railway.app";
 
 async function cargarSesion() {
     try {
         const respuesta = await fetch(
-          
+
     `${API_URL}/api/auth/session`,
             {
                 credentials: 'include'
             }
         );
         const data = await respuesta.json();
-     if (!data.ok) {
-    console.log("NO HAY SESIÓN");
-    return;
-}
+
+     if (!respuesta.ok || !data.ok) {
+
+        // La sesión ya no es válida (expiró, el servidor
+        // se reinició, o se inició sesión en otro
+        // dispositivo). Se redirige al login en vez de
+        // dejar la página a medias.
+        window.location.href = "../../login.html";
+        return;
+    }
+
         const usuario = data.usuario;
 
         // Nombre en la barra superior
