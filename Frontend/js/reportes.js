@@ -259,13 +259,15 @@ function renderKPIs(resumen) {
         els.kpiEspacioHint.textContent = 'Sin datos';
     }
 
-    const totalIntegrantesEquipos = equipos.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0);
-    els.kpiEquipos.textContent = equipos.length;
-    els.kpiEquiposHint.textContent = `Integrantes totales: ${totalIntegrantesEquipos}`;
+    // Equipos y Clubes combinados en un solo KPI
+    const totalGrupos = equipos.length + clubes.length;
 
-    const totalIntegrantesClubes = clubes.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0);
-    els.kpiClubes.textContent = clubes.length;
-    els.kpiClubesHint.textContent = `Integrantes totales: ${totalIntegrantesClubes}`;
+    const totalIntegrantes =
+        equipos.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0) +
+        clubes.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0);
+
+    els.kpiEquipos.textContent = totalGrupos;
+    els.kpiEquiposHint.textContent = `Integrantes totales: ${totalIntegrantes}`;
 }
 
 // ============================================================
