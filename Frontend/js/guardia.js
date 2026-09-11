@@ -180,11 +180,15 @@ function renderizarReservas(reservas) {
                     –
                     ${formatearHora(reserva.hora_fin)}
                 </p>
-               <p>
-                    <i class="bi bi-people"></i>
-                    ${Number(reserva.cant_acompanantes || 0) + 1}
-                    persona(s) autorizada(s)
-                </p>
+             <p>
+             <i class="bi bi-people"></i>
+             ${
+             reserva.tipo_reserva === 'equipo'
+            ? Number(reserva.cantidad_equipo || 0)
+            : Number(reserva.cant_acompanantes || 0) + 1
+                 }
+             persona(s) autorizada(s)
+            </p>
            </div>
         `;
        tarjeta.addEventListener("click", () => {

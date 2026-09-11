@@ -1031,8 +1031,17 @@ router.put('/:id/aprobar', requiereSesion, requiereAdmin, async (req, res) => {
             });
         }
 
+        // =======================================
+        // Vigencia — comparada con la hora de
+        // Honduras (CONVERT_TZ), no con NOW() directo.
+        // NOW() del servidor está en UTC, mientras
+        // hora_fin se guarda en hora local (-06:00);
+        // sin este ajuste, reservas de tarde/noche se
+        // marcan "vencidas" varias horas antes de tiempo.
+        // =======================================
+
         const [vigencia] = await db.query(
-            `SELECT TIMESTAMP(fecha, hora_fin) >= NOW() AS vigente
+            `SELECT TIMESTAMP(fecha, hora_fin) >= CONVERT_TZ(NOW(), '+00:00', '-06:00') AS vigente
              FROM reservas
              WHERE id_reserva = ?`,
             [req.params.id]
@@ -1116,8 +1125,13 @@ router.put('/:id/rechazar', requiereSesion, requiereAdmin, async (req, res) => {
             });
         }
 
+        // =======================================
+        // Vigencia — comparada con la hora de
+        // Honduras (CONVERT_TZ). Ver nota en /aprobar.
+        // =======================================
+
         const [vigencia] = await db.query(
-            `SELECT TIMESTAMP(fecha, hora_fin) >= NOW() AS vigente
+            `SELECT TIMESTAMP(fecha, hora_fin) >= CONVERT_TZ(NOW(), '+00:00', '-06:00') AS vigente
              FROM reservas
              WHERE id_reserva = ?`,
             [req.params.id]
@@ -1247,10 +1261,15 @@ router.put('/:id/cancelar', requiereSesion, async (req, res) => {
 
         }
 
+        // =======================================
+        // Vigencia — comparada con la hora de
+        // Honduras (CONVERT_TZ). Ver nota en /aprobar.
+        // =======================================
+
         const [vigencia] = await db.query(
 
             `SELECT
-                TIMESTAMP(fecha, hora_inicio) > NOW()
+                TIMESTAMP(fecha, hora_inicio) > CONVERT_TZ(NOW(), '+00:00', '-06:00')
                     AS puede_cancelar
              FROM reservas
              WHERE id_reserva = ?`,

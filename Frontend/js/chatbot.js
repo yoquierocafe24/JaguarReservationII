@@ -129,6 +129,48 @@ botonCerrarChatbot.addEventListener('click', function(){
 
 
 /* =========================================
+   LÍMITE DE DÍGITOS SEGÚN LAS OPCIONES
+   DISPONIBLES (se calcula solo, no hay que
+   tocar esto si el menú crece o se reduce)
+========================================= */
+
+function calcularDigitosMaximos() {
+
+    // Toma todas las claves numéricas de respuestasChatbot
+    // (1, 2, 3... y también funcionaría si algún día
+    // hay opciones de 2 dígitos, como 10, 11, etc.)
+    const opciones = Object.keys(respuestasChatbot).map(Number);
+
+    // Incluye el "0" del menú principal en la cuenta
+    const numeroMasAlto = Math.max(0, ...opciones);
+
+    // Cuántos dígitos tiene ese número más alto
+    // (ej: 6 -> 1 dígito, 15 -> 2 dígitos)
+    return String(numeroMasAlto).length;
+}
+
+const digitosMaximosChatbot = calcularDigitosMaximos();
+
+/* =========================================
+   RESTRINGIR EL INPUT A SOLO NÚMEROS,
+   CON EL LÍMITE DE DÍGITOS CALCULADO ARRIBA
+========================================= */
+
+inputChatbot.addEventListener('input', function () {
+
+    // Quita cualquier caracter que no sea número
+    let valor = inputChatbot.value.replace(/\D/g, '');
+
+    // Recorta al límite de dígitos permitido
+    if (valor.length > digitosMaximosChatbot) {
+        valor = valor.slice(0, digitosMaximosChatbot);
+    }
+
+    inputChatbot.value = valor;
+
+});
+
+/* =========================================
    CREAR MENSAJE DEL USUARIO
 ========================================= */
 

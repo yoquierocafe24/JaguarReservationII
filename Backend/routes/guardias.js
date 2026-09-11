@@ -50,10 +50,19 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
                 r.hora_fin,
                 r.estado,
                 r.cant_acompanantes,
+                r.tipo_reserva,
+                r.id_equipo,
 
                 e.nombre AS estudiante,
 
-                es.nombre AS espacio
+                es.nombre AS espacio,
+
+                (
+                    SELECT COUNT(*)
+                    FROM equipo_integrantes ei
+                    WHERE ei.id_equipo = r.id_equipo
+                      AND ei.activo = 1
+                ) AS cantidad_equipo
 
             FROM reservas r
 
