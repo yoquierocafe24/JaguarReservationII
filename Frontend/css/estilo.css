@@ -67,25 +67,26 @@ body{
 /* LOGO / TITULO */
 
 .sidebar-header{
-    padding:20px 20px 12px;
+    padding:24px 20px 16px;
     border-bottom: 1px solid rgba(255,255,255,.15);
- 
+
     display:flex;
+    flex-direction:column;
     align-items:center;
+    text-align:center;
     gap:10px;
 }
 
 .sidebar-logo{
-    width:36px;
-    height:36px;
+    width:64px;
+    height:64px;
     object-fit:contain;
-    flex-shrink:0;
 }
 
 .sidebar-header p{
     color:rgba(255,255,255,.6);
     font-size:13px;
-
+    margin:0;
 }
 
 
