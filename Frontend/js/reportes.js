@@ -88,13 +88,16 @@ const els = {
     chartEspacio: document.getElementById('chart-espacio'),
     chartIngreso: document.getElementById('chart-ingreso'),
     chartEquipos: document.getElementById('chart-equipos'),
+    chartClubes: document.getElementById('chart-clubes'),
     kpiTotal: document.getElementById('kpi-total'),
     kpiCarrera: document.getElementById('kpi-carrera'),
     kpiCarreraHint: document.getElementById('kpi-carrera-hint'),
     kpiEspacio: document.getElementById('kpi-espacio'),
     kpiEspacioHint: document.getElementById('kpi-espacio-hint'),
     kpiEquipos: document.getElementById('kpi-equipos'),
-    kpiEquiposHint: document.getElementById('kpi-equipos-hint')
+    kpiEquiposHint: document.getElementById('kpi-equipos-hint'),
+    kpiClubes: document.getElementById('kpi-clubes'),
+    kpiClubesHint: document.getElementById('kpi-clubes-hint')
 };
 
 const state = {
@@ -235,6 +238,7 @@ function renderKPIs(resumen) {
     const carrera = resumen.reservas_por_carrera || [];
     const espacio = resumen.reservas_por_espacio || [];
     const equipos = resumen.integrantes_por_equipo || [];
+    const clubes = resumen.integrantes_por_club || [];
 
     const totalReservas = carrera.reduce((s, f) => s + Number(f.total_reservas || 0), 0);
     els.kpiTotal.textContent = totalReservas;
@@ -255,9 +259,13 @@ function renderKPIs(resumen) {
         els.kpiEspacioHint.textContent = 'Sin datos';
     }
 
-    const totalIntegrantes = equipos.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0);
+    const totalIntegrantesEquipos = equipos.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0);
     els.kpiEquipos.textContent = equipos.length;
-    els.kpiEquiposHint.textContent = `Integrantes totales: ${totalIntegrantes}`;
+    els.kpiEquiposHint.textContent = `Integrantes totales: ${totalIntegrantesEquipos}`;
+
+    const totalIntegrantesClubes = clubes.reduce((s, f) => s + Number(f.cantidad_integrantes || 0), 0);
+    els.kpiClubes.textContent = clubes.length;
+    els.kpiClubesHint.textContent = `Integrantes totales: ${totalIntegrantesClubes}`;
 }
 
 // ============================================================
@@ -286,6 +294,7 @@ async function cargarReportes() {
         renderBarras(els.chartEspacio, r.reservas_por_espacio, 'espacio', 'total_reservas');
         renderComparativo(els.chartIngreso, r.comparativo_primer_ingreso || []);
         renderBarras(els.chartEquipos, r.integrantes_por_equipo, 'equipo', 'cantidad_integrantes');
+        renderBarras(els.chartClubes, r.integrantes_por_club, 'club', 'cantidad_integrantes');
 
         setStatus(`Reportes actualizados · ${state.etiquetaPeriodo} · ${new Date().toLocaleTimeString('es-HN')}`);
     } catch (error) {
@@ -322,10 +331,16 @@ function exportarCSV() {
     (r.comparativo_primer_ingreso || []).forEach(f => lineas.push(`${csv(f.categoria)},${f.total_reservas}`));
     lineas.push('');
 
-    lineas.push('Integrantes por equipo/club');
+    lineas.push('Integrantes por equipo');
     lineas.push('Equipo,Deporte,Integrantes');
     (r.integrantes_por_equipo || []).forEach(f =>
         lineas.push(`${csv(f.equipo)},${csv(f.deporte)},${f.cantidad_integrantes}`));
+    lineas.push('');
+
+    lineas.push('Integrantes por club');
+    lineas.push('Club,Integrantes');
+    (r.integrantes_por_club || []).forEach(f =>
+        lineas.push(`${csv(f.club)},${f.cantidad_integrantes}`));
 
     // BOM para que Excel respete acentos
     const blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });

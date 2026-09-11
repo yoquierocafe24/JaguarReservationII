@@ -284,6 +284,39 @@ router.get('/integrantes-por-equipo', async (req, res) => {
     }
 });
 
+
+// =============================================================
+// 4b) Cantidad de INTEGRANTES por CLUB
+// =============================================================
+router.get('/integrantes-por-club', async (req, res) => {
+    try {
+        const params = [];
+        let filtroClub = '';
+        if (req.query.id_club) {
+            filtroClub = 'AND c.id_club = ?';
+            params.push(req.query.id_club);
+        }
+
+        const [rows] = await db.query(
+            `SELECT c.id_club,
+                    c.nombre AS club,
+                    COUNT(ci.id_estudiante) AS cantidad_integrantes
+             FROM clubes c
+             LEFT JOIN club_integrantes ci
+                    ON ci.id_club = c.id_club AND ci.activo = 1
+             WHERE c.activo = 1 ${filtroClub}
+             GROUP BY c.id_club, c.nombre
+             ORDER BY cantidad_integrantes DESC`,
+            params
+        );
+
+        res.json({ ok: true, reporte: 'integrantes_por_club', filtros: req.query, total_grupos: rows.length, datos: rows });
+    } catch (error) {
+        console.error('Error integrantes-por-club:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
 // =============================================================
 // 5) RESUMEN: los cuatro reportes juntos (util para exportar)
 // =============================================================

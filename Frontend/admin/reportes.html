@@ -204,9 +204,14 @@
                         <div class="hint" id="kpi-espacio-hint">Sin datos</div>
                     </article>
                     <article class="stat-card">
-                        <div class="label">Equipos / Clubes</div>
+                        <div class="label">Equipos</div>
                         <div id="kpi-equipos" class="value">0</div>
                         <div class="hint" id="kpi-equipos-hint">Integrantes totales: 0</div>
+                    </article>
+                    <article class="stat-card">
+                        <div class="label">Clubes</div>
+                        <div id="kpi-clubes" class="value">0</div>
+                        <div class="hint" id="kpi-clubes-hint">Integrantes totales: 0</div>
                     </article>
                 </div>
 
@@ -257,14 +262,14 @@
                         </div>
                     </article>
 
-                    <!-- 4) Integrantes por equipo/club -->
+                  <!-- 4) Integrantes por equipo -->
                     <article class="report-card alt">
                         <div class="report-card-header">
                             <div class="report-card-icon" style="background:linear-gradient(135deg,#090d5e,#3b3fb5);">
                                 <i class="bi bi-trophy"></i>
                             </div>
                             <div>
-                                <div class="report-card-title">Integrantes por equipo / club</div>
+                                <div class="report-card-title">Integrantes por equipo</div>
                                 <div class="report-card-sub">Cantidad de miembros activos</div>
                             </div>
                         </div>
@@ -274,6 +279,24 @@
                         <div class="report-note">
                             <i class="bi bi-info-circle"></i>
                             Los equipos no dependen del periodo ni de la carrera; muestran su total de integrantes.
+                        </div>
+                    </article>
+
+                    <!-- 5) Integrantes por club -->
+                    <article class="report-card">
+                        <div class="report-card-header">
+                            <div class="report-card-icon"><i class="bi bi-people"></i></div>
+                            <div>
+                                <div class="report-card-title">Integrantes por club</div>
+                                <div class="report-card-sub">Cantidad de miembros activos</div>
+                            </div>
+                        </div>
+                        <div id="chart-clubes" class="bar-list">
+                            <div class="card-empty">Cargando...</div>
+                        </div>
+                        <div class="report-note">
+                            <i class="bi bi-info-circle"></i>
+                            Los clubes no dependen del periodo ni de la carrera; muestran su total de integrantes.
                         </div>
                     </article>
 
