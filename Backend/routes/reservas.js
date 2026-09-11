@@ -1256,7 +1256,7 @@ router.put('/:id/cancelar', requiereSesion, async (req, res) => {
             return res.status(400).json({
                 ok: false,
                 mensaje:
-                    "La reserva ya no puede cancelarse."
+                   "Esta reserva ya fue cancelada."
             });
 
         }
