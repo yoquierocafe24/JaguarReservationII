@@ -3,43 +3,12 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 
-
-// =======================================
-// Middlewares de ayuda
-// =======================================
-
-function requiereSesion(req, res, next) {
-    if (!req.session.usuario) {
-        return res.status(401).json({
-            ok: false,
-            mensaje: 'Debe iniciar sesión.'
-        });
-    }
-    next();
-}
-
-function requiereAdmin(req, res, next) {
-    if (req.session.usuario.rol !== 'admin') {
-        return res.status(403).json({
-            ok: false,
-            mensaje: 'No tiene permisos.'
-        });
-    }
-    next();
-}
-
-function requiereSuperAdmin(req, res, next) {
-    if (
-        req.session.usuario.rol !== 'admin' ||
-        !req.session.usuario.es_superadmin
-    ) {
-        return res.status(403).json({
-            ok: false,
-            mensaje: 'Solo el administrador principal puede realizar esta acción.'
-        });
-    }
-    next();
-}
+const {
+    requiereSesion,
+    requiereAdmin,
+    requiereSuperAdmin,
+    generarTokenSesion
+} = require('../middlewares/sesion');
 
 
 // ===============================
@@ -81,6 +50,10 @@ router.post('/login/admin', async (req, res) => {
             correo: admin.correo,
             es_superadmin: Boolean(admin.es_superadmin)
         };
+
+        // Genera el token de sesión única y lo guarda
+        // en la sesión del navegador
+        req.session.token = await generarTokenSesion('admin', admin.id_admin);
 
         res.json({
             ok: true,
@@ -127,7 +100,6 @@ router.post('/login/guardia', async (req, res) => {
         const guardia = rows[0];
 
         const coincide = await bcrypt.compare(contrasena, guardia.contrasena);
-       // const coincide = contrasena === guardia.contrasena;
 
         if (!coincide) {
 
@@ -144,6 +116,8 @@ router.post('/login/guardia', async (req, res) => {
             nombre: guardia.nombre,
             usuario: guardia.usuario
         };
+
+        req.session.token = await generarTokenSesion('guardia', guardia.id_guardia);
 
         res.json({
             ok: true,
@@ -217,6 +191,8 @@ router.post('/login/estudiante', async (req, res) => {
             correo: estudiante.correo
         };
 
+        req.session.token = await generarTokenSesion('estudiante', estudiante.id_estudiante);
+
         res.json({
             ok: true,
             rol: 'estudiante',
@@ -242,15 +218,7 @@ router.post('/login/estudiante', async (req, res) => {
 // ===============================
 // VER SESION
 // ===============================
-router.get('/session', (req, res) => {
-
-    if (!req.session.usuario) {
-
-        return res.json({
-            ok: false
-        });
-
-    }
+router.get('/session', requiereSesion, (req, res) => {
 
     res.json({
         ok: true,
@@ -263,7 +231,24 @@ router.get('/session', (req, res) => {
 // ===============================
 // LOGOUT
 // ===============================
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
+
+    try {
+
+        // Limpia también el token en la base de datos,
+        // para que un logout explícito no deje un token
+        // "huérfano" que ya no corresponde a ninguna sesión.
+        if (req.session.usuario) {
+            await db.query(
+                `DELETE FROM sesiones_activas
+                 WHERE rol = ? AND id_usuario = ?`,
+                [req.session.usuario.rol, req.session.usuario.id]
+            );
+        }
+
+    } catch (error) {
+        console.error('ERROR LIMPIANDO TOKEN DE SESIÓN:', error);
+    }
 
     req.session.destroy(() => {
 
