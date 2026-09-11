@@ -356,13 +356,23 @@ router.get('/resumen', async (req, res) => {
             params
         );
 
-        const [equipos] = await db.query(
+             const [equipos] = await db.query(
             `SELECT eq.id_equipo, eq.nombre AS equipo, eq.deporte,
                     COUNT(ei.id_estudiante) AS cantidad_integrantes
              FROM equipos eq
              LEFT JOIN equipo_integrantes ei ON ei.id_equipo = eq.id_equipo AND ei.activo = 1
              WHERE eq.activo = 1
              GROUP BY eq.id_equipo, eq.nombre, eq.deporte
+             ORDER BY cantidad_integrantes DESC`
+        );
+
+        const [clubes] = await db.query(
+            `SELECT c.id_club, c.nombre AS club,
+                    COUNT(ci.id_estudiante) AS cantidad_integrantes
+             FROM clubes c
+             LEFT JOIN club_integrantes ci ON ci.id_club = c.id_club AND ci.activo = 1
+             WHERE c.activo = 1
+             GROUP BY c.id_club, c.nombre
              ORDER BY cantidad_integrantes DESC`
         );
 
@@ -374,7 +384,8 @@ router.get('/resumen', async (req, res) => {
                 reservas_por_carrera: porCarrera,
                 reservas_por_espacio: porEspacio,
                 comparativo_primer_ingreso: comparativo,
-                integrantes_por_equipo: equipos
+                integrantes_por_equipo: equipos,
+                integrantes_por_club: clubes
             }
         });
     } catch (error) {
