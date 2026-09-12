@@ -406,21 +406,17 @@ async function exportarPDF() {
     // ---- Encabezado con logo institucional ----
     const xTexto = 36;
 
-    try {
-        const logoDataUrl = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-01.png');
-      doc.addImage(logoDataUrl, 'PNG', 14, 10, 18, 18);
-      
-     // Ancho fijo de 22mm, y el alto se calcula según la
-        // proporción REAL de la imagen (para que no se vea
-        // estirado ni aplastado).
-        const anchoLogo = 22;
-        const altoLogo = anchoLogo * (logo.height / logo.width);
- 
-        doc.addImage(logo.dataUrl, 'PNG', 14, 10, anchoLogo, altoLogo);
-    
-    } catch (error) {
-        console.error('No se pudo cargar el logo para el PDF:', error);
-    }
+   try {
+    const logo = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-01.png');
+
+    const anchoLogo = 22;
+    const altoLogo = anchoLogo * (logo.height / logo.width);
+
+    doc.addImage(logo.dataUrl, 'PNG', 14, 10, anchoLogo, altoLogo);
+
+} catch (error) {
+    console.error('No se pudo cargar el logo para el PDF:', error);
+}
 
     doc.setFontSize(10);
     doc.setTextColor(...COLOR_TEXTO);
