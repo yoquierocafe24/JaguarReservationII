@@ -6,8 +6,9 @@
 //   GET /api/reportes/reservas-por-carrera      -> reservas agrupadas por carrera
 //   GET /api/reportes/reservas-por-espacio      -> reservas agrupadas por espacio
 //   GET /api/reportes/primer-ingreso            -> comparativo primer ingreso vs reingreso
-//   GET /api/reportes/integrantes-por-equipo    -> cantidad de integrantes por equipo/club
-//   GET /api/reportes/resumen                   -> los cuatro reportes juntos (para exportar)
+//   GET /api/reportes/integrantes-por-equipo    -> cantidad de integrantes por equipo
+//   GET /api/reportes/integrantes-por-club      -> cantidad de integrantes por club
+//   GET /api/reportes/resumen                   -> reporte institucional completo (para exportar)
 //
 // Filtros disponibles (query string, todos opcionales):
 //   carrera          = texto exacto de la carrera
@@ -88,6 +89,16 @@ function construirFiltros(q) {
         const fin = new Date(Number(q.anio), mesFin, 0).toISOString().slice(0, 10);
         condiciones.push('r.fecha BETWEEN ? AND ?');
         params.push(inicio, fin);
+    }
+
+    // ---- Filtro de fecha de corte (reporte parcial) ----
+    // Si se indica fecha_corte, se limita todo a fechas <=
+    // esa fecha, sin importar qué tan lejos llegue el periodo
+    // seleccionado. Útil para generar un reporte "a medio
+    // trimestre" (ej: hasta la semana 5 de 10).
+    if (q.fecha_corte) {
+        condiciones.push('r.fecha <= ?');
+        params.push(q.fecha_corte);
     }
 
     // ---- Filtros adicionales ----
@@ -252,7 +263,7 @@ router.get('/primer-ingreso', async (req, res) => {
 });
 
 // =============================================================
-// 4) Cantidad de INTEGRANTES por EQUIPO / CLUB
+// 4) Cantidad de INTEGRANTES por EQUIPO
 // =============================================================
 router.get('/integrantes-por-equipo', async (req, res) => {
     try {
@@ -318,7 +329,13 @@ router.get('/integrantes-por-club', async (req, res) => {
 });
 
 // =============================================================
-// 5) RESUMEN: los cuatro reportes juntos (util para exportar)
+// 5) RESUMEN: reporte institucional completo (para exportar)
+//
+// Acepta un filtro adicional opcional:
+//   fecha_corte = YYYY-MM-DD
+// Si se indica, TODO el reporte se limita a reservas con
+// fecha <= fecha_corte, útil para un reporte parcial dentro
+// de un periodo/trimestre que todavía no ha terminado.
 // =============================================================
 router.get('/resumen', async (req, res) => {
     try {
@@ -356,7 +373,7 @@ router.get('/resumen', async (req, res) => {
             params
         );
 
-             const [equipos] = await db.query(
+        const [equipos] = await db.query(
             `SELECT eq.id_equipo, eq.nombre AS equipo, eq.deporte,
                     COUNT(ei.id_estudiante) AS cantidad_integrantes
              FROM equipos eq
@@ -376,6 +393,141 @@ router.get('/resumen', async (req, res) => {
              ORDER BY cantidad_integrantes DESC`
         );
 
+        // =======================================
+        // Asistencias registradas (KPI)
+        // =======================================
+
+        const [asistenciaRows] = await db.query(
+            `SELECT
+                COUNT(*) AS total_asistencias,
+                COUNT(DISTINCT a.id_reserva) AS reservas_con_asistencia
+             FROM asistencia a
+             INNER JOIN reservas r ON r.id_reserva = a.id_reserva
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}`,
+            params
+        );
+
+        const asistencia = asistenciaRows[0] || {
+            total_asistencias: 0,
+            reservas_con_asistencia: 0
+        };
+
+        // =======================================
+        // Reservas por ESTADO (aprobadas, canceladas,
+        // rechazadas, pendientes)
+        // =======================================
+
+        const [estadosRows] = await db.query(
+            `SELECT r.estado, COUNT(*) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY r.estado`,
+            params
+        );
+
+        const porEstado = { aprobada: 0, pendiente: 0, cancelada: 0, rechazada: 0 };
+        estadosRows.forEach(f => { porEstado[f.estado] = Number(f.total); });
+
+        // =======================================
+        // Reservas APROBADAS sin ninguna asistencia
+        // registrada ("nadie llegó")
+        // =======================================
+
+        const [noShowRows] = await db.query(
+            `SELECT COUNT(*) AS reservas_sin_asistencia
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN asistencia a ON a.id_reserva = r.id_reserva
+             WHERE r.estado = 'aprobada' ${clausula}
+             AND a.id_asistencia IS NULL`,
+            params
+        );
+
+        const reservasSinAsistencia = noShowRows[0]?.reservas_sin_asistencia || 0;
+
+        // =======================================
+        // Juego más reservado (Zona Jaguar)
+        // =======================================
+
+        const [juegosRows] = await db.query(
+            `SELECT i.nombre AS juego, COUNT(*) AS total_reservas
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             JOIN inventario i ON i.id_item = r.id_item
+             WHERE r.id_item IS NOT NULL ${clausula}
+             GROUP BY i.id_item, i.nombre
+             ORDER BY total_reservas DESC`,
+            params
+        );
+
+        // =======================================
+        // Día de la semana más transitado
+        // =======================================
+
+        const [diasRows] = await db.query(
+            `SELECT
+                CASE DAYOFWEEK(r.fecha)
+                    WHEN 1 THEN 'Domingo'
+                    WHEN 2 THEN 'Lunes'
+                    WHEN 3 THEN 'Martes'
+                    WHEN 4 THEN 'Miércoles'
+                    WHEN 5 THEN 'Jueves'
+                    WHEN 6 THEN 'Viernes'
+                    WHEN 7 THEN 'Sábado'
+                END AS dia,
+                COUNT(*) AS total_reservas
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY DAYOFWEEK(r.fecha), dia
+             ORDER BY total_reservas DESC`,
+            params
+        );
+
+        // =======================================
+        // Hora más transitada
+        // =======================================
+
+        const [horasRows] = await db.query(
+            `SELECT
+                r.hora_inicio AS hora,
+                COUNT(*) AS total_reservas
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY r.hora_inicio
+             ORDER BY total_reservas DESC`,
+            params
+        );
+
+        // =======================================
+        // Estudiantes (de los que reservaron en
+        // este periodo/filtro) que también son
+        // integrantes activos de algún club
+        // =======================================
+
+        const [estudiantesEnClubesRows] = await db.query(
+            `SELECT COUNT(DISTINCT r.id_estudiante) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             INNER JOIN club_integrantes ci
+                ON ci.id_estudiante = r.id_estudiante
+                AND ci.activo = 1
+             WHERE 1 = 1 ${clausula}`,
+            params
+        );
+
+        const estudiantesEnClubes = estudiantesEnClubesRows[0]?.total || 0;
+
         res.json({
             ok: true,
             reporte: 'resumen_general',
@@ -385,7 +537,16 @@ router.get('/resumen', async (req, res) => {
                 reservas_por_espacio: porEspacio,
                 comparativo_primer_ingreso: comparativo,
                 integrantes_por_equipo: equipos,
-                integrantes_por_club: clubes
+                integrantes_por_club: clubes,
+                asistencia: asistencia,
+
+                // Reporte institucional extendido
+                reservas_por_estado: porEstado,
+                reservas_sin_asistencia: reservasSinAsistencia,
+                juego_mas_reservado: juegosRows,
+                dia_mas_transitado: diasRows,
+                hora_mas_transitada: horasRows,
+                estudiantes_en_clubes: estudiantesEnClubes
             }
         });
     } catch (error) {
