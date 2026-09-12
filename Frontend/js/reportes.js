@@ -365,9 +365,31 @@ function csv(valor = '') {
 
 
 // ============================================================
+// Convierte una imagen (por URL/ruta) en un data URL base64,
+// necesario porque jsPDF no puede usar una ruta de archivo
+// directamente — necesita los datos de la imagen ya cargados.
+// ============================================================
+function cargarImagenComoDataURL(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = url;
+    });
+}
+
+// ============================================================
 // Exportar a PDF (se genera en el navegador con jsPDF)
 // ============================================================
-function exportarPDF() {
+async function exportarPDF() {
     const r = state.ultimoResumen;
     if (!r) return;
 
@@ -377,20 +399,32 @@ function exportarPDF() {
     const COLOR_CARMINE = [147, 6, 30];
     const COLOR_TEXTO = [80, 80, 80];
 
-    let y = 18;
+    // ---- Encabezado con logo institucional ----
+    const xTexto = 36;
 
-    // ---- Encabezado ----
+    try {
+        const logoDataUrl = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-03.png');
+        doc.addImage(logoDataUrl, 'PNG', 14, 10, 18, 18);
+    } catch (error) {
+        console.error('No se pudo cargar el logo para el PDF:', error);
+    }
+
+    doc.setFontSize(10);
+    doc.setTextColor(...COLOR_TEXTO);
+    doc.text('Universidad Tecnológica Centroamericana (CEUTEC)', xTexto, 16);
+
     doc.setFontSize(16);
     doc.setTextColor(...COLOR_CARMINE);
-    doc.text('Reportes Jaguar Reservation', 14, y);
+    doc.text('Reportes Jaguar Reservation', xTexto, 24);
 
-    y += 7;
+    let y = 34;
+
     doc.setFontSize(10);
     doc.setTextColor(...COLOR_TEXTO);
     doc.text(`Periodo: ${state.etiquetaPeriodo}`, 14, y);
 
     y += 5;
-    doc.text(`Generado: ${new Date().toLocaleString('es-HN')}`, 14, y);
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-HN')}`, 14, y);
 
     y += 8;
 
@@ -519,6 +553,7 @@ function exportarPDF() {
 
 // ============================================================
 // Exportar a Excel (se genera en el navegador con SheetJS)
+// Todo en UNA sola hoja, con las secciones apiladas.
 // ============================================================
 function exportarExcel() {
     const r = state.ultimoResumen;
@@ -530,102 +565,82 @@ function exportarExcel() {
     const estados = r.reservas_por_estado || {};
     const asistencia = r.asistencia || { total_asistencias: 0, reservas_con_asistencia: 0 };
 
-    const wb = XLSX.utils.book_new();
+    const filas = [];
 
-    // ---- Hoja: Resumen ----
-    const resumenAOA = [
-        ['Reportes Jaguar Reservation'],
-        ['Periodo', state.etiquetaPeriodo],
-        ['Generado', new Date().toLocaleString('es-HN')],
-        [],
-        ['Indicador', 'Valor'],
-        ['Total de reservas', totalReservas],
-        ['Reservas aprobadas', estados.aprobada || 0],
-        ['Reservas pendientes', estados.pendiente || 0],
-        ['Reservas canceladas', estados.cancelada || 0],
-        ['Reservas rechazadas', estados.rechazada || 0],
-        ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
-        ['Asistencias registradas', asistencia.total_asistencias],
-        ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
-        ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
-    ];
-    const hojaResumen = XLSX.utils.aoa_to_sheet(resumenAOA);
-    XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen');
+    // ---- Encabezado ----
+    filas.push(['Universidad Tecnológica Centroamericana (CEUTEC)']);
+    filas.push(['Reportes Jaguar Reservation']);
+    filas.push(['Periodo', state.etiquetaPeriodo]);
+    filas.push(['Generado', new Date().toLocaleDateString('es-HN')]);
+    filas.push([]);
 
-    // ---- Hoja: Reservas por carrera ----
-    const hojaCarrera = XLSX.utils.json_to_sheet(
-        (r.reservas_por_carrera || []).map(f => ({
-            Carrera: f.carrera,
-            'Total reservas': f.total_reservas
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaCarrera, 'Por carrera');
+    // ---- Indicadores generales ----
+    filas.push(['INDICADORES GENERALES']);
+    filas.push(['Indicador', 'Valor']);
+    filas.push(['Total de reservas', totalReservas]);
+    filas.push(['Reservas aprobadas', estados.aprobada || 0]);
+    filas.push(['Reservas pendientes', estados.pendiente || 0]);
+    filas.push(['Reservas canceladas', estados.cancelada || 0]);
+    filas.push(['Reservas rechazadas', estados.rechazada || 0]);
+    filas.push(['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0]);
+    filas.push(['Asistencias registradas', asistencia.total_asistencias]);
+    filas.push(['Reservas con asistencia registrada', asistencia.reservas_con_asistencia]);
+    filas.push(['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]);
+    filas.push([]);
 
-    // ---- Hoja: Reservas por espacio ----
-    const hojaEspacio = XLSX.utils.json_to_sheet(
-        (r.reservas_por_espacio || []).map(f => ({
-            Espacio: f.espacio,
-            'Total reservas': f.total_reservas
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaEspacio, 'Por espacio');
+    // ---- Reservas por carrera ----
+    filas.push(['RESERVAS POR CARRERA']);
+    filas.push(['Carrera', 'Total reservas']);
+    (r.reservas_por_carrera || []).forEach(f => filas.push([f.carrera, f.total_reservas]));
+    filas.push([]);
 
-    // ---- Hoja: Primer ingreso vs reingreso ----
-    const hojaIngreso = XLSX.utils.json_to_sheet(
-        (r.comparativo_primer_ingreso || []).map(f => ({
-            Categoría: f.categoria,
-            'Total reservas': f.total_reservas
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaIngreso, 'Primer ingreso');
+    // ---- Reservas por espacio ----
+    filas.push(['RESERVAS POR ESPACIO']);
+    filas.push(['Espacio', 'Total reservas']);
+    (r.reservas_por_espacio || []).forEach(f => filas.push([f.espacio, f.total_reservas]));
+    filas.push([]);
 
-    // ---- Hoja: Integrantes por equipo ----
-    const hojaEquipos = XLSX.utils.json_to_sheet(
-        (r.integrantes_por_equipo || []).map(f => ({
-            Equipo: f.equipo,
-            Deporte: f.deporte,
-            Integrantes: f.cantidad_integrantes
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaEquipos, 'Equipos');
+    // ---- Primer ingreso vs reingreso ----
+    filas.push(['PRIMER INGRESO VS REINGRESO']);
+    filas.push(['Categoría', 'Total reservas']);
+    (r.comparativo_primer_ingreso || []).forEach(f => filas.push([f.categoria, f.total_reservas]));
+    filas.push([]);
 
-    // ---- Hoja: Integrantes por club ----
-    const hojaClubes = XLSX.utils.json_to_sheet(
-        (r.integrantes_por_club || []).map(f => ({
-            Club: f.club,
-            Integrantes: f.cantidad_integrantes
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaClubes, 'Clubes');
+    // ---- Integrantes por equipo ----
+    filas.push(['INTEGRANTES POR EQUIPO']);
+    filas.push(['Equipo', 'Deporte', 'Integrantes']);
+    (r.integrantes_por_equipo || []).forEach(f => filas.push([f.equipo, f.deporte, f.cantidad_integrantes]));
+    filas.push([]);
 
-    // ---- Hoja: Juego más reservado ----
+    // ---- Integrantes por club ----
+    filas.push(['INTEGRANTES POR CLUB']);
+    filas.push(['Club', 'Integrantes']);
+    (r.integrantes_por_club || []).forEach(f => filas.push([f.club, f.cantidad_integrantes]));
+    filas.push([]);
+
+    // ---- Juego más reservado ----
     if ((r.juego_mas_reservado || []).length) {
-        const hojaJuegos = XLSX.utils.json_to_sheet(
-            r.juego_mas_reservado.map(f => ({
-                Juego: f.juego,
-                'Total reservas': f.total_reservas
-            }))
-        );
-        XLSX.utils.book_append_sheet(wb, hojaJuegos, 'Zona Jaguar');
+        filas.push(['JUEGO MÁS RESERVADO (ZONA JAGUAR)']);
+        filas.push(['Juego', 'Total reservas']);
+        r.juego_mas_reservado.forEach(f => filas.push([f.juego, f.total_reservas]));
+        filas.push([]);
     }
 
-    // ---- Hoja: Día más transitado ----
-    const hojaDias = XLSX.utils.json_to_sheet(
-        (r.dia_mas_transitado || []).map(f => ({
-            Día: f.dia,
-            'Total reservas': f.total_reservas
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaDias, 'Por día');
+    // ---- Día más transitado ----
+    filas.push(['DÍA MÁS TRANSITADO']);
+    filas.push(['Día', 'Total reservas']);
+    (r.dia_mas_transitado || []).forEach(f => filas.push([f.dia, f.total_reservas]));
+    filas.push([]);
 
-    // ---- Hoja: Hora más transitada ----
-    const hojaHoras = XLSX.utils.json_to_sheet(
-        (r.hora_mas_transitada || []).map(f => ({
-            Hora: String(f.hora).substring(0, 5),
-            'Total reservas': f.total_reservas
-        }))
-    );
-    XLSX.utils.book_append_sheet(wb, hojaHoras, 'Por hora');
+    // ---- Hora más transitada ----
+    filas.push(['HORA MÁS TRANSITADA']);
+    filas.push(['Hora', 'Total reservas']);
+    (r.hora_mas_transitada || []).forEach(f =>
+        filas.push([String(f.hora).substring(0, 5), f.total_reservas]));
+
+    const wb = XLSX.utils.book_new();
+    const hoja = XLSX.utils.aoa_to_sheet(filas);
+    XLSX.utils.book_append_sheet(wb, hoja, 'Reporte');
 
     XLSX.writeFile(wb, `reportes_jaguar_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
