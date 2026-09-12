@@ -402,32 +402,38 @@ async function exportarPDF() {
 
     const COLOR_CARMINE = [147, 6, 30];
     const COLOR_TEXTO = [80, 80, 80];
+    
+// ---- Encabezado con logo institucional ----
+    let xTexto = 14;
 
-    // ---- Encabezado con logo institucional ----
-    const xTexto = 36;
+    try {
+        const logo = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-01.png');
 
-   try {
-    const logo = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-01.png');
+        // Altura fija (para que combine con las 2 líneas de texto),
+        // el ancho se calcula según la proporción real del logo.
+        const altoLogo = 14;
+        const anchoLogo = altoLogo * (logo.width / logo.height);
+        const yLogo = 10;
 
-    const anchoLogo = 22;
-    const altoLogo = anchoLogo * (logo.height / logo.width);
+        doc.addImage(logo.dataUrl, 'PNG', 14, yLogo, anchoLogo, altoLogo);
 
-    doc.addImage(logo.dataUrl, 'PNG', 14, 10, anchoLogo, altoLogo);
+        // El texto arranca después del logo + un margen de separación
+        xTexto = 14 + anchoLogo + 6;
 
-} catch (error) {
-    console.error('No se pudo cargar el logo para el PDF:', error);
-}
+    } catch (error) {
+        console.error('No se pudo cargar el logo para el PDF:', error);
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(...COLOR_TEXTO);
-    doc.text('Universidad Tecnológica Centroamericana (CEUTEC)', xTexto, 16);
+    doc.text('Universidad Tecnológica Centroamericana (CEUTEC)', xTexto, 15);
 
     doc.setFontSize(16);
     doc.setTextColor(...COLOR_CARMINE);
-    doc.text('Reportes Jaguar Reservation', xTexto, 24);
+    doc.text('Reportes Jaguar Reservation', xTexto, 22);
 
-    let y = 34;
-
+    let y = 32;
+    
     doc.setFontSize(10);
     doc.setTextColor(...COLOR_TEXTO);
     doc.text(`Periodo: ${state.etiquetaPeriodo}`, 14, y);
