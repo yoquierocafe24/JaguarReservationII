@@ -366,8 +366,8 @@ function csv(valor = '') {
 
 // ============================================================
 // Convierte una imagen (por URL/ruta) en un data URL base64,
-// necesario porque jsPDF no puede usar una ruta de archivo
-// directamente — necesita los datos de la imagen ya cargados.
+// y devuelve también su ancho/alto reales — así el logo se
+// puede insertar en el PDF sin distorsionarse.
 // ============================================================
 function cargarImagenComoDataURL(url) {
     return new Promise((resolve, reject) => {
@@ -379,13 +379,17 @@ function cargarImagenComoDataURL(url) {
             canvas.height = img.naturalHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
+
+            resolve({
+                dataUrl: canvas.toDataURL('image/png'),
+                width: img.naturalWidth,
+                height: img.naturalHeight
+            });
         };
         img.onerror = reject;
         img.src = url;
     });
 }
-
 // ============================================================
 // Exportar a PDF (se genera en el navegador con jsPDF)
 // ============================================================
@@ -403,8 +407,17 @@ async function exportarPDF() {
     const xTexto = 36;
 
     try {
-        const logoDataUrl = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-03.png');
-        doc.addImage(logoDataUrl, 'PNG', 14, 10, 18, 18);
+        const logoDataUrl = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-01.png');
+      doc.addImage(logoDataUrl, 'PNG', 14, 10, 18, 18);
+      
+     // Ancho fijo de 22mm, y el alto se calcula según la
+        // proporción REAL de la imagen (para que no se vea
+        // estirado ni aplastado).
+        const anchoLogo = 22;
+        const altoLogo = anchoLogo * (logo.height / logo.width);
+ 
+        doc.addImage(logo.dataUrl, 'PNG', 14, 10, anchoLogo, altoLogo);
+    
     } catch (error) {
         console.error('No se pudo cargar el logo para el PDF:', error);
     }
