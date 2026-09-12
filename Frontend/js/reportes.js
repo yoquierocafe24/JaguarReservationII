@@ -84,6 +84,8 @@ const els = {
     ingreso: document.getElementById('filtro-ingreso'),
     refreshBtn: document.getElementById('refresh-btn'),
     exportBtn: document.getElementById('export-btn'),
+    exportPdfBtn: document.getElementById('export-pdf-btn'),
+    exportExcelBtn: document.getElementById('export-excel-btn'),
     chartCarrera: document.getElementById('chart-carrera'),
     chartEspacio: document.getElementById('chart-espacio'),
     chartIngreso: document.getElementById('chart-ingreso'),
@@ -361,6 +363,273 @@ function csv(valor = '') {
     return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
+
+// ============================================================
+// Exportar a PDF (se genera en el navegador con jsPDF)
+// ============================================================
+function exportarPDF() {
+    const r = state.ultimoResumen;
+    if (!r) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const COLOR_CARMINE = [147, 6, 30];
+    const COLOR_TEXTO = [80, 80, 80];
+
+    let y = 18;
+
+    // ---- Encabezado ----
+    doc.setFontSize(16);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Reportes Jaguar Reservation', 14, y);
+
+    y += 7;
+    doc.setFontSize(10);
+    doc.setTextColor(...COLOR_TEXTO);
+    doc.text(`Periodo: ${state.etiquetaPeriodo}`, 14, y);
+
+    y += 5;
+    doc.text(`Generado: ${new Date().toLocaleString('es-HN')}`, 14, y);
+
+    y += 8;
+
+    // ---- Totales calculados a partir de los datos ----
+    const totalReservas = (r.reservas_por_carrera || [])
+        .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
+
+    const estados = r.reservas_por_estado || {};
+    const asistencia = r.asistencia || { total_asistencias: 0, reservas_con_asistencia: 0 };
+
+    // ---- Tabla: Indicadores generales ----
+    doc.autoTable({
+        startY: y,
+        head: [['Indicador', 'Valor']],
+        body: [
+            ['Total de reservas', totalReservas],
+            ['Reservas aprobadas', estados.aprobada || 0],
+            ['Reservas pendientes', estados.pendiente || 0],
+            ['Reservas canceladas', estados.cancelada || 0],
+            ['Reservas rechazadas', estados.rechazada || 0],
+            ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
+            ['Asistencias registradas', asistencia.total_asistencias],
+            ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
+            ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Reservas por carrera ----
+    doc.autoTable({
+        startY: y,
+        head: [['Carrera', 'Total reservas']],
+        body: (r.reservas_por_carrera || []).map(f => [f.carrera, f.total_reservas]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Reservas por espacio ----
+    doc.autoTable({
+        startY: y,
+        head: [['Espacio', 'Total reservas']],
+        body: (r.reservas_por_espacio || []).map(f => [f.espacio, f.total_reservas]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Primer ingreso vs reingreso ----
+    doc.autoTable({
+        startY: y,
+        head: [['Categoría', 'Total reservas']],
+        body: (r.comparativo_primer_ingreso || []).map(f => [f.categoria, f.total_reservas]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Integrantes por equipo ----
+    doc.autoTable({
+        startY: y,
+        head: [['Equipo', 'Deporte', 'Integrantes']],
+        body: (r.integrantes_por_equipo || []).map(f => [f.equipo, f.deporte, f.cantidad_integrantes]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Integrantes por club ----
+    doc.autoTable({
+        startY: y,
+        head: [['Club', 'Integrantes']],
+        body: (r.integrantes_por_club || []).map(f => [f.club, f.cantidad_integrantes]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Juego más reservado ----
+    if ((r.juego_mas_reservado || []).length) {
+        doc.autoTable({
+            startY: y,
+            head: [['Juego (Zona Jaguar)', 'Total reservas']],
+            body: r.juego_mas_reservado.map(f => [f.juego, f.total_reservas]),
+            theme: 'striped',
+            headStyles: { fillColor: COLOR_CARMINE },
+            styles: { fontSize: 9 }
+        });
+        y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // ---- Tabla: Día más transitado ----
+    doc.autoTable({
+        startY: y,
+        head: [['Día', 'Total reservas']],
+        body: (r.dia_mas_transitado || []).map(f => [f.dia, f.total_reservas]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Hora más transitada ----
+    doc.autoTable({
+        startY: y,
+        head: [['Hora', 'Total reservas']],
+        body: (r.hora_mas_transitada || []).map(f => [
+            String(f.hora).substring(0, 5),
+            f.total_reservas
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+
+    doc.save(`reportes_jaguar_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+// ============================================================
+// Exportar a Excel (se genera en el navegador con SheetJS)
+// ============================================================
+function exportarExcel() {
+    const r = state.ultimoResumen;
+    if (!r) return;
+
+    const totalReservas = (r.reservas_por_carrera || [])
+        .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
+
+    const estados = r.reservas_por_estado || {};
+    const asistencia = r.asistencia || { total_asistencias: 0, reservas_con_asistencia: 0 };
+
+    const wb = XLSX.utils.book_new();
+
+    // ---- Hoja: Resumen ----
+    const resumenAOA = [
+        ['Reportes Jaguar Reservation'],
+        ['Periodo', state.etiquetaPeriodo],
+        ['Generado', new Date().toLocaleString('es-HN')],
+        [],
+        ['Indicador', 'Valor'],
+        ['Total de reservas', totalReservas],
+        ['Reservas aprobadas', estados.aprobada || 0],
+        ['Reservas pendientes', estados.pendiente || 0],
+        ['Reservas canceladas', estados.cancelada || 0],
+        ['Reservas rechazadas', estados.rechazada || 0],
+        ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
+        ['Asistencias registradas', asistencia.total_asistencias],
+        ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
+        ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
+    ];
+    const hojaResumen = XLSX.utils.aoa_to_sheet(resumenAOA);
+    XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen');
+
+    // ---- Hoja: Reservas por carrera ----
+    const hojaCarrera = XLSX.utils.json_to_sheet(
+        (r.reservas_por_carrera || []).map(f => ({
+            Carrera: f.carrera,
+            'Total reservas': f.total_reservas
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaCarrera, 'Por carrera');
+
+    // ---- Hoja: Reservas por espacio ----
+    const hojaEspacio = XLSX.utils.json_to_sheet(
+        (r.reservas_por_espacio || []).map(f => ({
+            Espacio: f.espacio,
+            'Total reservas': f.total_reservas
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaEspacio, 'Por espacio');
+
+    // ---- Hoja: Primer ingreso vs reingreso ----
+    const hojaIngreso = XLSX.utils.json_to_sheet(
+        (r.comparativo_primer_ingreso || []).map(f => ({
+            Categoría: f.categoria,
+            'Total reservas': f.total_reservas
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaIngreso, 'Primer ingreso');
+
+    // ---- Hoja: Integrantes por equipo ----
+    const hojaEquipos = XLSX.utils.json_to_sheet(
+        (r.integrantes_por_equipo || []).map(f => ({
+            Equipo: f.equipo,
+            Deporte: f.deporte,
+            Integrantes: f.cantidad_integrantes
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaEquipos, 'Equipos');
+
+    // ---- Hoja: Integrantes por club ----
+    const hojaClubes = XLSX.utils.json_to_sheet(
+        (r.integrantes_por_club || []).map(f => ({
+            Club: f.club,
+            Integrantes: f.cantidad_integrantes
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaClubes, 'Clubes');
+
+    // ---- Hoja: Juego más reservado ----
+    if ((r.juego_mas_reservado || []).length) {
+        const hojaJuegos = XLSX.utils.json_to_sheet(
+            r.juego_mas_reservado.map(f => ({
+                Juego: f.juego,
+                'Total reservas': f.total_reservas
+            }))
+        );
+        XLSX.utils.book_append_sheet(wb, hojaJuegos, 'Zona Jaguar');
+    }
+
+    // ---- Hoja: Día más transitado ----
+    const hojaDias = XLSX.utils.json_to_sheet(
+        (r.dia_mas_transitado || []).map(f => ({
+            Día: f.dia,
+            'Total reservas': f.total_reservas
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaDias, 'Por día');
+
+    // ---- Hoja: Hora más transitada ----
+    const hojaHoras = XLSX.utils.json_to_sheet(
+        (r.hora_mas_transitada || []).map(f => ({
+            Hora: String(f.hora).substring(0, 5),
+            'Total reservas': f.total_reservas
+        }))
+    );
+    XLSX.utils.book_append_sheet(wb, hojaHoras, 'Por hora');
+
+    XLSX.writeFile(wb, `reportes_jaguar_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
 // ============================================================
 // Inicio
 // ============================================================
@@ -379,4 +648,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     els.refreshBtn.addEventListener('click', cargarReportes);
     els.exportBtn.addEventListener('click', exportarCSV);
+    els.exportPdfBtn.addEventListener('click', exportarPDF);
+    els.exportExcelBtn.addEventListener('click', exportarExcel);
 });

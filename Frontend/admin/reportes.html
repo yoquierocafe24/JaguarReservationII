@@ -145,13 +145,19 @@
                         <p>Reservas agrupadas por carrera, espacio, tipo de ingreso e integrantes por equipo.</p>
                     </div>
                     <div class="actions-buttons">
-                        <button id="export-btn" class="btn-secondary" type="button">
-                            <i class="bi bi-download"></i> Exportar CSV
+                     <button id="export-btn" class="btn-secondary" type="button">
+                    <i class="bi bi-download"></i> Exportar CSV
                         </button>
-                        <button id="refresh-btn" class="btn-primary" type="button">
-                            <i class="bi bi-arrow-clockwise"></i> Actualizar
-                        </button>
-                    </div>
+                    <button id="export-pdf-btn" class="btn-secondary" type="button">
+                     <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+                     </button>
+                       <button id="export-excel-btn" class="btn-secondary" type="button">
+                     <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                     </button>
+                  <button id="refresh-btn" class="btn-primary" type="button">
+                           <i class="bi bi-arrow-clockwise"></i> Actualizar
+                      </button>
+               </div>
                 </div>
 
                 <!-- FILTROS -->
@@ -394,6 +400,9 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="../js/reportes.js?v=1"></script>
 <script src="../js/perfil-admin.js?v=14"></script>
 </body>
