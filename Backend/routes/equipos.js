@@ -508,6 +508,7 @@ router.put('/:id/activar', requiereSesion, requiereAdmin, async (req, res) => {
 // - El estudiante debe existir y estar activo
 // - Un estudiante no puede repetirse activo en el mismo equipo
 // - Solo puede haber 1 líder activo por equipo
+// - Máximo 2 sublíderes activos por equipo
 // =======================================
 
 router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) => {
@@ -609,6 +610,25 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
+        if (rol === 'sublider') {
+
+            const [sublideresActivos] = await db.query(
+                `SELECT id FROM equipo_integrantes
+                 WHERE id_equipo = ? AND rol = 'sublider' AND activo = 1`,
+                [req.params.id]
+            );
+
+            if (sublideresActivos.length >= 2) {
+
+                return res.status(409).json({
+                    ok: false,
+                    mensaje: "Este equipo ya tiene el máximo de 2 sublíderes activos."
+                });
+
+            }
+
+        }
+
         const [resultado] = await db.query(
 
             `INSERT INTO equipo_integrantes(id_equipo, id_estudiante, rol, activo)
@@ -646,6 +666,8 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 // PUT /api/equipos/:idEquipo/integrantes/:idIntegrante/rol
 //
 // body: rol ('sublider','jugador')
+//
+// Regla: máximo 2 sublíderes activos por equipo.
 // =======================================
 
 router.put('/:idEquipo/integrantes/:idIntegrante/rol', requiereSesion, requiereAdmin, async (req, res) => {
@@ -685,6 +707,26 @@ router.put('/:idEquipo/integrantes/:idIntegrante/rol', requiereSesion, requiereA
                 ok: false,
                 mensaje: "Este integrante es el líder actual. Usa 'Cambiar líder' para reemplazarlo antes de cambiar su rol."
             });
+
+        }
+
+        if (rol === 'sublider') {
+
+            const [sublideresActivos] = await db.query(
+                `SELECT id FROM equipo_integrantes
+                 WHERE id_equipo = ? AND rol = 'sublider' AND activo = 1
+                 AND id != ?`,
+                [req.params.idEquipo, req.params.idIntegrante]
+            );
+
+            if (sublideresActivos.length >= 2) {
+
+                return res.status(409).json({
+                    ok: false,
+                    mensaje: "Este equipo ya tiene el máximo de 2 sublíderes activos."
+                });
+
+            }
 
         }
 
@@ -865,6 +907,9 @@ router.put('/:idEquipo/integrantes/:idIntegrante/inactivar', requiereSesion, req
 //   la vez) — hay que usar "Hacer líder"
 //   primero, o reactivarlo y luego cambiarle
 //   el rol manualmente.
+// - Si el integrante era sublíder, no se puede
+//   reactivar si el equipo ya tiene 2 sublíderes
+//   activos.
 // - No puede quedar duplicado: si el mismo
 //   estudiante ya tiene otro registro activo
 //   en este equipo, se bloquea.
@@ -950,6 +995,25 @@ router.put('/:idEquipo/integrantes/:idIntegrante/activar', requiereSesion, requi
                 return res.status(409).json({
                     ok: false,
                     mensaje: "Este equipo ya tiene un líder activo. Usa 'Hacer líder' para reasignarlo."
+                });
+
+            }
+
+        }
+
+        if (integrantes[0].rol === 'sublider') {
+
+            const [sublideresActivos] = await db.query(
+                `SELECT id FROM equipo_integrantes
+                 WHERE id_equipo = ? AND rol = 'sublider' AND activo = 1`,
+                [req.params.idEquipo]
+            );
+
+            if (sublideresActivos.length >= 2) {
+
+                return res.status(409).json({
+                    ok: false,
+                    mensaje: "Este equipo ya tiene el máximo de 2 sublíderes activos. No se puede reactivar como sublíder."
                 });
 
             }

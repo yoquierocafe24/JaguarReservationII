@@ -391,6 +391,27 @@ function cargarImagenComoDataURL(url) {
     });
 }
 // ============================================================
+// Revisa si una tabla (de cierta cantidad de filas) cabe en
+// lo que queda de la página actual. Si no cabe, salta de
+// página limpiamente ANTES de dibujarla, para evitar que
+// autoTable la corte a la mitad dejando espacio en blanco.
+// ============================================================
+function asegurarEspacio(doc, y, cantidadFilas) {
+    const alturaPagina = doc.internal.pageSize.getHeight();
+    const margenInferior = 15;
+
+    // Estimado: ~7mm por fila + ~10mm de encabezado de tabla
+    const alturaEstimada = 10 + (cantidadFilas * 7);
+
+    if (y + alturaEstimada > alturaPagina - margenInferior) {
+        doc.addPage();
+        return 20; // posición inicial en la página nueva
+    }
+
+    return y;
+}
+
+// ============================================================
 // Exportar a PDF (se genera en el navegador con jsPDF)
 // ============================================================
 async function exportarPDF() {
@@ -402,22 +423,19 @@ async function exportarPDF() {
 
     const COLOR_CARMINE = [147, 6, 30];
     const COLOR_TEXTO = [80, 80, 80];
-    
-// ---- Encabezado con logo institucional ----
+
+    // ---- Encabezado con logo institucional ----
     let xTexto = 14;
 
     try {
         const logo = await cargarImagenComoDataURL('../img/V.E CEUTEC logo-01.png');
 
-        // Altura fija (para que combine con las 2 líneas de texto),
-        // el ancho se calcula según la proporción real del logo.
         const altoLogo = 14;
         const anchoLogo = altoLogo * (logo.width / logo.height);
         const yLogo = 10;
 
         doc.addImage(logo.dataUrl, 'PNG', 14, yLogo, anchoLogo, altoLogo);
 
-        // El texto arranca después del logo + un margen de separación
         xTexto = 14 + anchoLogo + 6;
 
     } catch (error) {
@@ -433,7 +451,7 @@ async function exportarPDF() {
     doc.text('Reportes Jaguar Reservation', xTexto, 22);
 
     let y = 32;
-    
+
     doc.setFontSize(10);
     doc.setTextColor(...COLOR_TEXTO);
     doc.text(`Periodo: ${state.etiquetaPeriodo}`, 14, y);
@@ -451,20 +469,23 @@ async function exportarPDF() {
     const asistencia = r.asistencia || { total_asistencias: 0, reservas_con_asistencia: 0 };
 
     // ---- Tabla: Indicadores generales ----
+    const filasIndicadores = [
+        ['Total de reservas', totalReservas],
+        ['Reservas aprobadas', estados.aprobada || 0],
+        ['Reservas pendientes', estados.pendiente || 0],
+        ['Reservas canceladas', estados.cancelada || 0],
+        ['Reservas rechazadas', estados.rechazada || 0],
+        ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
+        ['Asistencias registradas', asistencia.total_asistencias],
+        ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
+        ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
+    ];
+
+    y = asegurarEspacio(doc, y, filasIndicadores.length);
     doc.autoTable({
         startY: y,
         head: [['Indicador', 'Valor']],
-        body: [
-            ['Total de reservas', totalReservas],
-            ['Reservas aprobadas', estados.aprobada || 0],
-            ['Reservas pendientes', estados.pendiente || 0],
-            ['Reservas canceladas', estados.cancelada || 0],
-            ['Reservas rechazadas', estados.rechazada || 0],
-            ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
-            ['Asistencias registradas', asistencia.total_asistencias],
-            ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
-            ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
-        ],
+        body: filasIndicadores,
         theme: 'grid',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -472,10 +493,12 @@ async function exportarPDF() {
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Reservas por carrera ----
+    const filasCarrera = (r.reservas_por_carrera || []).map(f => [f.carrera, f.total_reservas]);
+    y = asegurarEspacio(doc, y, filasCarrera.length);
     doc.autoTable({
         startY: y,
         head: [['Carrera', 'Total reservas']],
-        body: (r.reservas_por_carrera || []).map(f => [f.carrera, f.total_reservas]),
+        body: filasCarrera,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -483,10 +506,12 @@ async function exportarPDF() {
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Reservas por espacio ----
+    const filasEspacio = (r.reservas_por_espacio || []).map(f => [f.espacio, f.total_reservas]);
+    y = asegurarEspacio(doc, y, filasEspacio.length);
     doc.autoTable({
         startY: y,
         head: [['Espacio', 'Total reservas']],
-        body: (r.reservas_por_espacio || []).map(f => [f.espacio, f.total_reservas]),
+        body: filasEspacio,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -494,10 +519,12 @@ async function exportarPDF() {
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Primer ingreso vs reingreso ----
+    const filasIngreso = (r.comparativo_primer_ingreso || []).map(f => [f.categoria, f.total_reservas]);
+    y = asegurarEspacio(doc, y, filasIngreso.length);
     doc.autoTable({
         startY: y,
         head: [['Categoría', 'Total reservas']],
-        body: (r.comparativo_primer_ingreso || []).map(f => [f.categoria, f.total_reservas]),
+        body: filasIngreso,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -505,10 +532,12 @@ async function exportarPDF() {
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Integrantes por equipo ----
+    const filasEquipos = (r.integrantes_por_equipo || []).map(f => [f.equipo, f.deporte, f.cantidad_integrantes]);
+    y = asegurarEspacio(doc, y, filasEquipos.length);
     doc.autoTable({
         startY: y,
         head: [['Equipo', 'Deporte', 'Integrantes']],
-        body: (r.integrantes_por_equipo || []).map(f => [f.equipo, f.deporte, f.cantidad_integrantes]),
+        body: filasEquipos,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -516,10 +545,12 @@ async function exportarPDF() {
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Integrantes por club ----
+    const filasClubes = (r.integrantes_por_club || []).map(f => [f.club, f.cantidad_integrantes]);
+    y = asegurarEspacio(doc, y, filasClubes.length);
     doc.autoTable({
         startY: y,
         head: [['Club', 'Integrantes']],
-        body: (r.integrantes_por_club || []).map(f => [f.club, f.cantidad_integrantes]),
+        body: filasClubes,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -528,10 +559,12 @@ async function exportarPDF() {
 
     // ---- Tabla: Juego más reservado ----
     if ((r.juego_mas_reservado || []).length) {
+        const filasJuegos = r.juego_mas_reservado.map(f => [f.juego, f.total_reservas]);
+        y = asegurarEspacio(doc, y, filasJuegos.length);
         doc.autoTable({
             startY: y,
             head: [['Juego (Zona Jaguar)', 'Total reservas']],
-            body: r.juego_mas_reservado.map(f => [f.juego, f.total_reservas]),
+            body: filasJuegos,
             theme: 'striped',
             headStyles: { fillColor: COLOR_CARMINE },
             styles: { fontSize: 9 }
@@ -540,10 +573,12 @@ async function exportarPDF() {
     }
 
     // ---- Tabla: Día más transitado ----
+    const filasDias = (r.dia_mas_transitado || []).map(f => [f.dia, f.total_reservas]);
+    y = asegurarEspacio(doc, y, filasDias.length);
     doc.autoTable({
         startY: y,
         head: [['Día', 'Total reservas']],
-        body: (r.dia_mas_transitado || []).map(f => [f.dia, f.total_reservas]),
+        body: filasDias,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
@@ -551,13 +586,15 @@ async function exportarPDF() {
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Hora más transitada ----
+    const filasHoras = (r.hora_mas_transitada || []).map(f => [
+        String(f.hora).substring(0, 5),
+        f.total_reservas
+    ]);
+    y = asegurarEspacio(doc, y, filasHoras.length);
     doc.autoTable({
         startY: y,
         head: [['Hora', 'Total reservas']],
-        body: (r.hora_mas_transitada || []).map(f => [
-            String(f.hora).substring(0, 5),
-            f.total_reservas
-        ]),
+        body: filasHoras,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 9 }
