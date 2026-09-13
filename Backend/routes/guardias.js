@@ -324,6 +324,96 @@ router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
 });
 
 // =======================================
+// GUARDIA - Listar espacios
+// (para el selector del modal de visitantes)
+// GET /api/guardias/espacios
+//
+// IMPORTANTE: esta ruta (y /buscar-estudiante)
+// deben ir ANTES de '/:id' — si no, Express las
+// interpreta como si "espacios" fuera un id_reserva.
+// =======================================
+
+router.get('/espacios', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const [espacios] = await db.query(
+            `SELECT id_espacio, nombre
+             FROM espacios
+             ORDER BY nombre ASC`
+        );
+
+        res.json({
+            ok: true,
+            espacios
+        });
+
+    } catch (error) {
+
+        console.error("ERROR LISTANDO ESPACIOS:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Buscar estudiante (cuenta o nombre)
+// Sin importar si tiene o no reserva hoy.
+// Se usa para ofrecer "Registrar visita" a
+// quien no aparece en /buscar.
+// GET /api/guardias/buscar-estudiante?q=...
+// =======================================
+
+router.get('/buscar-estudiante', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const q = String(req.query.q || "").trim();
+
+        if (!q) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar un nombre o número de cuenta."
+            });
+        }
+
+        const [estudiantes] = await db.query(
+
+            `SELECT id_estudiante, nombre, cuenta
+             FROM estudiantes
+             WHERE activo = 1
+             AND (cuenta = ? OR nombre LIKE ?)
+             ORDER BY nombre ASC
+             LIMIT 8`,
+
+            [q, `%${q}%`]
+
+        );
+
+        res.json({
+            ok: true,
+            estudiantes
+        });
+
+    } catch (error) {
+
+        console.error("ERROR BUSCANDO ESTUDIANTE (GUARDIA):", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
 // GUARDIA - Detalle de una reserva
 // GET /api/reservas/guardia/:id
 // =======================================
@@ -910,92 +1000,6 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
         if (conexion) {
             conexion.release();
         }
-
-    }
-
-});
-
-// =======================================
-// GUARDIA - Listar espacios
-// (para el selector del modal de visitantes)
-// GET /api/guardias/espacios
-// =======================================
-
-router.get('/espacios', requiereSesion, requiereGuardia, async (req, res) => {
-
-    try {
-
-        const [espacios] = await db.query(
-            `SELECT id_espacio, nombre
-             FROM espacios
-             ORDER BY nombre ASC`
-        );
-
-        res.json({
-            ok: true,
-            espacios
-        });
-
-    } catch (error) {
-
-        console.error("ERROR LISTANDO ESPACIOS:", error);
-
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error del servidor."
-        });
-
-    }
-
-});
-
-// =======================================
-// GUARDIA - Buscar estudiante (cuenta o nombre)
-// Sin importar si tiene o no reserva hoy.
-// Se usa para ofrecer "Registrar visita" a
-// quien no aparece en /buscar.
-// GET /api/guardias/buscar-estudiante?q=...
-// =======================================
-
-router.get('/buscar-estudiante', requiereSesion, requiereGuardia, async (req, res) => {
-
-    try {
-
-        const q = String(req.query.q || "").trim();
-
-        if (!q) {
-            return res.status(400).json({
-                ok: false,
-                mensaje: "Debe indicar un nombre o número de cuenta."
-            });
-        }
-
-        const [estudiantes] = await db.query(
-
-            `SELECT id_estudiante, nombre, cuenta
-             FROM estudiantes
-             WHERE activo = 1
-             AND (cuenta = ? OR nombre LIKE ?)
-             ORDER BY nombre ASC
-             LIMIT 8`,
-
-            [q, `%${q}%`]
-
-        );
-
-        res.json({
-            ok: true,
-            estudiantes
-        });
-
-    } catch (error) {
-
-        console.error("ERROR BUSCANDO ESTUDIANTE (GUARDIA):", error);
-
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error del servidor."
-        });
 
     }
 
