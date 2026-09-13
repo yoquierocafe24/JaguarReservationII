@@ -117,11 +117,11 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
 
 // =======================================
 // GUARDIA - Buscar persona por cuenta
-// GET /api/reservas/guardia/buscar?cuenta=...
+// GET /api/reservas/guardia/estado?cuenta=...
 // Busca titulares y acompañantes del día
 // =======================================
 
-router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
+router.get('/estado', requiereSesion, requiereGuardia, async (req, res) => {
 
     try {
 
@@ -837,11 +837,11 @@ router.get('/espacios', requiereSesion, requiereGuardia, async (req, res) => {
 // GUARDIA - Buscar estudiante (cuenta o nombre)
 // Sin importar si tiene o no reserva hoy.
 // Se usa para ofrecer "Registrar visita" a
-// quien no aparece en /buscar.
-// GET /api/guardias/buscar-estudiante?q=...
+// quien no aparece en /estado.
+// GET /api/guardias/estado-estudiante?q=...
 // =======================================
 
-router.get('/buscar-estudiante', requiereSesion, requiereGuardia, async (req, res) => {
+router.get('/estado-estudiante', requiereSesion, requiereGuardia, async (req, res) => {
 
     try {
 

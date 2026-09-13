@@ -346,7 +346,7 @@ async function buscarReservaPorCuenta(cuenta) {
     try {
 
         const respuesta = await fetch(
-            `${API_URL}/api/guardias/buscar?cuenta=${encodeURIComponent(cuenta)}`,
+            `${API_URL}/api/guardias/estado?cuenta=${encodeURIComponent(cuenta)}`,
             {
                 credentials: "include"
             }
