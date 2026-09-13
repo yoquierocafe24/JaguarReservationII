@@ -50,19 +50,10 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
                 r.hora_fin,
                 r.estado,
                 r.cant_acompanantes,
-                r.tipo_reserva,
-                r.id_equipo,
 
                 e.nombre AS estudiante,
 
-                es.nombre AS espacio,
-
-                (
-                    SELECT COUNT(*)
-                    FROM equipo_integrantes ei
-                    WHERE ei.id_equipo = r.id_equipo
-                      AND ei.activo = 1
-                ) AS cantidad_equipo
+                es.nombre AS espacio
 
             FROM reservas r
 
@@ -337,9 +328,6 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
             `SELECT
                 r.id_reserva,
-                r.id_estudiante,
-                r.tipo_reserva,
-                r.id_equipo,
                 r.fecha,
                 r.hora_inicio,
                 r.hora_fin,
@@ -371,141 +359,74 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
         const reserva = reservas[0];
 
-        let personas;
+        // Titular y acompañantes autorizados
+        const [personas] = await db.query(
 
-        if (reserva.tipo_reserva === 'equipo') {
+            `SELECT
+                lista.id_estudiante,
+                lista.nombre,
+                lista.cuenta,
+                lista.tipo_asistencia,
 
-            // =======================================
-            // RESERVA DE EQUIPO
-            // El líder/sublíder que reservó = "titular"
-            // (coincide con reserva.id_estudiante).
-            // El resto de integrantes activos = "integrante".
-            // =======================================
+                CASE
+                    WHEN a.id_asistencia IS NULL THEN 0
+                    ELSE 1
+                END AS asistio,
 
-            const [filas] = await db.query(
+                a.hora_entrada
 
-                `SELECT
-                    ei.id_estudiante,
+            FROM (
+
+                /* Titular de la reserva */
+                SELECT
+                    r.id_estudiante,
                     e.nombre,
                     e.cuenta,
+                    'titular' AS tipo_asistencia
 
-                    CASE
-                        WHEN ei.id_estudiante = ? THEN 'titular'
-                        ELSE 'integrante'
-                    END AS tipo_asistencia,
-
-                    CASE
-                        WHEN a.id_asistencia IS NULL THEN 0
-                        ELSE 1
-                    END AS asistio,
-
-                    a.hora_entrada
-
-                FROM equipo_integrantes ei
+                FROM reservas r
 
                 INNER JOIN estudiantes e
-                    ON e.id_estudiante = ei.id_estudiante
+                    ON e.id_estudiante = r.id_estudiante
 
-                LEFT JOIN asistencia a
-                    ON a.id_reserva = ?
-                    AND a.id_estudiante = ei.id_estudiante
+                WHERE r.id_reserva = ?
 
-                WHERE ei.id_equipo = ?
-                  AND ei.activo = 1
+                UNION ALL
 
-                ORDER BY
-                    CASE
-                        WHEN ei.id_estudiante = ? THEN 1
-                        ELSE 2
-                    END,
-                    e.nombre`,
+                /* Acompañantes registrados mediante QR */
+                SELECT
+                    ra.id_estudiante,
+                    e.nombre,
+                    e.cuenta,
+                    'acompanante' AS tipo_asistencia
 
-                [
-                    reserva.id_estudiante,
-                    req.params.id,
-                    reserva.id_equipo,
-                    reserva.id_estudiante
-                ]
-            );
+                FROM reserva_acompanantes ra
 
-            personas = filas;
+                INNER JOIN estudiantes e
+                    ON e.id_estudiante = ra.id_estudiante
 
-        } else {
+                WHERE ra.id_reserva = ?
+                AND ra.confirmado = 1
 
-            // =======================================
-            // RESERVA INDIVIDUAL (comportamiento original)
-            // =======================================
+            ) AS lista
 
-            const [filas] = await db.query(
+            LEFT JOIN asistencia a
+                ON a.id_reserva = ?
+                AND a.id_estudiante = lista.id_estudiante
 
-                `SELECT
-                    lista.id_estudiante,
-                    lista.nombre,
-                    lista.cuenta,
-                    lista.tipo_asistencia,
+            ORDER BY
+                CASE
+                    WHEN lista.tipo_asistencia = 'titular' THEN 1
+                    ELSE 2
+                END,
+                lista.nombre`,
 
-                    CASE
-                        WHEN a.id_asistencia IS NULL THEN 0
-                        ELSE 1
-                    END AS asistio,
-
-                    a.hora_entrada
-
-                FROM (
-
-                    /* Titular de la reserva */
-                    SELECT
-                        r.id_estudiante,
-                        e.nombre,
-                        e.cuenta,
-                        'titular' AS tipo_asistencia
-
-                    FROM reservas r
-
-                    INNER JOIN estudiantes e
-                        ON e.id_estudiante = r.id_estudiante
-
-                    WHERE r.id_reserva = ?
-
-                    UNION ALL
-
-                    /* Acompañantes registrados mediante QR */
-                    SELECT
-                        ra.id_estudiante,
-                        e.nombre,
-                        e.cuenta,
-                        'acompanante' AS tipo_asistencia
-
-                    FROM reserva_acompanantes ra
-
-                    INNER JOIN estudiantes e
-                        ON e.id_estudiante = ra.id_estudiante
-
-                    WHERE ra.id_reserva = ?
-                    AND ra.confirmado = 1
-
-                ) AS lista
-
-                LEFT JOIN asistencia a
-                    ON a.id_reserva = ?
-                    AND a.id_estudiante = lista.id_estudiante
-
-                ORDER BY
-                    CASE
-                        WHEN lista.tipo_asistencia = 'titular' THEN 1
-                        ELSE 2
-                    END,
-                    lista.nombre`,
-
-                [
-                    req.params.id,
-                    req.params.id,
-                    req.params.id
-                ]
-            );
-
-            personas = filas;
-        }
+            [
+                req.params.id,
+                req.params.id,
+                req.params.id
+            ]
+        );
 
         const [vigencia] = await db.query(
 
@@ -547,6 +468,7 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
 });
 
+
 // =======================================
 // GUARDIA - Guardar asistencia
 // PUT /api/reservas/guardia/:id/asistencia
@@ -585,9 +507,6 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 
     `SELECT
         id_reserva,
-        id_estudiante,
-        tipo_reserva,
-        id_equipo,
         fecha,
         hora_inicio,
         hora_fin,
@@ -743,43 +662,8 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 
                 autorizado = titular.length > 0;
 
-            } else if (tipo_asistencia === "integrante") {
-
-                // Solo válido si la reserva es de tipo equipo.
-                // Se verifica que el estudiante sea integrante
-                // activo del equipo dueño de esta reserva.
-
-                if (reserva.tipo_reserva !== 'equipo' || !reserva.id_equipo) {
-
-                    await conexion.rollback();
-
-                    return res.status(400).json({
-                        ok: false,
-                        mensaje: "Esta reserva no es de tipo equipo."
-                    });
-
-                }
-
-                const [integrante] = await conexion.query(
-
-                    `SELECT id
-                     FROM equipo_integrantes
-                     WHERE id_equipo = ?
-                     AND id_estudiante = ?
-                     AND activo = 1`,
-
-                    [
-                        reserva.id_equipo,
-                        id_estudiante
-                    ]
-
-                );
-
-                autorizado = integrante.length > 0;
-
             } else {
 
-                // "acompanante" / "visitante"
                 const [acompanante] = await conexion.query(
 
                     `SELECT id
@@ -910,6 +794,187 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
         if (conexion) {
             conexion.release();
         }
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Listar espacios
+// (para el selector del modal de visitantes)
+// GET /api/guardias/espacios
+// =======================================
+
+router.get('/espacios', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const [espacios] = await db.query(
+            `SELECT id_espacio, nombre
+             FROM espacios
+             ORDER BY nombre ASC`
+        );
+
+        res.json({
+            ok: true,
+            espacios
+        });
+
+    } catch (error) {
+
+        console.error("ERROR LISTANDO ESPACIOS:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Buscar estudiante (cuenta o nombre)
+// Sin importar si tiene o no reserva hoy.
+// Se usa para ofrecer "Registrar visita" a
+// quien no aparece en /buscar.
+// GET /api/guardias/buscar-estudiante?q=...
+// =======================================
+
+router.get('/buscar-estudiante', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const q = String(req.query.q || "").trim();
+
+        if (!q) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar un nombre o número de cuenta."
+            });
+        }
+
+        const [estudiantes] = await db.query(
+
+            `SELECT id_estudiante, nombre, cuenta
+             FROM estudiantes
+             WHERE activo = 1
+             AND (cuenta = ? OR nombre LIKE ?)
+             ORDER BY nombre ASC
+             LIMIT 8`,
+
+            [q, `%${q}%`]
+
+        );
+
+        res.json({
+            ok: true,
+            estudiantes
+        });
+
+    } catch (error) {
+
+        console.error("ERROR BUSCANDO ESTUDIANTE (GUARDIA):", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Registrar visita sin reserva
+// (ej: alguien que solo quiere entrar a
+// Zona Jaguar, fútbol, etc. sin haber reservado)
+// POST /api/guardias/visitante
+//
+// body: id_estudiante, id_espacio
+// =======================================
+
+router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const id_guardia = req.session.usuario.id;
+        const id_estudiante = Number(req.body.id_estudiante);
+        const id_espacio = Number(req.body.id_espacio);
+
+        if (
+            !Number.isInteger(id_estudiante) || id_estudiante <= 0 ||
+            !Number.isInteger(id_espacio) || id_espacio <= 0
+        ) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar el estudiante y el espacio."
+            });
+
+        }
+
+        const [estudiantes] = await db.query(
+            `SELECT id_estudiante, nombre
+             FROM estudiantes
+             WHERE id_estudiante = ? AND activo = 1`,
+            [id_estudiante]
+        );
+
+        if (estudiantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Estudiante no encontrado o inactivo."
+            });
+
+        }
+
+        const [espacios] = await db.query(
+            `SELECT id_espacio, nombre
+             FROM espacios
+             WHERE id_espacio = ?`,
+            [id_espacio]
+        );
+
+        if (espacios.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Espacio no encontrado."
+            });
+
+        }
+
+        await db.query(
+
+            `INSERT INTO asistencia(
+                id_reserva,
+                id_estudiante,
+                id_espacio,
+                tipo_asistencia,
+                hora_entrada,
+                id_guardia
+            )
+            VALUES(NULL, ?, ?, 'visitante', ${HORA_HN}, ?)`,
+
+            [id_estudiante, id_espacio, id_guardia]
+
+        );
+
+        res.json({
+            ok: true,
+            mensaje: `Visita registrada: ${estudiantes[0].nombre} — ${espacios[0].nombre}.`
+        });
+
+    } catch (error) {
+
+        console.error("ERROR REGISTRANDO VISITA:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
 
     }
 

@@ -7,6 +7,9 @@ let reservasDelDia = [];
 let reservaSeleccionada = null;
 let personaEncontrada = null;
 let modalReserva = null;
+let modalVisitante = null;
+let espaciosCache = null;
+let idsEstudiantesConReserva = [];
 
 
 // =======================================
@@ -16,6 +19,9 @@ let modalReserva = null;
 document.addEventListener("DOMContentLoaded", async () => {
    modalReserva = new bootstrap.Modal(
         document.getElementById("modalReserva")
+    );
+   modalVisitante = new bootstrap.Modal(
+        document.getElementById("modalVisitante")
     );
    mostrarFechaActual();
     prepararBuscador();
@@ -180,15 +186,11 @@ function renderizarReservas(reservas) {
                     –
                     ${formatearHora(reserva.hora_fin)}
                 </p>
-             <p>
-             <i class="bi bi-people"></i>
-             ${
-             reserva.tipo_reserva === 'equipo'
-            ? Number(reserva.cantidad_equipo || 0)
-            : Number(reserva.cant_acompanantes || 0) + 1
-                 }
-             persona(s) autorizada(s)
-            </p>
+               <p>
+                    <i class="bi bi-people"></i>
+                    ${Number(reserva.cant_acompanantes || 0) + 1}
+                    persona(s) autorizada(s)
+                </p>
            </div>
         `;
        tarjeta.addEventListener("click", () => {
@@ -240,6 +242,9 @@ function prepararBuscador() {
                  // Ocultar la tarjeta de la persona encontrada
                     ocultarPersonaEncontrada();
 
+                // Ocultar también los resultados de "sin reserva"
+                    ocultarResultadoSinReserva();
+
                 // Volver a mostrar resumen y listado general
                     cambiarVistaBusqueda(false);
 
@@ -259,6 +264,11 @@ function prepararBuscador() {
             if (esNumeroCuenta) {
 
                 await buscarReservaPorCuenta(valor);
+
+                // Adicional: ofrecer "Registrar visita" si además
+                // hay estudiantes activos que coincidan y no
+                // tengan reserva mostrada arriba
+                await buscarEstudiantesSinReserva(valor);
 
                 return;
             }
@@ -291,6 +301,11 @@ function prepararBuscador() {
             mensaje.textContent =
                 "No hay reservas que coincidan con la búsqueda.";
 
+            // Adicional: buscar también estudiantes activos por
+            // nombre para ofrecer "Registrar visita"
+            idsEstudiantesConReserva = [];
+            await buscarEstudiantesSinReserva(valor);
+
         }, 400);
 
     });
@@ -303,12 +318,15 @@ function prepararBuscador() {
 
         ocultarPersonaEncontrada();
 
+        ocultarResultadoSinReserva();
+
         renderizarReservas(reservasDelDia);
 
         mensaje.textContent =
             "No hay reservas registradas para el día de hoy.";
 
         buscador.focus();
+
 
     });
 
@@ -340,6 +358,7 @@ async function buscarReservaPorCuenta(cuenta) {
         if (respuesta.status === 404) {
 
             personaEncontrada = null;
+            idsEstudiantesConReserva = [];
             ocultarPersonaEncontrada();
             renderizarReservas([]);
 
@@ -363,6 +382,7 @@ async function buscarReservaPorCuenta(cuenta) {
         if (!respuesta.ok || !data.ok) {
 
             personaEncontrada = null;
+            idsEstudiantesConReserva = [];
             ocultarPersonaEncontrada();
             renderizarReservas([]);
 
@@ -383,6 +403,7 @@ async function buscarReservaPorCuenta(cuenta) {
         if (!resultados.length) {
 
             personaEncontrada = null;
+            idsEstudiantesConReserva = [];
             ocultarPersonaEncontrada();
             renderizarReservas([]);
 
@@ -391,6 +412,11 @@ async function buscarReservaPorCuenta(cuenta) {
 
             return;
         }
+
+        // Recordar quiénes ya aparecieron con reserva,
+        // para no ofrecerles también "Registrar visita"
+        idsEstudiantesConReserva =
+            resultados.map(r => Number(r.id_estudiante));
 
      // Mostrar todas las reservas relacionadas con la cuenta
         mostrarPersonasEncontradas(resultados); 
@@ -406,6 +432,7 @@ async function buscarReservaPorCuenta(cuenta) {
         );
 
         personaEncontrada = null;
+        idsEstudiantesConReserva = [];
         ocultarPersonaEncontrada();
         renderizarReservas([]);
 
@@ -464,9 +491,13 @@ function mostrarPersonasEncontradas(resultados) {
 
                 <div class="resultado-persona-superior">
                     <div>
-                     <span class="resultado-etiqueta">
-                 ${etiquetaTipoAsistencia(persona.tipo_asistencia)}
-                    </span>
+                        <span class="resultado-etiqueta">
+                            ${
+                                persona.tipo_asistencia === "titular"
+                                    ? "Titular"
+                                    : "Acompañante"
+                            }
+                        </span>
 
                         <h3>
                             ${escaparHTML(persona.nombre)}
@@ -616,9 +647,11 @@ function mostrarPersonaEncontrada(persona) {
         obtenerIniciales(persona.nombre);
 
     document.getElementById(
-    "resultado-tipo"
+        "resultado-tipo"
     ).textContent =
-    etiquetaTipoAsistencia(persona.tipo_asistencia);
+        persona.tipo_asistencia === "titular"
+            ? "Titular"
+            : "Acompañante";
 
     document.getElementById(
         "resultado-nombre"
@@ -967,9 +1000,13 @@ function renderizarPersonas(personas, puedeRegistrar) {
                    <small>
                         ${escaparHTML(persona.cuenta)}
                     </small>
-                  <span class="persona-rol">
-                  ${etiquetaTipoAsistencia(persona.tipo_asistencia)}
-                </span>
+                   <span class="persona-rol">
+                        ${
+                            persona.tipo_asistencia === "titular"
+                                ? "Titular"
+                                : "Acompañante"
+                        }
+                    </span>
                    ${
                         asistio && persona.hora_entrada
                             ? `
@@ -1375,6 +1412,275 @@ function ocultarPersonaEncontrada() {
 }
 
 // =======================================
+// ESTUDIANTES SIN RESERVA (VISITANTES)
+// Busca por cuenta o nombre entre TODOS los
+// estudiantes activos, sin importar si tienen
+// reserva hoy, para ofrecer "Registrar visita".
+// =======================================
+
+async function buscarEstudiantesSinReserva(termino) {
+
+    const contenedor =
+        document.getElementById("resultado-sin-reserva");
+
+    if (!contenedor) return;
+
+    try {
+
+        const respuesta = await fetch(
+            `${API_URL}/api/guardias/buscar-estudiante?q=${encodeURIComponent(termino)}`,
+            {
+                credentials: "include"
+            }
+        );
+
+        const data = await respuesta.json();
+
+        if (respuesta.status === 401) {
+            window.location.href = "../../login.html";
+            return;
+        }
+
+        if (!respuesta.ok || !data.ok) {
+            ocultarResultadoSinReserva();
+            return;
+        }
+
+        const estudiantes =
+            (Array.isArray(data.estudiantes) ? data.estudiantes : [])
+                .filter(est =>
+                    !idsEstudiantesConReserva.includes(Number(est.id_estudiante))
+                );
+
+        if (!estudiantes.length) {
+            ocultarResultadoSinReserva();
+            return;
+        }
+
+        renderizarResultadoSinReserva(estudiantes);
+
+    } catch (error) {
+        console.error("Error buscando estudiante sin reserva:", error);
+        ocultarResultadoSinReserva();
+    }
+
+}
+
+function ocultarResultadoSinReserva() {
+
+    const contenedor =
+        document.getElementById("resultado-sin-reserva");
+
+    if (contenedor) {
+        contenedor.hidden = true;
+        contenedor.innerHTML = "";
+    }
+
+}
+
+function renderizarResultadoSinReserva(estudiantes) {
+
+    const contenedor =
+        document.getElementById("resultado-sin-reserva");
+
+    if (!contenedor) return;
+
+    contenedor.innerHTML = "";
+
+    estudiantes.forEach(estudiante => {
+
+        const tarjeta = document.createElement("article");
+        tarjeta.className = "resultado-persona-item";
+
+        tarjeta.innerHTML = `
+            <div class="resultado-persona-avatar">
+                ${escaparHTML(obtenerIniciales(estudiante.nombre))}
+            </div>
+
+            <div class="resultado-persona-info">
+
+                <div class="resultado-persona-superior">
+                    <div>
+                        <span class="resultado-etiqueta">
+                            Sin reserva hoy
+                        </span>
+
+                        <h3>
+                            ${escaparHTML(estudiante.nombre)}
+                        </h3>
+                    </div>
+                </div>
+
+                <p>
+                    <i class="bi bi-person-vcard"></i>
+                    Cuenta:
+                    <strong>${escaparHTML(estudiante.cuenta)}</strong>
+                </p>
+            </div>
+
+            <div class="resultado-persona-acciones">
+                <button type="button" class="btn-marcar-persona btn-registrar-visita">
+                    <i class="bi bi-door-open"></i>
+                    Registrar visita
+                </button>
+            </div>
+        `;
+
+        tarjeta
+            .querySelector(".btn-registrar-visita")
+            .addEventListener("click", () => {
+                abrirModalVisitante(estudiante);
+            });
+
+        contenedor.appendChild(tarjeta);
+    });
+
+    contenedor.hidden = false;
+    cambiarVistaBusqueda(true);
+}
+
+// =======================================
+// MODAL: REGISTRAR VISITA (SIN RESERVA)
+// =======================================
+
+async function abrirModalVisitante(estudiante) {
+
+    document.getElementById("visitante-id-estudiante").value =
+        estudiante.id_estudiante;
+
+    document.getElementById("visitante-nombre-estudiante").textContent =
+        `${estudiante.nombre} · Cuenta ${estudiante.cuenta}`;
+
+    document.getElementById("visitante-estado").textContent = "";
+
+    await cargarEspaciosVisitante();
+
+    modalVisitante.show();
+}
+
+async function cargarEspaciosVisitante() {
+
+    const select =
+        document.getElementById("visitante-espacio");
+
+    if (!select) return;
+
+    // Se cachean los espacios para no pedirlos
+    // de nuevo cada vez que se abre el modal
+    if (!espaciosCache) {
+
+        try {
+
+            const respuesta = await fetch(
+                `${API_URL}/api/guardias/espacios`,
+                {
+                    credentials: "include"
+                }
+            );
+
+            const data = await respuesta.json();
+
+            if (!respuesta.ok || !data.ok) {
+                throw new Error(
+                    data.mensaje || "No se pudieron cargar los espacios."
+                );
+            }
+
+            espaciosCache = data.espacios || [];
+
+        } catch (error) {
+            console.error("Error cargando espacios:", error);
+            select.innerHTML =
+                `<option value="" selected disabled>No se pudieron cargar los espacios</option>`;
+            return;
+        }
+
+    }
+
+    select.innerHTML =
+        `<option value="" selected disabled>Seleccione un espacio</option>` +
+        espaciosCache.map(espacio =>
+            `<option value="${espacio.id_espacio}">${escaparHTML(espacio.nombre)}</option>`
+        ).join("");
+
+}
+
+async function confirmarVisitante() {
+
+    const boton =
+        document.getElementById("btn-confirmar-visitante");
+
+    const estado =
+        document.getElementById("visitante-estado");
+
+    const id_estudiante =
+        document.getElementById("visitante-id-estudiante").value;
+
+    const id_espacio =
+        document.getElementById("visitante-espacio").value;
+
+    if (!id_espacio) {
+        estado.textContent = "Debe seleccionar un espacio.";
+        estado.style.color = "#b5121b";
+        return;
+    }
+
+    try {
+
+        boton.disabled = true;
+        estado.style.color = "#6b7280";
+        estado.textContent = "Registrando...";
+
+        const respuesta = await fetch(
+            `${API_URL}/api/guardias/visitante`,
+            {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    id_estudiante,
+                    id_espacio
+                })
+            }
+        );
+
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.ok) {
+            throw new Error(
+                data.mensaje || "No se pudo registrar la visita."
+            );
+        }
+
+        modalVisitante.hide();
+
+        mostrarToast(data.mensaje, "success");
+
+        // Limpia la búsqueda para reflejar el nuevo estado
+        document.getElementById("buscador-reservas").value = "";
+        ocultarResultadoSinReserva();
+        ocultarPersonaEncontrada();
+        cambiarVistaBusqueda(false);
+        renderizarReservas(reservasDelDia);
+
+    } catch (error) {
+
+        estado.style.color = "#b5121b";
+        estado.textContent = error.message;
+
+    } finally {
+        boton.disabled = false;
+    }
+
+}
+
+document
+    .getElementById("btn-confirmar-visitante")
+    ?.addEventListener("click", confirmarVisitante);
+
+// =======================================
 // MOSTRAR U OCULTAR CONTENIDO GENERAL
 // =======================================
 
@@ -1463,17 +1769,4 @@ function mostrarToast(mensaje, tipo = "danger") {
         bootstrap.Toast.getOrCreateInstance(toast);
    instancia.show();
 
-}
-
-function etiquetaTipoAsistencia(tipo) {
-
-    if (tipo === "titular") {
-        return "Titular";
-    }
-
-    if (tipo === "integrante") {
-        return "Integrante";
-    }
-
-    return "Acompañante";
 }
