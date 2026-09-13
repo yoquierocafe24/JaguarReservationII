@@ -915,4 +915,185 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 
 });
 
+// =======================================
+// GUARDIA - Listar espacios
+// (para el selector del modal de visitantes)
+// GET /api/guardias/espacios
+// =======================================
+
+router.get('/espacios', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const [espacios] = await db.query(
+            `SELECT id_espacio, nombre
+             FROM espacios
+             ORDER BY nombre ASC`
+        );
+
+        res.json({
+            ok: true,
+            espacios
+        });
+
+    } catch (error) {
+
+        console.error("ERROR LISTANDO ESPACIOS:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Buscar estudiante (cuenta o nombre)
+// Sin importar si tiene o no reserva hoy.
+// Se usa para ofrecer "Registrar visita" a
+// quien no aparece en /buscar.
+// GET /api/guardias/buscar-estudiante?q=...
+// =======================================
+
+router.get('/buscar-estudiante', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const q = String(req.query.q || "").trim();
+
+        if (!q) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar un nombre o número de cuenta."
+            });
+        }
+
+        const [estudiantes] = await db.query(
+
+            `SELECT id_estudiante, nombre, cuenta
+             FROM estudiantes
+             WHERE activo = 1
+             AND (cuenta = ? OR nombre LIKE ?)
+             ORDER BY nombre ASC
+             LIMIT 8`,
+
+            [q, `%${q}%`]
+
+        );
+
+        res.json({
+            ok: true,
+            estudiantes
+        });
+
+    } catch (error) {
+
+        console.error("ERROR BUSCANDO ESTUDIANTE (GUARDIA):", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Registrar visita sin reserva
+// (ej: alguien que solo quiere entrar a
+// Zona Jaguar, fútbol, etc. sin haber reservado)
+// POST /api/guardias/visitante
+//
+// body: id_estudiante, id_espacio
+// =======================================
+
+router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const id_guardia = req.session.usuario.id;
+        const id_estudiante = Number(req.body.id_estudiante);
+        const id_espacio = Number(req.body.id_espacio);
+
+        if (
+            !Number.isInteger(id_estudiante) || id_estudiante <= 0 ||
+            !Number.isInteger(id_espacio) || id_espacio <= 0
+        ) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar el estudiante y el espacio."
+            });
+
+        }
+
+        const [estudiantes] = await db.query(
+            `SELECT id_estudiante, nombre
+             FROM estudiantes
+             WHERE id_estudiante = ? AND activo = 1`,
+            [id_estudiante]
+        );
+
+        if (estudiantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Estudiante no encontrado o inactivo."
+            });
+
+        }
+
+        const [espacios] = await db.query(
+            `SELECT id_espacio, nombre
+             FROM espacios
+             WHERE id_espacio = ?`,
+            [id_espacio]
+        );
+
+        if (espacios.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Espacio no encontrado."
+            });
+
+        }
+
+        await db.query(
+
+            `INSERT INTO asistencia(
+                id_reserva,
+                id_estudiante,
+                id_espacio,
+                tipo_asistencia,
+                hora_entrada,
+                id_guardia
+            )
+            VALUES(NULL, ?, ?, 'visitante', ${HORA_HN}, ?)`,
+
+            [id_estudiante, id_espacio, id_guardia]
+
+        );
+
+        res.json({
+            ok: true,
+            mensaje: `Visita registrada: ${estudiantes[0].nombre} — ${espacios[0].nombre}.`
+        });
+
+    } catch (error) {
+
+        console.error("ERROR REGISTRANDO VISITA:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
 module.exports = router;

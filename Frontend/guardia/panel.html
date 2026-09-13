@@ -104,6 +104,18 @@
        </section>
 
 <!-- =====================================
+     ESTUDIANTES ENCONTRADOS SIN RESERVA
+     (para registrar visita como visitante)
+====================================== -->
+<section
+    class="resultados-persona"
+    id="resultado-sin-reserva"
+    hidden
+>
+    <!-- Las tarjetas se crean desde guardia.js -->
+</section>
+
+<!-- =====================================
      PERSONA ENCONTRADA POR CUENTA
 ====================================== -->
 <section
@@ -393,6 +405,89 @@
            </div>
        </div>
    </div>
+   <!-- =====================================
+         MODAL REGISTRAR VISITA (SIN RESERVA)
+    ====================================== -->
+   <div
+        class="modal fade"
+        id="modalVisitante"
+        tabindex="-1"
+        aria-labelledby="modalVisitanteTitulo"
+        aria-hidden="true"
+    >
+       <div class="modal-dialog modal-dialog-centered">
+           <div class="modal-content modal-reserva">
+
+               <div class="modal-header">
+                   <div>
+                       <h2 class="modal-title" id="modalVisitanteTitulo">
+                            Registrar visita
+                        </h2>
+                       <p
+                            style="margin:0; font-size:14px; color:#6b7280;"
+                            id="visitante-nombre-estudiante"
+                        >
+                            Estudiante
+                        </p>
+                   </div>
+                   <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"
+                    ></button>
+               </div>
+
+               <div class="modal-body">
+
+                    <input type="hidden" id="visitante-id-estudiante">
+
+                    <label
+                        for="visitante-espacio"
+                        style="font-weight:600; font-size:14px; display:block; margin-bottom:8px;"
+                    >
+                        ¿A qué espacio va a entrar?
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="visitante-espacio"
+                    >
+                        <option value="" selected disabled>
+                            Cargando espacios...
+                        </option>
+                    </select>
+
+                    <div
+                        id="visitante-estado"
+                        style="margin-top:12px; font-size:14px;"
+                    ></div>
+
+               </div>
+
+               <div class="modal-footer">
+                   <button
+                        type="button"
+                        class="btn-cancelar-modal"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancelar
+                    </button>
+
+                   <button
+                        type="button"
+                        class="btn-guardar-asistencia"
+                        id="btn-confirmar-visitante"
+                    >
+                        <i class="bi bi-check2-circle"></i>
+                        Registrar visita
+                    </button>
+               </div>
+
+           </div>
+       </div>
+   </div>
+
    <!-- =====================================
          TOAST
     ====================================== -->
