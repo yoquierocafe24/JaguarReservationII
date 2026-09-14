@@ -1014,6 +1014,7 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 // body: id_estudiante, id_espacio
 // =======================================
 
+
 router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
 
     try {
@@ -1030,6 +1031,26 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
             return res.status(400).json({
                 ok: false,
                 mensaje: "Debe indicar el estudiante y el espacio."
+            });
+
+        }
+
+        // =======================================
+        // Regla: los domingos el polideportivo
+        // está cerrado, no se puede registrar
+        // ningún acceso libre.
+        // =======================================
+
+        const [diaActual] = await db.query(
+            `SELECT DAYOFWEEK(${FECHA_HN}) AS dia`
+        );
+
+        // DAYOFWEEK: 1 = domingo
+        if (diaActual[0].dia === 1) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se puede registrar acceso libre los domingos, el polideportivo está cerrado."
             });
 
         }
@@ -1066,6 +1087,31 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
 
         }
 
+        // =======================================
+        // Evitar doble registro el mismo día en
+        // el mismo espacio (sí puede entrar a
+        // espacios distintos el mismo día).
+        // =======================================
+
+        const [yaRegistrado] = await db.query(
+            `SELECT id_asistencia
+             FROM asistencia
+             WHERE id_estudiante = ?
+             AND id_espacio = ?
+             AND tipo_ingreso = 'libre'
+             AND fecha_entrada = ${FECHA_HN}`,
+            [id_estudiante, id_espacio]
+        );
+
+        if (yaRegistrado.length > 0) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Este estudiante ya registró acceso libre a ese espacio hoy."
+            });
+
+        }
+
         await db.query(
 
             `INSERT INTO asistencia(
@@ -1074,9 +1120,12 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
                 id_espacio,
                 tipo_asistencia,
                 hora_entrada,
-                id_guardia
+                id_guardia,
+                tipo_ingreso,
+                origen,
+                fecha_entrada
             )
-            VALUES(NULL, ?, ?, 'visitante', ${HORA_HN}, ?)`,
+            VALUES(NULL, ?, ?, 'visitante', ${HORA_HN}, ?, 'libre', 'guardia', ${FECHA_HN})`,
 
             [id_estudiante, id_espacio, id_guardia]
 
