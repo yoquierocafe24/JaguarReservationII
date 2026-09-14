@@ -415,6 +415,42 @@ router.get('/buscar-estudiante', requiereSesion, requiereGuardia, async (req, re
 });
 
 // =======================================
+// GUARDIA - Consultar si hoy es domingo
+// (usa la hora de Honduras del servidor,
+// no la del navegador del guardia)
+// GET /api/guardias/es-domingo
+// =======================================
+
+router.get('/es-domingo', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+            `SELECT DAYOFWEEK(${FECHA_HN}) AS dia`
+        );
+
+        // DAYOFWEEK: 1 = domingo
+        const esDomingo = rows[0].dia === 1;
+
+        res.json({
+            ok: true,
+            es_domingo: esDomingo
+        });
+
+    } catch (error) {
+
+        console.error("ERROR CONSULTANDO SI ES DOMINGO:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
 // GUARDIA - Detalle de una reserva
 // GET /api/reservas/guardia/:id
 // =======================================
@@ -1150,40 +1186,6 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
 
 });
 
-// =======================================
-// GUARDIA - Consultar si hoy es domingo
-// (usa la hora de Honduras del servidor,
-// no la del navegador del guardia)
-// GET /api/guardias/es-domingo
-// =======================================
 
-router.get('/es-domingo', requiereSesion, requiereGuardia, async (req, res) => {
-
-    try {
-
-        const [rows] = await db.query(
-            `SELECT DAYOFWEEK(${FECHA_HN}) AS dia`
-        );
-
-        // DAYOFWEEK: 1 = domingo
-        const esDomingo = rows[0].dia === 1;
-
-        res.json({
-            ok: true,
-            es_domingo: esDomingo
-        });
-
-    } catch (error) {
-
-        console.error("ERROR CONSULTANDO SI ES DOMINGO:", error);
-
-        res.status(500).json({
-            ok: false,
-            mensaje: "Error del servidor."
-        });
-
-    }
-
-});
 
 module.exports = router;
