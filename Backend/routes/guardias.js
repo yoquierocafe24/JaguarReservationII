@@ -45,6 +45,7 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
             `SELECT
 
                 r.id_reserva,
+                r.id_estudiante,
                 r.fecha,
                 r.hora_inicio,
                 r.hora_fin,
@@ -1139,6 +1140,42 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
     } catch (error) {
 
         console.error("ERROR REGISTRANDO VISITA:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// GUARDIA - Consultar si hoy es domingo
+// (usa la hora de Honduras del servidor,
+// no la del navegador del guardia)
+// GET /api/guardias/es-domingo
+// =======================================
+
+router.get('/es-domingo', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+            `SELECT DAYOFWEEK(${FECHA_HN}) AS dia`
+        );
+
+        // DAYOFWEEK: 1 = domingo
+        const esDomingo = rows[0].dia === 1;
+
+        res.json({
+            ok: true,
+            es_domingo: esDomingo
+        });
+
+    } catch (error) {
+
+        console.error("ERROR CONSULTANDO SI ES DOMINGO:", error);
 
         res.status(500).json({
             ok: false,

@@ -306,8 +306,13 @@ function prepararBuscador() {
                 "No hay reservas que coincidan con la búsqueda.";
 
             // Adicional: buscar también estudiantes activos por
-            // nombre para ofrecer "Registrar visita"
-            idsEstudiantesConReserva = [];
+            // nombre para ofrecer "Registrar visita" — pero
+            // excluyendo a quienes YA aparecen arriba con reserva
+            // (a ellos se les ofrece el acceso libre directo en
+            // su propia tarjeta, no en una tarjeta aparte).
+            idsEstudiantesConReserva =
+                filtradas.map(r => Number(r.id_estudiante));
+
             await buscarEstudiantesSinReserva(valor);
 
         }, 400);
@@ -727,6 +732,28 @@ function configurarBotonesPersona(
         );
     };
 
+    // Botón de acceso libre: siempre disponible,
+    // sin importar el estado de la reserva actual
+    // (puede registrar una entrada aparte, a otro
+    // espacio u horario). Se conecta ANTES de los
+    // returns de abajo para que nunca se quede sin
+    // conectar.
+    const botonAccesoLibre =
+        document.getElementById(
+            "btn-registrar-visita-encontrada"
+        );
+
+    if (botonAccesoLibre) {
+
+        botonAccesoLibre.onclick = () => {
+            abrirModalVisitante({
+                id_estudiante: persona.id_estudiante,
+                nombre: persona.nombre,
+                cuenta: persona.cuenta
+            });
+        };
+    }
+
     // Si ya se registró, deshabilitar el botón
     if (asistio) {
 
@@ -764,6 +791,7 @@ function configurarBotonesPersona(
         marcarAsistenciaEncontrada();
     };
 }
+
 // =======================================
 // MARCAR ASISTENCIA DESDE LA BÚSQUEDA
 // =======================================
@@ -1471,7 +1499,49 @@ function ocultarResultadoSinReserva() {
 
 }
 
-function renderizarResultadoSinReserva(estudiantes) {
+// Caché para no consultar el backend cada vez
+// que se renderiza la lista (se resetea al
+// recargar la página, igual que espaciosCache)
+let esDomingoCache = null;
+
+async function obtenerEsDomingo() {
+
+    if (esDomingoCache !== null) {
+        return esDomingoCache;
+    }
+
+    try {
+
+        const respuesta = await fetch(
+            `${API_URL}/api/guardias/es-domingo`,
+            {
+                credentials: "include"
+            }
+        );
+
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.ok) {
+            throw new Error(data.mensaje || "No se pudo verificar el día.");
+        }
+
+        esDomingoCache = data.es_domingo;
+        return esDomingoCache;
+
+    } catch (error) {
+
+        console.error("Error verificando si es domingo:", error);
+
+        // Si falla la consulta, no bloqueamos el botón por
+        // este motivo — el backend igual lo va a rechazar
+        // si realmente es domingo.
+        return false;
+
+    }
+
+}
+
+async function renderizarResultadoSinReserva(estudiantes) {
 
     const contenedor =
         document.getElementById("resultado-sin-reserva");
@@ -1479,6 +1549,8 @@ function renderizarResultadoSinReserva(estudiantes) {
     if (!contenedor) return;
 
     contenedor.innerHTML = "";
+
+    const esDomingo = await obtenerEsDomingo();
 
     estudiantes.forEach(estudiante => {
 
@@ -1512,18 +1584,26 @@ function renderizarResultadoSinReserva(estudiantes) {
             </div>
 
             <div class="resultado-persona-acciones">
-                <button type="button" class="btn-marcar-persona btn-registrar-visita">
-                    <i class="bi bi-door-open"></i>
-                    Registrar visita
+                <button
+                    type="button"
+                    class="btn-marcar-persona btn-registrar-visita"
+                    ${esDomingo ? "disabled" : ""}
+                    title="${esDomingo ? "No disponible los domingos, el polideportivo está cerrado" : ""}"
+                >
+                    <i class="bi ${esDomingo ? "bi-lock-fill" : "bi-door-open"}"></i>
+                    ${esDomingo ? "Cerrado hoy" : "Registrar visita"}
                 </button>
             </div>
         `;
 
-        tarjeta
-            .querySelector(".btn-registrar-visita")
-            .addEventListener("click", () => {
+        const boton = tarjeta.querySelector(".btn-registrar-visita");
+
+        // Si es domingo, ni siquiera se conecta el evento de clic
+        if (!esDomingo) {
+            boton.addEventListener("click", () => {
                 abrirModalVisitante(estudiante);
             });
+        }
 
         contenedor.appendChild(tarjeta);
     });
