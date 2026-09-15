@@ -33,7 +33,7 @@ const HORA_HN = `TIME(CONVERT_TZ(NOW(), '+00:00', '-06:00'))`;
 // =======================================
 // GUARDIA
 // Reservas del día
-// GET /api/reservas/hoy
+// GET /api/guardias/hoy
 // =======================================
 
 router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
@@ -127,8 +127,9 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
 
 // =======================================
 // GUARDIA - Buscar persona por cuenta
-// GET /api/reservas/guardia/buscar?cuenta=...
-// Busca titulares y acompañantes del día
+// GET /api/guardias/buscar?cuenta=...
+// Busca titulares, acompañantes e
+// integrantes de equipo del día
 // =======================================
 
 router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
@@ -247,6 +248,42 @@ router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
                 AND r.estado = 'aprobada'
                 AND acompanante.cuenta = ?
 
+                UNION ALL
+
+                /* Buscar como integrante de un equipo
+                   (se excluye al líder porque ya aparece
+                   arriba como 'titular') */
+                SELECT
+                    r.id_reserva,
+                    r.id_espacio,
+                    r.fecha,
+                    r.hora_inicio,
+                    r.hora_fin,
+                    r.estado,
+                    r.cant_acompanantes,
+
+                    integrante.id_estudiante,
+                    integrante.nombre,
+                    integrante.cuenta,
+
+                    'integrante' AS tipo_asistencia
+
+                FROM reservas r
+
+                INNER JOIN equipo_integrantes ei
+                    ON ei.id_equipo = r.id_equipo
+                    AND ei.activo = 1
+
+                INNER JOIN estudiantes integrante
+                    ON integrante.id_estudiante =
+                       ei.id_estudiante
+
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'equipo'
+                AND integrante.cuenta = ?
+                AND ei.id_estudiante <> r.id_estudiante
+
             ) AS persona
 
             INNER JOIN espacios es
@@ -288,6 +325,7 @@ router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
     END DESC`,
 
             [
+                cuenta,
                 cuenta,
                 cuenta
             ]
@@ -452,7 +490,7 @@ router.get('/es-domingo', requiereSesion, requiereGuardia, async (req, res) => {
 
 // =======================================
 // GUARDIA - Detalle de una reserva
-// GET /api/reservas/guardia/:id
+// GET /api/guardias/:id
 // =======================================
 
 router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
@@ -676,7 +714,7 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
 
 // =======================================
 // GUARDIA - Guardar asistencia
-// PUT /api/reservas/guardia/:id/asistencia
+// PUT /api/guardias/:id/asistencia
 // =======================================
 
 router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) => {
@@ -1120,6 +1158,84 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
             return res.status(404).json({
                 ok: false,
                 mensaje: "Espacio no encontrado."
+            });
+
+        }
+
+        // =======================================
+        // REGLA DE ORO: no se puede registrar
+        // acceso libre si el estudiante YA está
+        // ahora mismo dentro del horario de otra
+        // reserva aprobada (como titular,
+        // acompañante o integrante de equipo).
+        // =======================================
+
+        const [reservaActiva] = await db.query(
+
+            `SELECT
+                r.id_reserva,
+                es.nombre AS espacio,
+                r.hora_inicio,
+                r.hora_fin
+
+            FROM (
+
+                /* Como titular */
+                SELECT r.id_reserva, r.id_espacio, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.id_estudiante = ?
+
+                UNION ALL
+
+                /* Como acompañante */
+                SELECT r.id_reserva, r.id_espacio, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                INNER JOIN reserva_acompanantes ra
+                    ON ra.id_reserva = r.id_reserva
+                    AND ra.confirmado = 1
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND ra.id_estudiante = ?
+
+                UNION ALL
+
+                /* Como integrante de equipo */
+                SELECT r.id_reserva, r.id_espacio, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                INNER JOIN equipo_integrantes ei
+                    ON ei.id_equipo = r.id_equipo
+                    AND ei.activo = 1
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'equipo'
+                AND ei.id_estudiante = ?
+
+            ) AS r
+
+            INNER JOIN espacios es
+                ON es.id_espacio = r.id_espacio
+
+            WHERE ${HORA_HN} BETWEEN r.hora_inicio AND r.hora_fin
+
+            LIMIT 1`,
+
+            [id_estudiante, id_estudiante, id_estudiante]
+
+        );
+
+        if (reservaActiva.length > 0) {
+
+            const activa = reservaActiva[0];
+
+            return res.status(409).json({
+                ok: false,
+                mensaje:
+                    `Este estudiante ya tiene una reserva activa en ` +
+                    `${activa.espacio} (${String(activa.hora_inicio).substring(0,5)} - ` +
+                    `${String(activa.hora_fin).substring(0,5)}). No puede registrar ` +
+                    `acceso libre mientras esa reserva esté vigente.`
             });
 
         }
