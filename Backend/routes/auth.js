@@ -10,6 +10,14 @@ const {
     generarTokenSesion
 } = require('../middlewares/sesion');
 
+// Dominio institucional permitido para el correo
+// de los administradores.
+const DOMINIO_ADMIN_PERMITIDO = "@unitec.edu";
+
+function correoTieneDominioValido(correo) {
+    return correo.toLowerCase().endsWith(DOMINIO_ADMIN_PERMITIDO);
+}
+
 
 // ===============================
 // LOGIN ADMIN
@@ -291,6 +299,13 @@ router.put('/perfil', requiereSesion, requiereAdmin, async (req, res) => {
         // así que se normaliza ANTES de comparar y de guardar.
         const correoNormalizado = correo.trim().toLowerCase();
 
+        if (!correoTieneDominioValido(correoNormalizado)) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: `El correo debe pertenecer al dominio ${DOMINIO_ADMIN_PERMITIDO}.`
+            });
+        }
+
         const id_admin = req.session.usuario.id;
 
         // Evitar que el correo choque con otro admin
@@ -449,6 +464,13 @@ router.post('/crear-admin', requiereSesion, requiereSuperAdmin, async (req, res)
         // El correo nunca distingue mayúsculas de minúsculas,
         // así que se normaliza ANTES de comparar y de guardar.
         const correoNormalizado = correo.trim().toLowerCase();
+
+        if (!correoTieneDominioValido(correoNormalizado)) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: `El correo debe pertenecer al dominio ${DOMINIO_ADMIN_PERMITIDO}.`
+            });
+        }
 
         const [existente] = await db.query(
             'SELECT id_admin FROM administradores WHERE LOWER(correo) = ?',
