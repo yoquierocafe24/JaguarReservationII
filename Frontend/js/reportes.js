@@ -314,6 +314,11 @@ function exportarCSV() {
     const r = state.ultimoResumen;
     if (!r) return;
 
+    const totalReservas = (r.reservas_por_carrera || [])
+        .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
+
+    const estados = r.reservas_por_estado || {};
+
     const asistencia = r.asistencia || {
         total_asistencias: 0,
         asistencias_por_reserva: 0,
@@ -327,39 +332,76 @@ function exportarCSV() {
     lineas.push(`Generado,${new Date().toLocaleString('es-HN')}`);
     lineas.push('');
 
-    lineas.push('Indicadores de asistencia');
-    lineas.push('Indicador,Valor');
-    lineas.push(`Asistencias registradas (total),${asistencia.total_asistencias}`);
-    lineas.push(`Asistencias por reserva,${asistencia.asistencias_por_reserva}`);
-    lineas.push(`Accesos libres registrados,${asistencia.asistencias_libres}`);
-    lineas.push(`Reservas con asistencia registrada,${asistencia.reservas_con_asistencia}`);
+    lineas.push('Indicadores generales');
+    lineas.push('Indicador,Valor,Que significa');
+    lineas.push(`Total de reservas,${totalReservas},"Cantidad total de reservas en el periodo, sin importar su estado."`);
+    lineas.push(`Reservas aprobadas,${estados.aprobada || 0},"Reservas que un administrador aprobo y quedaron confirmadas."`);
+    lineas.push(`Reservas pendientes,${estados.pendiente || 0},"Reservas que todavia esperan aprobacion o rechazo."`);
+    lineas.push(`Reservas canceladas,${estados.cancelada || 0},"Reservas canceladas por el estudiante o un administrador."`);
+    lineas.push(`Reservas rechazadas,${estados.rechazada || 0},"Reservas que un administrador rechazo explicitamente."`);
+    lineas.push(`Reservas sin asistencia (nadie llego),${r.reservas_sin_asistencia || 0},"Reservas aprobadas donde nadie registro su entrada."`);
+    lineas.push(`Asistencias registradas (total),${asistencia.total_asistencias},"Todas las entradas registradas: de reserva mas accesos libres."`);
+    lineas.push(`Asistencias por reserva,${asistencia.asistencias_por_reserva},"Entradas que si corresponden a una reserva."`);
+    lineas.push(`Accesos libres registrados,${asistencia.asistencias_libres},"Entradas SIN que existiera una reserva de por medio."`);
+    lineas.push(`Reservas con asistencia registrada,${asistencia.reservas_con_asistencia},"Reservas distintas con al menos una persona presente."`);
+    lineas.push(`Estudiantes que reservaron y son integrantes de un club,${r.estudiantes_en_clubes || 0},"De los que reservaron, cuantos pertenecen a un club."`);
     lineas.push('');
 
     lineas.push('Reservas por carrera');
+    lineas.push('Cantidad de reservas realizadas por estudiantes de cada carrera.');
     lineas.push('Carrera,Total reservas');
     (r.reservas_por_carrera || []).forEach(f => lineas.push(`${csv(f.carrera)},${f.total_reservas}`));
     lineas.push('');
 
     lineas.push('Reservas por espacio');
+    lineas.push('Cantidad de reservas realizadas en cada espacio del polideportivo.');
     lineas.push('Espacio,Total reservas');
     (r.reservas_por_espacio || []).forEach(f => lineas.push(`${csv(f.espacio)},${f.total_reservas}`));
     lineas.push('');
 
     lineas.push('Primer ingreso vs reingreso');
+    lineas.push('Compara reservas de estudiantes de primer ingreso frente a reingreso.');
     lineas.push('Categoria,Total reservas');
     (r.comparativo_primer_ingreso || []).forEach(f => lineas.push(`${csv(f.categoria)},${f.total_reservas}`));
     lineas.push('');
 
     lineas.push('Integrantes por equipo');
+    lineas.push('Cantidad de integrantes activos en cada equipo deportivo.');
     lineas.push('Equipo,Deporte,Integrantes');
     (r.integrantes_por_equipo || []).forEach(f =>
         lineas.push(`${csv(f.equipo)},${csv(f.deporte)},${f.cantidad_integrantes}`));
     lineas.push('');
 
     lineas.push('Integrantes por club');
+    lineas.push('Cantidad de integrantes activos en cada club.');
     lineas.push('Club,Integrantes');
     (r.integrantes_por_club || []).forEach(f =>
         lineas.push(`${csv(f.club)},${f.cantidad_integrantes}`));
+    lineas.push('');
+
+    if ((r.juego_mas_reservado || []).length) {
+        lineas.push('Juego mas reservado (Zona Jaguar)');
+        lineas.push('Los juegos mas solicitados. La marca * indica el mas reservado.');
+        lineas.push('Juego,Total reservas');
+        r.juego_mas_reservado.forEach((f, idx) =>
+            lineas.push(`${csv(idx === 0 ? `* ${f.juego}` : f.juego)},${f.total_reservas}`));
+        lineas.push('');
+    }
+
+    lineas.push('Dia mas transitado');
+    lineas.push('Dia de la semana con mas reservas. La marca * indica el dia mas transitado.');
+    lineas.push('Dia,Total reservas');
+    (r.dia_mas_transitado || []).forEach((f, idx) =>
+        lineas.push(`${csv(idx === 0 ? `* ${f.dia}` : f.dia)},${f.total_reservas}`));
+    lineas.push('');
+
+    lineas.push('Hora mas transitada');
+    lineas.push('Hora del dia con mas reservas. La marca * indica la hora mas transitada.');
+    lineas.push('Hora,Total reservas');
+    (r.hora_mas_transitada || []).forEach((f, idx) => {
+        const horaTexto = String(f.hora).substring(0, 5);
+        lineas.push(`${csv(idx === 0 ? `* ${horaTexto}` : horaTexto)},${f.total_reservas}`);
+    });
 
     // BOM para que Excel respete acentos
     const blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
@@ -427,6 +469,21 @@ function asegurarEspacio(doc, y, cantidadFilas) {
 }
 
 // ============================================================
+// Dibuja una línea de texto explicativo (gris, itálica) justo
+// antes de una tabla, para que quien lea el PDF entienda qué
+// significa esa sección sin depender de que alguien se lo
+// explique aparte. Devuelve la nueva posición Y.
+// ============================================================
+function dibujarSubtitulo(doc, y, texto) {
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'italic');
+    doc.setTextColor(120, 120, 120);
+    doc.text(texto, 14, y);
+    doc.setFont(undefined, 'normal');
+    return y + 5;
+}
+
+// ============================================================
 // Exportar a PDF (se genera en el navegador con jsPDF)
 // ============================================================
 async function exportarPDF() {
@@ -489,34 +546,44 @@ async function exportarPDF() {
     };
 
     // ---- Tabla: Indicadores generales ----
+    // Se agrega una tercera columna con una explicación breve
+    // de qué significa cada indicador, para que cualquiera en
+    // administración pueda leer el reporte sin depender de que
+    // alguien más se lo explique.
     const filasIndicadores = [
-        ['Total de reservas', totalReservas],
-        ['Reservas aprobadas', estados.aprobada || 0],
-        ['Reservas pendientes', estados.pendiente || 0],
-        ['Reservas canceladas', estados.cancelada || 0],
-        ['Reservas rechazadas', estados.rechazada || 0],
-        ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
-        ['Asistencias registradas (total)', asistencia.total_asistencias],
-        ['Asistencias por reserva', asistencia.asistencias_por_reserva],
-        ['Accesos libres registrados', asistencia.asistencias_libres],
-        ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
-        ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
+        ['Total de reservas', totalReservas, 'Cantidad total de reservas realizadas en el periodo seleccionado, sin importar su estado.'],
+        ['Reservas aprobadas', estados.aprobada || 0, 'Reservas que un administrador aprobó y quedaron confirmadas.'],
+        ['Reservas pendientes', estados.pendiente || 0, 'Reservas que todavía esperan que un administrador las apruebe o rechace.'],
+        ['Reservas canceladas', estados.cancelada || 0, 'Reservas que el propio estudiante o un administrador canceló antes de su horario.'],
+        ['Reservas rechazadas', estados.rechazada || 0, 'Reservas que un administrador rechazó explícitamente.'],
+        ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0, 'De las reservas aprobadas, cuántas terminaron sin que absolutamente nadie (ni titular ni acompañantes) registrara su entrada con el guardia.'],
+        ['Asistencias registradas (total)', asistencia.total_asistencias, 'Todas las entradas registradas por el guardia: las que vienen de una reserva más los accesos libres.'],
+        ['Asistencias por reserva', asistencia.asistencias_por_reserva, 'Entradas registradas que sí corresponden a una reserva (titular, acompañante o integrante de equipo).'],
+        ['Accesos libres registrados', asistencia.asistencias_libres, 'Entradas registradas por el guardia SIN que existiera una reserva de por medio (acceso libre al polideportivo).'],
+        ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia, 'Cuántas reservas distintas tuvieron al menos una persona que sí llegó (aunque no haya sido el grupo completo).'],
+        ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0, 'De los estudiantes que reservaron en este periodo, cuántos también pertenecen activamente a algún club.']
     ];
 
     y = asegurarEspacio(doc, y, filasIndicadores.length);
     doc.autoTable({
         startY: y,
-        head: [['Indicador', 'Valor']],
+        head: [['Indicador', 'Valor', 'Qué significa']],
         body: filasIndicadores,
         theme: 'grid',
         headStyles: { fillColor: COLOR_CARMINE },
-        styles: { fontSize: 9 }
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: {
+            0: { cellWidth: 45 },
+            1: { cellWidth: 18, halign: 'center' },
+            2: { cellWidth: 'auto' }
+        }
     });
     y = doc.lastAutoTable.finalY + 10;
 
     // ---- Tabla: Reservas por carrera ----
     const filasCarrera = (r.reservas_por_carrera || []).map(f => [f.carrera, f.total_reservas]);
-    y = asegurarEspacio(doc, y, filasCarrera.length);
+    y = asegurarEspacio(doc, y, filasCarrera.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Cantidad de reservas realizadas por estudiantes de cada carrera.');
     doc.autoTable({
         startY: y,
         head: [['Carrera', 'Total reservas']],
@@ -529,7 +596,8 @@ async function exportarPDF() {
 
     // ---- Tabla: Reservas por espacio ----
     const filasEspacio = (r.reservas_por_espacio || []).map(f => [f.espacio, f.total_reservas]);
-    y = asegurarEspacio(doc, y, filasEspacio.length);
+    y = asegurarEspacio(doc, y, filasEspacio.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Cantidad de reservas realizadas en cada espacio del polideportivo.');
     doc.autoTable({
         startY: y,
         head: [['Espacio', 'Total reservas']],
@@ -542,7 +610,8 @@ async function exportarPDF() {
 
     // ---- Tabla: Primer ingreso vs reingreso ----
     const filasIngreso = (r.comparativo_primer_ingreso || []).map(f => [f.categoria, f.total_reservas]);
-    y = asegurarEspacio(doc, y, filasIngreso.length);
+    y = asegurarEspacio(doc, y, filasIngreso.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Compara cuántas reservas hicieron estudiantes de primer ingreso frente a estudiantes de reingreso.');
     doc.autoTable({
         startY: y,
         head: [['Categoría', 'Total reservas']],
@@ -555,7 +624,8 @@ async function exportarPDF() {
 
     // ---- Tabla: Integrantes por equipo ----
     const filasEquipos = (r.integrantes_por_equipo || []).map(f => [f.equipo, f.deporte, f.cantidad_integrantes]);
-    y = asegurarEspacio(doc, y, filasEquipos.length);
+    y = asegurarEspacio(doc, y, filasEquipos.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Cantidad de integrantes activos en cada equipo deportivo.');
     doc.autoTable({
         startY: y,
         head: [['Equipo', 'Deporte', 'Integrantes']],
@@ -568,7 +638,8 @@ async function exportarPDF() {
 
     // ---- Tabla: Integrantes por club ----
     const filasClubes = (r.integrantes_por_club || []).map(f => [f.club, f.cantidad_integrantes]);
-    y = asegurarEspacio(doc, y, filasClubes.length);
+    y = asegurarEspacio(doc, y, filasClubes.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Cantidad de integrantes activos en cada club.');
     doc.autoTable({
         startY: y,
         head: [['Club', 'Integrantes']],
@@ -582,28 +653,42 @@ async function exportarPDF() {
     // ---- Tabla: Juego más reservado ----
     if ((r.juego_mas_reservado || []).length) {
         const filasJuegos = r.juego_mas_reservado.map(f => [f.juego, f.total_reservas]);
-        y = asegurarEspacio(doc, y, filasJuegos.length);
+        y = asegurarEspacio(doc, y, filasJuegos.length + 1);
+        y = dibujarSubtitulo(doc, y, 'Los juegos de la Zona Jaguar más solicitados. La fila resaltada es el más reservado.');
         doc.autoTable({
             startY: y,
             head: [['Juego (Zona Jaguar)', 'Total reservas']],
             body: filasJuegos,
             theme: 'striped',
             headStyles: { fillColor: COLOR_CARMINE },
-            styles: { fontSize: 9 }
+            styles: { fontSize: 9 },
+            didParseCell: (data) => {
+                if (data.section === 'body' && data.row.index === 0) {
+                    data.cell.styles.fillColor = [255, 236, 179];
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
         });
         y = doc.lastAutoTable.finalY + 10;
     }
 
     // ---- Tabla: Día más transitado ----
     const filasDias = (r.dia_mas_transitado || []).map(f => [f.dia, f.total_reservas]);
-    y = asegurarEspacio(doc, y, filasDias.length);
+    y = asegurarEspacio(doc, y, filasDias.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Día de la semana con más reservas. La fila resaltada es el día más transitado.');
     doc.autoTable({
         startY: y,
         head: [['Día', 'Total reservas']],
         body: filasDias,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
-        styles: { fontSize: 9 }
+        styles: { fontSize: 9 },
+        didParseCell: (data) => {
+            if (data.section === 'body' && data.row.index === 0) {
+                data.cell.styles.fillColor = [255, 236, 179];
+                data.cell.styles.fontStyle = 'bold';
+            }
+        }
     });
     y = doc.lastAutoTable.finalY + 10;
 
@@ -612,14 +697,21 @@ async function exportarPDF() {
         String(f.hora).substring(0, 5),
         f.total_reservas
     ]);
-    y = asegurarEspacio(doc, y, filasHoras.length);
+    y = asegurarEspacio(doc, y, filasHoras.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Hora del día con más reservas. La fila resaltada es la hora más transitada.');
     doc.autoTable({
         startY: y,
         head: [['Hora', 'Total reservas']],
         body: filasHoras,
         theme: 'striped',
         headStyles: { fillColor: COLOR_CARMINE },
-        styles: { fontSize: 9 }
+        styles: { fontSize: 9 },
+        didParseCell: (data) => {
+            if (data.section === 'body' && data.row.index === 0) {
+                data.cell.styles.fillColor = [255, 236, 179];
+                data.cell.styles.fontStyle = 'bold';
+            }
+        }
     });
 
     doc.save(`reportes_jaguar_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -655,69 +747,81 @@ function exportarExcel() {
 
     // ---- Indicadores generales ----
     filas.push(['INDICADORES GENERALES']);
-    filas.push(['Indicador', 'Valor']);
-    filas.push(['Total de reservas', totalReservas]);
-    filas.push(['Reservas aprobadas', estados.aprobada || 0]);
-    filas.push(['Reservas pendientes', estados.pendiente || 0]);
-    filas.push(['Reservas canceladas', estados.cancelada || 0]);
-    filas.push(['Reservas rechazadas', estados.rechazada || 0]);
-    filas.push(['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0]);
-    filas.push(['Asistencias registradas (total)', asistencia.total_asistencias]);
-    filas.push(['Asistencias por reserva', asistencia.asistencias_por_reserva]);
-    filas.push(['Accesos libres registrados', asistencia.asistencias_libres]);
-    filas.push(['Reservas con asistencia registrada', asistencia.reservas_con_asistencia]);
-    filas.push(['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]);
+    filas.push(['Indicador', 'Valor', 'Qué significa']);
+    filas.push(['Total de reservas', totalReservas, 'Cantidad total de reservas realizadas en el periodo seleccionado, sin importar su estado.']);
+    filas.push(['Reservas aprobadas', estados.aprobada || 0, 'Reservas que un administrador aprobó y quedaron confirmadas.']);
+    filas.push(['Reservas pendientes', estados.pendiente || 0, 'Reservas que todavía esperan que un administrador las apruebe o rechace.']);
+    filas.push(['Reservas canceladas', estados.cancelada || 0, 'Reservas que el propio estudiante o un administrador canceló antes de su horario.']);
+    filas.push(['Reservas rechazadas', estados.rechazada || 0, 'Reservas que un administrador rechazó explícitamente.']);
+    filas.push(['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0, 'De las reservas aprobadas, cuántas terminaron sin que nadie registrara su entrada con el guardia.']);
+    filas.push(['Asistencias registradas (total)', asistencia.total_asistencias, 'Todas las entradas registradas por el guardia: las de una reserva más los accesos libres.']);
+    filas.push(['Asistencias por reserva', asistencia.asistencias_por_reserva, 'Entradas registradas que sí corresponden a una reserva (titular, acompañante o integrante).']);
+    filas.push(['Accesos libres registrados', asistencia.asistencias_libres, 'Entradas registradas SIN que existiera una reserva de por medio.']);
+    filas.push(['Reservas con asistencia registrada', asistencia.reservas_con_asistencia, 'Cuántas reservas distintas tuvieron al menos una persona que sí llegó.']);
+    filas.push(['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0, 'De los estudiantes que reservaron en este periodo, cuántos también pertenecen a un club.']);
     filas.push([]);
 
     // ---- Reservas por carrera ----
     filas.push(['RESERVAS POR CARRERA']);
+    filas.push(['Cantidad de reservas realizadas por estudiantes de cada carrera.']);
     filas.push(['Carrera', 'Total reservas']);
     (r.reservas_por_carrera || []).forEach(f => filas.push([f.carrera, f.total_reservas]));
     filas.push([]);
 
     // ---- Reservas por espacio ----
     filas.push(['RESERVAS POR ESPACIO']);
+    filas.push(['Cantidad de reservas realizadas en cada espacio del polideportivo.']);
     filas.push(['Espacio', 'Total reservas']);
     (r.reservas_por_espacio || []).forEach(f => filas.push([f.espacio, f.total_reservas]));
     filas.push([]);
 
     // ---- Primer ingreso vs reingreso ----
     filas.push(['PRIMER INGRESO VS REINGRESO']);
+    filas.push(['Compara cuántas reservas hicieron estudiantes de primer ingreso frente a estudiantes de reingreso.']);
     filas.push(['Categoría', 'Total reservas']);
     (r.comparativo_primer_ingreso || []).forEach(f => filas.push([f.categoria, f.total_reservas]));
     filas.push([]);
 
     // ---- Integrantes por equipo ----
     filas.push(['INTEGRANTES POR EQUIPO']);
+    filas.push(['Cantidad de integrantes activos en cada equipo deportivo.']);
     filas.push(['Equipo', 'Deporte', 'Integrantes']);
     (r.integrantes_por_equipo || []).forEach(f => filas.push([f.equipo, f.deporte, f.cantidad_integrantes]));
     filas.push([]);
 
     // ---- Integrantes por club ----
     filas.push(['INTEGRANTES POR CLUB']);
+    filas.push(['Cantidad de integrantes activos en cada club.']);
     filas.push(['Club', 'Integrantes']);
     (r.integrantes_por_club || []).forEach(f => filas.push([f.club, f.cantidad_integrantes]));
     filas.push([]);
 
     // ---- Juego más reservado ----
+    // La fila con más reservas se marca con ⭐ (Excel no soporta
+    // colorear celdas fácilmente con esta librería gratuita).
     if ((r.juego_mas_reservado || []).length) {
         filas.push(['JUEGO MÁS RESERVADO (ZONA JAGUAR)']);
+        filas.push(['Los juegos de la Zona Jaguar más solicitados. ⭐ = el más reservado.']);
         filas.push(['Juego', 'Total reservas']);
-        r.juego_mas_reservado.forEach(f => filas.push([f.juego, f.total_reservas]));
+        r.juego_mas_reservado.forEach((f, idx) =>
+            filas.push([idx === 0 ? `⭐ ${f.juego}` : f.juego, f.total_reservas]));
         filas.push([]);
     }
 
     // ---- Día más transitado ----
     filas.push(['DÍA MÁS TRANSITADO']);
+    filas.push(['Día de la semana con más reservas. ⭐ = el día más transitado.']);
     filas.push(['Día', 'Total reservas']);
-    (r.dia_mas_transitado || []).forEach(f => filas.push([f.dia, f.total_reservas]));
+    (r.dia_mas_transitado || []).forEach((f, idx) =>
+        filas.push([idx === 0 ? `⭐ ${f.dia}` : f.dia, f.total_reservas]));
     filas.push([]);
 
     // ---- Hora más transitada ----
     filas.push(['HORA MÁS TRANSITADA']);
+    filas.push(['Hora del día con más reservas. ⭐ = la hora más transitada.']);
     filas.push(['Hora', 'Total reservas']);
-    (r.hora_mas_transitada || []).forEach(f =>
-        filas.push([String(f.hora).substring(0, 5), f.total_reservas]));
+    (r.hora_mas_transitada || []).forEach((f, idx) =>
+        filas.push([idx === 0 ? `⭐ ${String(f.hora).substring(0, 5)}` : String(f.hora).substring(0, 5), f.total_reservas]));
 
     const wb = XLSX.utils.book_new();
     const hoja = XLSX.utils.aoa_to_sheet(filas);
