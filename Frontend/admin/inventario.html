@@ -630,13 +630,18 @@
         <label>Contraseña temporal</label>
         <input type="password" id="nuevo-admin-password">
 
+        <p
+            id="nuevo-admin-error"
+            class="modal-jaguar-error"
+            hidden
+        ></p>
+
         <div class="modal-jaguar-acciones">
             <button type="button" class="btn-secundario" onclick="cerrarModalPerfilAdmin('modal-crear-admin')">Cancelar</button>
             <button type="button" class="btn-primario" onclick="guardarNuevoAdmin()">Crear</button>
         </div>
     </div>
 </div>
-
 
 <!-- MODAL: CONFIRMACIÓN GENÉRICA -->
 <div class="modal-jaguar" id="modal-confirmar">

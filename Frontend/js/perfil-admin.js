@@ -65,7 +65,39 @@ function abrirModalCrearAdmin() {
     document.getElementById('nuevo-admin-correo').value = '';
     document.getElementById('nuevo-admin-password').value = '';
 
+    ocultarErrorNuevoAdmin();
+
     abrirModalPerfilAdmin('modal-crear-admin');
+}
+
+function mostrarErrorNuevoAdmin(mensaje, esDeCorreo = false) {
+
+    const error = document.getElementById('nuevo-admin-error');
+    const campoCorreo = document.getElementById('nuevo-admin-correo');
+
+    if (error) {
+        error.textContent = mensaje;
+        error.hidden = false;
+    }
+
+    if (campoCorreo) {
+        campoCorreo.classList.toggle('input-error', esDeCorreo);
+    }
+}
+
+function ocultarErrorNuevoAdmin() {
+
+    const error = document.getElementById('nuevo-admin-error');
+    const campoCorreo = document.getElementById('nuevo-admin-correo');
+
+    if (error) {
+        error.textContent = '';
+        error.hidden = true;
+    }
+
+    if (campoCorreo) {
+        campoCorreo.classList.remove('input-error');
+    }
 }
 
 
@@ -169,12 +201,12 @@ async function guardarNuevoAdmin() {
     const contrasena = document.getElementById('nuevo-admin-password').value;
 
     if (!nombre || !correo || !contrasena) {
-        mostrarToast('Debe completar todos los campos.', 'danger');
+        mostrarErrorNuevoAdmin('Debe completar todos los campos.');
         return;
     }
 
     if (contrasena.length < 8) {
-        mostrarToast('La contraseña debe tener al menos 8 caracteres.', 'danger');
+        mostrarErrorNuevoAdmin('La contraseña debe tener al menos 8 caracteres.');
         return;
     }
 
@@ -190,9 +222,22 @@ async function guardarNuevoAdmin() {
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-            mostrarToast(data.mensaje || 'No se pudo crear el administrador.', 'danger');
+
+            // Se resalta el campo de correo cuando el problema
+            // es sobre el correo (dominio inválido o duplicado)
+            const esErrorDeCorreo =
+                res.status === 409 ||
+                (data.mensaje || '').toLowerCase().includes('correo');
+
+            mostrarErrorNuevoAdmin(
+                data.mensaje || 'No se pudo crear el administrador.',
+                esErrorDeCorreo
+            );
+
             return;
         }
+
+        ocultarErrorNuevoAdmin();
 
         mostrarToast('Administrador creado correctamente.', 'success');
         cerrarModalPerfilAdmin('modal-crear-admin');
@@ -204,7 +249,7 @@ async function guardarNuevoAdmin() {
     } catch (error) {
 
         console.error(error);
-        mostrarToast('No se pudo conectar con el servidor.', 'danger');
+        mostrarErrorNuevoAdmin('No se pudo conectar con el servidor.');
     }
 }
 
