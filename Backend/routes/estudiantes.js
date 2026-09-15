@@ -1,775 +1,615 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const multer = require("multer");
-const XLSX = require("xlsx");
-const db = require("../db");
+const bcrypt = require('bcryptjs');
+const db = require('../db');
 
-const upload = multer({
-    dest: "uploads/"
-});
+const {
+    requiereSesion,
+    requiereAdmin,
+    requiereSuperAdmin,
+    generarTokenSesion
+} = require('../middlewares/sesion');
 
-// =======================================
-// Middlewares de ayuda (sesión / rol admin)
-// =======================================
+// Dominio institucional permitido para el correo
+// de los administradores.
+const DOMINIO_ADMIN_PERMITIDO = "@unitec.edu";
 
-function requiereSesion(req, res, next) {
-    if (!req.session.usuario) {
-        return res.status(401).json({
-            ok: false,
-            mensaje: "Debe iniciar sesión."
-        });
-    }
-    next();
+function correoTieneDominioValido(correo) {
+    return correo.toLowerCase().endsWith(DOMINIO_ADMIN_PERMITIDO);
 }
 
-function requiereAdmin(req, res, next) {
-    if (req.session.usuario.rol !== "admin") {
-        return res.status(403).json({
-            ok: false,
-            mensaje: "No tiene permisos."
-        });
-    }
-    next();
-}
 
-function requiereSuperAdmin(req, res, next) {
-    if (
-        req.session.usuario.rol !== "admin" ||
-        !req.session.usuario.es_superadmin
-    ) {
-        return res.status(403).json({
-            ok: false,
-            mensaje: "Solo el administrador principal puede realizar esta acción."
-        });
-    }
-    next();
-}
-
-// ========================================
-// HELPERS DE PERIODOS
-// ========================================
-
-function formatearFecha(fecha) {
-
-    const anio = fecha.getFullYear();
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-    const dia = String(fecha.getDate()).padStart(2, '0');
-
-    return `${anio}-${mes}-${dia}`;
-}
-
-function construirNombrePeriodo(fecha) {
-
-    const anio = fecha.getFullYear();
-    const mes = fecha.getMonth() + 1;
-
-    let trimestre;
-
-    if (mes >= 1 && mes <= 3) {
-        trimestre = 1;
-    } else if (mes >= 4 && mes <= 6) {
-        trimestre = 2;
-    } else if (mes >= 7 && mes <= 9) {
-        trimestre = 3;
-    } else {
-        trimestre = 4;
-    }
-
-    return `${anio}-T${trimestre}`;
-}
-
-async function crearNuevoPeriodo() {
-
-    const fechaInicio = new Date();
-
-    const fechaFin = new Date(fechaInicio);
-    fechaFin.setMonth(fechaFin.getMonth() + 3);
-    fechaFin.setDate(fechaFin.getDate() - 1); // Para que termine un día antes del siguiente trimestre
-
-    const nombre = construirNombrePeriodo(fechaInicio);
-
-    const [resultado] = await db.query(
-
-        `INSERT INTO periodo_academico (nombre, fecha_inicio, fecha_fin, estado)
-         VALUES (?, ?, ?, 'Activo')`,
-
-        [
-            nombre,
-            formatearFecha(fechaInicio),
-            formatearFecha(fechaFin)
-        ]
-
-    );
-
-    return {
-        id_periodo: resultado.insertId,
-        nombre,
-        fecha_inicio: formatearFecha(fechaInicio),
-        fecha_fin: formatearFecha(fechaFin),
-        estado: 'Activo'
-    };
-}
-
-async function obtenerPeriodoActivo() {
-
-    const [rows] = await db.query(
-
-        `SELECT id_periodo
-         FROM periodo_academico
-         WHERE estado = 'Activo'
-         LIMIT 1`
-
-    );
-
-    return rows.length > 0 ? rows[0].id_periodo : null;
-
-}
-
-// Devuelve el estado ('Activo' / 'Finalizado') de un período específico,
-// o null si el período no existe.
-async function obtenerEstadoPeriodo(id_periodo) {
-
-    const [rows] = await db.query(
-
-        `SELECT estado
-         FROM periodo_academico
-         WHERE id_periodo = ?`,
-
-        [id_periodo]
-
-    );
-
-    return rows.length > 0 ? rows[0].estado : null;
-
-}
-
-// ========================================
-// SUBIR EXCEL DE ESTUDIANTES (por periodo)
-// ========================================
-
-router.post("/estudiantes/subir", requiereSesion, requiereSuperAdmin, upload.single("archivo"), async (req, res) => {
+// ===============================
+// LOGIN ADMIN
+// ===============================
+router.post('/login/admin', async (req, res) => {
 
     try {
 
-        if (!req.file) {
+        const { correo, contrasena } = req.body;
 
-            return res.status(400).json({
+        // El correo nunca distingue mayúsculas de minúsculas
+        const [rows] = await db.query(
+            'SELECT * FROM administradores WHERE LOWER(correo) = ?',
+            [String(correo || '').trim().toLowerCase()]
+        );
+
+        if (rows.length === 0) {
+            return res.status(401).json({
                 ok: false,
-                mensaje: "No se recibió ningún archivo"
+                mensaje: 'Correo o contraseña incorrectos'
             });
-
         }
 
-        let id_periodo = req.body.id_periodo;
+        const admin = rows[0];
 
-        if (!id_periodo) {
-            id_periodo = await obtenerPeriodoActivo();
-        }
+        const coincide = await bcrypt.compare(contrasena, admin.contrasena);
 
-        if (!id_periodo) {
-
-            return res.status(400).json({
+        if (!coincide) {
+            return res.status(401).json({
                 ok: false,
-                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+                mensaje: 'Correo o contraseña incorrectos'
             });
-
         }
 
-        const workbook = XLSX.readFile(req.file.path);
+        req.session.usuario = {
+            id: admin.id_admin,
+            rol: 'admin',
+            nombre: admin.nombre,
+            correo: admin.correo,
+            es_superadmin: Boolean(admin.es_superadmin)
+        };
 
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-        const datos = XLSX.utils.sheet_to_json(sheet, {
-            header: 1
-        });
-
-        const idsEstudiantesExcel = [];
-
-        for (let i = 1; i < datos.length; i++) {
-
-            const fila = datos[i];
-
-            const cuenta = fila[0];
-            const nombre = fila[1];
-            const dni = fila[2];
-            const correo = fila[30];
-            const carrera = fila[7];
-            const tipo_ingreso = fila[10];
-
-            if (!cuenta || !nombre || !dni)
-                continue;
-
-            // 1. Upsert en Estudiantes (datos fijos del alumno)
-
-            const [existeEstudiante] = await db.query(
-
-                "SELECT id_estudiante FROM estudiantes WHERE cuenta=?",
-                [cuenta]
-
-            );
-
-            let id_estudiante;
-
-           if (existeEstudiante.length > 0) {
-
-    id_estudiante = existeEstudiante[0].id_estudiante;
-
-    await db.query(
-
-        `UPDATE estudiantes
-         SET nombre = ?,
-             dni = ?,
-             correo = ?,
-             activo = 1
-         WHERE id_estudiante = ?`,
-
-        [
-            nombre,
-            dni,
-            correo,
-            id_estudiante
-        ]
-
-    );
-
-} else {
-
-                const [resultado] = await db.query(
-
-                    `INSERT INTO estudiantes
-                    (nombre,dni,cuenta,correo,activo)
-                    VALUES (?,?,?,?,1)`,
-
-                    [nombre, dni, cuenta, correo]
-
-                );
-
-                id_estudiante = resultado.insertId;
-
-            }
-
-            // 2. Upsert en Estudiante_Periodo (datos del alumno para ese periodo)
-
-            const [existePeriodo] = await db.query(
-
-                `SELECT id FROM estudiante_periodo
-                 WHERE id_estudiante=? AND id_periodo=?`,
-
-                [id_estudiante, id_periodo]
-
-            );
-
-            if (existePeriodo.length > 0) {
-
-                await db.query(
-
-                    `UPDATE estudiante_periodo
-                     SET carrera=?,
-                         tipo_ingreso=?,
-                         activo=1
-                     WHERE id=?`,
-
-                    [carrera, tipo_ingreso, existePeriodo[0].id]
-
-                );
-
-            } else {
-
-                await db.query(
-
-                    `INSERT INTO estudiante_periodo
-                    (id_estudiante,id_periodo,carrera,tipo_ingreso,activo)
-                    VALUES (?,?,?,?,1)`,
-
-                    [id_estudiante, id_periodo, carrera, tipo_ingreso]
-
-                );
-
-            }
-
-            idsEstudiantesExcel.push(id_estudiante);
-
-        }
-
-        if (idsEstudiantesExcel.length > 0) {
-
-            const placeholders = idsEstudiantesExcel.map(() => "?").join(",");
-
-            await db.query(
-
-                `UPDATE estudiante_periodo
-                 SET activo=0
-                 WHERE id_periodo=? AND id_estudiante NOT IN (${placeholders})`,
-
-                [id_periodo, ...idsEstudiantesExcel]
-
-            );
-
-        }
+        // Genera el token de sesión única y lo guarda
+        // en la sesión del navegador
+        req.session.token = await generarTokenSesion('admin', admin.id_admin);
 
         res.json({
-
             ok: true,
-            id_periodo,
-            estudiantesProcesados: idsEstudiantesExcel.length
+            rol: 'admin',
+            usuario: req.session.usuario,
+            redirigir: 'Frontend/admin/dashboard.html'
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor'
+        });
+
+    }
+
+});
+
+
+// ===============================
+// LOGIN GUARDIA
+// ===============================
+router.post('/login/guardia', async (req, res) => {
+
+    try {
+
+        const { usuario, contrasena } = req.body;
+
+        const [rows] = await db.query(
+            'SELECT * FROM guardia WHERE usuario = ?',
+            [usuario]
+        );
+
+        if (rows.length === 0) {
+            return res.status(401).json({
+                ok: false,
+                mensaje: 'Usuario o contraseña incorrectos'
+            });
+        }
+
+        const guardia = rows[0];
+
+        const coincide = await bcrypt.compare(contrasena, guardia.contrasena);
+
+        if (!coincide) {
+
+            return res.status(401).json({
+                ok: false,
+                mensaje: 'Usuario o contraseña incorrectos'
+            });
+
+        }
+
+        req.session.usuario = {
+            id: guardia.id_guardia,
+            rol: 'guardia',
+            nombre: guardia.nombre,
+            usuario: guardia.usuario
+        };
+
+        req.session.token = await generarTokenSesion('guardia', guardia.id_guardia);
+
+        res.json({
+            ok: true,
+            rol: 'guardia',
+            usuario: req.session.usuario,
+            redirigir: 'Frontend/guardia/panel.html'
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor'
+        });
+
+    }
+
+});
+
+
+// ===============================
+// LOGIN ESTUDIANTE
+// ===============================
+router.post('/login/estudiante', async (req, res) => {
+
+    try {
+
+        const { cuenta, dni } = req.body;
+
+        const [rows] = await db.query(
+            'SELECT * FROM estudiantes WHERE cuenta = ?',
+            [cuenta]
+        );
+
+        if (rows.length === 0) {
+
+            return res.status(401).json({
+                ok: false,
+                mensaje: 'Cuenta o DNI incorrectos'
+            });
+
+        }
+
+        const estudiante = rows[0];
+
+        if (!estudiante.activo) {
+
+            return res.status(403).json({
+                ok: false,
+                mensaje: 'El estudiante está inactivo'
+            });
+
+        }
+
+      if (!estudiante.dni.endsWith(dni)) {
+
+            return res.status(401).json({
+                ok: false,
+                mensaje: 'Cuenta o DNI incorrectos'
+            });
+
+        }
+
+        req.session.usuario = {
+            id: estudiante.id_estudiante,
+            rol: 'estudiante',
+            nombre: estudiante.nombre,
+            cuenta: estudiante.cuenta,
+            correo: estudiante.correo
+        };
+
+        req.session.token = await generarTokenSesion('estudiante', estudiante.id_estudiante);
+
+        res.json({
+            ok: true,
+            rol: 'estudiante',
+            usuario: req.session.usuario,
+            redirigir:  'Frontend/usuario/inicio.html'
 
         });
 
     } catch (error) {
 
-        console.log(error);
+        console.error(error);
 
         res.status(500).json({
-
             ok: false,
-            mensaje: "Error del servidor."
-
+            mensaje: 'Error del servidor'
         });
 
     }
 
 });
 
-// ========================================
-// OBTENER PERIODOS ACADÉMICOS
-// ========================================
 
-router.get("/estudiantes/periodos", requiereSesion, requiereAdmin, async (req, res) => {
+// ===============================
+// VER SESION
+// ===============================
+router.get('/session', requiereSesion, (req, res) => {
+
+    res.json({
+        ok: true,
+        usuario: req.session.usuario
+    });
+
+});
+
+
+// ===============================
+// LOGOUT
+// ===============================
+router.post('/logout', async (req, res) => {
+
+    try {
+
+        // Limpia también el token en la base de datos,
+        // para que un logout explícito no deje un token
+        // "huérfano" que ya no corresponde a ninguna sesión.
+        if (req.session.usuario) {
+            await db.query(
+                `DELETE FROM sesiones_activas
+                 WHERE rol = ? AND id_usuario = ?`,
+                [req.session.usuario.rol, req.session.usuario.id]
+            );
+        }
+
+    } catch (error) {
+        console.error('ERROR LIMPIANDO TOKEN DE SESIÓN:', error);
+    }
+
+    req.session.destroy(() => {
+
+        res.json({
+            ok: true,
+            mensaje: 'Sesión cerrada'
+        });
+
+    });
+
+});
+
+
+// ===============================
+// EDITAR PERFIL PROPIO (nombre / correo)
+// PUT /api/auth/perfil
+// ===============================
+router.put('/perfil', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const { nombre, correo } = req.body;
+
+        if (!nombre || !nombre.trim()) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'Debe ingresar un nombre.'
+            });
+        }
+
+        if (!correo || !correo.trim()) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'Debe ingresar un correo.'
+            });
+        }
+
+        // El correo nunca distingue mayúsculas de minúsculas,
+        // así que se normaliza ANTES de comparar y de guardar.
+        const correoNormalizado = correo.trim().toLowerCase();
+
+        if (!correoTieneDominioValido(correoNormalizado)) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: `El correo debe pertenecer al dominio ${DOMINIO_ADMIN_PERMITIDO}.`
+            });
+        }
+
+        const id_admin = req.session.usuario.id;
+
+        // Evitar que el correo choque con otro admin
+        const [existente] = await db.query(
+            `SELECT id_admin FROM administradores
+             WHERE LOWER(correo) = ? AND id_admin != ?`,
+            [correoNormalizado, id_admin]
+        );
+
+        if (existente.length > 0) {
+            return res.status(409).json({
+                ok: false,
+                mensaje: 'Ese correo ya está en uso por otro administrador.'
+            });
+        }
+
+        await db.query(
+            `UPDATE administradores
+             SET nombre = ?, correo = ?
+             WHERE id_admin = ?`,
+            [nombre.trim(), correoNormalizado, id_admin]
+        );
+
+        // Actualizar la sesión activa con los nuevos datos
+        req.session.usuario.nombre = nombre.trim();
+        req.session.usuario.correo = correoNormalizado;
+
+        res.json({
+            ok: true,
+            mensaje: 'Perfil actualizado correctamente.',
+            usuario: req.session.usuario
+        });
+
+    } catch (error) {
+
+        console.error('ERROR ACTUALIZANDO PERFIL:', error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor.'
+        });
+
+    }
+
+});
+
+
+// ===============================
+// CAMBIAR CONTRASEÑA PROPIA
+// PUT /api/auth/password
+// ===============================
+router.put('/password', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const { contrasena_actual, contrasena_nueva } = req.body;
+
+        if (!contrasena_actual || !contrasena_nueva) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'Debe indicar la contraseña actual y la nueva.'
+            });
+        }
+
+        if (contrasena_nueva.length < 8) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'La nueva contraseña debe tener al menos 8 caracteres.'
+            });
+        }
+
+        const id_admin = req.session.usuario.id;
+
+        const [rows] = await db.query(
+            'SELECT contrasena FROM administradores WHERE id_admin = ?',
+            [id_admin]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: 'Administrador no encontrado.'
+            });
+        }
+
+        const coincide = await bcrypt.compare(
+            contrasena_actual,
+            rows[0].contrasena
+        );
+
+        if (!coincide) {
+            return res.status(401).json({
+                ok: false,
+                mensaje: 'La contraseña actual no es correcta.'
+            });
+        }
+
+        const nuevoHash = await bcrypt.hash(contrasena_nueva, 10);
+
+        await db.query(
+            'UPDATE administradores SET contrasena = ? WHERE id_admin = ?',
+            [nuevoHash, id_admin]
+        );
+
+        res.json({
+            ok: true,
+            mensaje: 'Contraseña actualizada correctamente.'
+        });
+
+    } catch (error) {
+
+        console.error('ERROR CAMBIANDO CONTRASEÑA:', error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor.'
+        });
+
+    }
+
+});
+
+
+// ===============================
+// CREAR NUEVO ADMINISTRADOR
+// Solo el superadmin puede hacerlo
+// POST /api/auth/crear-admin
+// ===============================
+router.post('/crear-admin', requiereSesion, requiereSuperAdmin, async (req, res) => {
+
+    try {
+
+        const { nombre, correo, contrasena } = req.body;
+
+        if (!nombre || !nombre.trim()) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'Debe ingresar un nombre.'
+            });
+        }
+
+        if (!correo || !correo.trim()) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'Debe ingresar un correo.'
+            });
+        }
+
+        if (!contrasena || contrasena.length < 8) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'La contraseña debe tener al menos 8 caracteres.'
+            });
+        }
+
+        // El correo nunca distingue mayúsculas de minúsculas,
+        // así que se normaliza ANTES de comparar y de guardar.
+        const correoNormalizado = correo.trim().toLowerCase();
+
+        if (!correoTieneDominioValido(correoNormalizado)) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: `El correo debe pertenecer al dominio ${DOMINIO_ADMIN_PERMITIDO}.`
+            });
+        }
+
+        const [existente] = await db.query(
+            'SELECT id_admin FROM administradores WHERE LOWER(correo) = ?',
+            [correoNormalizado]
+        );
+
+        if (existente.length > 0) {
+            return res.status(409).json({
+                ok: false,
+                mensaje: 'Ya existe un administrador con ese correo.'
+            });
+        }
+
+        const hash = await bcrypt.hash(contrasena, 10);
+
+        // El nuevo admin siempre se crea como NO superadmin.
+        // Solo se otorga ese privilegio manualmente en la base de datos.
+        const [resultado] = await db.query(
+            `INSERT INTO administradores (nombre, correo, contrasena, es_superadmin)
+             VALUES (?, ?, ?, 0)`,
+            [nombre.trim(), correoNormalizado, hash]
+        );
+
+        res.json({
+            ok: true,
+            mensaje: 'Administrador creado correctamente.',
+            id_admin: resultado.insertId
+        });
+
+    } catch (error) {
+
+        console.error('ERROR CREANDO ADMINISTRADOR:', error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: 'Error del servidor.'
+        });
+
+    }
+
+});
+
+// ===============================
+// LISTAR ADMINISTRADORES
+// Solo el superadmin puede verlos
+// GET /api/auth/administradores
+// ===============================
+router.get('/administradores', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
     try {
 
         const [rows] = await db.query(
-
-            `SELECT id_periodo, nombre, fecha_inicio, fecha_fin, estado
-             FROM periodo_academico
-             ORDER BY fecha_inicio DESC, id_periodo DESC`
-
-        );
-
-        const [activoRows] = await db.query(
-
-            `SELECT id_periodo
-             FROM periodo_academico
-             WHERE estado='Activo'
-             LIMIT 1`
-
+            `SELECT id_admin, nombre, correo, es_superadmin
+             FROM administradores
+             ORDER BY nombre ASC`
         );
 
         res.json({
             ok: true,
-            periodos: rows,
-            periodoActivo: activoRows[0]?.id_periodo || null
+            administradores: rows
         });
 
     } catch (error) {
 
-        console.error(error);
+        console.error('ERROR LISTANDO ADMINISTRADORES:', error);
 
         res.status(500).json({
             ok: false,
-            mensaje: "Error del servidor."
+            mensaje: 'Error del servidor.'
         });
-
     }
-
 });
 
-// ========================================
-// OBTENER TODOS LOS ESTUDIANTES (de un periodo)
-// ========================================
 
-router.get("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
+// ===============================
+// ELIMINAR ADMINISTRADOR
+// Solo el superadmin puede hacerlo. No se puede eliminar
+// a sí mismo ni a otro superadmin (evita dejar el sistema
+// sin administrador principal).
+// DELETE /api/auth/administradores/:id
+// ===============================
+router.delete('/administradores/:id', requiereSesion, requiereSuperAdmin, async (req, res) => {
 
     try {
 
-        let id_periodo = req.query.id_periodo;
+        const id_admin = Number(req.params.id);
 
-        const mostrarTodos =
-            req.query.todos === '1' ||
-            req.query.todos === 'true' ||
-            id_periodo === 'todos' ||
-            id_periodo === 'all';
-
-        if (!id_periodo && !mostrarTodos) {
-            id_periodo = await obtenerPeriodoActivo();
-        }
-
-        if (!id_periodo && !mostrarTodos) {
-
+        if (!id_admin) {
             return res.status(400).json({
                 ok: false,
-                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+                mensaje: 'ID de administrador inválido.'
             });
-
         }
 
-        let rows;
-
-        if (mostrarTodos) {
-
-            [rows] = await db.query(
-
-                `SELECT
-                    e.id_estudiante,
-                    e.cuenta,
-                    e.nombre,
-                    e.correo,
-                    ep.carrera,
-                    ep.tipo_ingreso,
-                    ep.activo,
-                    ep.id_periodo,
-                    pa.nombre AS periodo_nombre
-                FROM estudiantes e
-                INNER JOIN estudiante_periodo ep
-                    ON ep.id_estudiante = e.id_estudiante
-                INNER JOIN periodo_academico pa
-                    ON pa.id_periodo = ep.id_periodo
-                ORDER BY pa.fecha_inicio DESC, e.nombre`
-
-            );
-
-        } else {
-
-            [rows] = await db.query(
-
-                `SELECT
-                    e.id_estudiante,
-                    e.cuenta,
-                    e.nombre,
-                    e.correo,
-                    ep.carrera,
-                    ep.tipo_ingreso,
-                    ep.activo
-                FROM estudiantes e
-                INNER JOIN estudiante_periodo ep
-                    ON ep.id_estudiante = e.id_estudiante
-                WHERE ep.id_periodo = ?
-                ORDER BY e.nombre`,
-
-                [id_periodo]
-
-            );
-
+        if (id_admin === req.session.usuario.id) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'No puede eliminarse a sí mismo.'
+            });
         }
+
+        const [rows] = await db.query(
+            'SELECT id_admin, es_superadmin FROM administradores WHERE id_admin = ?',
+            [id_admin]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: 'Administrador no encontrado.'
+            });
+        }
+
+        if (rows[0].es_superadmin) {
+            return res.status(400).json({
+                ok: false,
+                mensaje: 'No se puede eliminar a un administrador principal.'
+            });
+        }
+
+        await db.query(
+            'DELETE FROM administradores WHERE id_admin = ?',
+            [id_admin]
+        );
 
         res.json({
             ok: true,
-            id_periodo,
-            estudiantes: rows
+            mensaje: 'Administrador eliminado correctamente.'
         });
 
     } catch (error) {
 
-        console.error(error);
+        console.error('ERROR ELIMINANDO ADMINISTRADOR:', error);
 
         res.status(500).json({
             ok: false,
-            mensaje: "Error del servidor."
+            mensaje: 'Error del servidor.'
         });
-
     }
-
-});
-
-// ========================================
-// CERRAR TRIMESTRE
-// ========================================
-
-router.put(
-    "/estudiantes/cerrar-trimestre",
-    requiereSesion,
-    requiereSuperAdmin,
-    async (req, res) => {
-
-        try {
-
-            let id_periodo =
-                req.body.id_periodo;
-
-            if (!id_periodo) {
-                id_periodo =
-                    await obtenerPeriodoActivo();
-            }
-
-            if (!id_periodo) {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje:
-                        "No hay un periodo académico activo ni se especificó id_periodo"
-                });
-            }
-
-            // 1. Inactivar estudiantes en ese período
-            const [resultado] =
-                await db.query(
-                    `UPDATE estudiante_periodo
-                     SET activo = 0
-                     WHERE id_periodo = ?`,
-                    [id_periodo]
-                );
-
-            // 2. Inactivar los mismos estudiantes
-            // en la tabla general
-            await db.query(
-                `UPDATE estudiantes e
-                 INNER JOIN estudiante_periodo ep
-                    ON ep.id_estudiante =
-                       e.id_estudiante
-                 SET e.activo = 0
-                 WHERE ep.id_periodo = ?`,
-                [id_periodo]
-            );
-
-            // 3. Finalizar período
-            await db.query(
-                `UPDATE periodo_academico
-                 SET estado = 'Finalizado'
-                 WHERE id_periodo = ?`,
-                [id_periodo]
-            );
-
-            // 4. Crear nuevo período activo
-            const periodoNuevo =
-                await crearNuevoPeriodo();
-
-            return res.json({
-                ok: true,
-                mensaje:
-                    "Trimestre cerrado correctamente. Se inició un nuevo periodo académico.",
-                id_periodo,
-                periodo_nuevo:
-                    periodoNuevo,
-                estudiantesActualizados:
-                    resultado.affectedRows
-            });
-
-        } catch (error) {
-
-            console.error(error);
-
-            return res.status(500).json({
-                ok: false,
-                mensaje: "Error del servidor."
-            });
-        }
-    }
-);
-
-// ========================================
-// ACTIVAR / INACTIVAR ESTUDIANTE
-// ========================================
-
-router.put(
-    "/estudiantes/:id_estudiante/estado",
-    requiereSesion,
-    requiereAdmin,
-    async (req, res) => {
-
-        try {
-
-            // Obtener el estudiante y el periodo
-            const id_estudiante = req.params.id_estudiante;
-
-            let id_periodo =
-                req.body.id_periodo ||
-                req.query.id_periodo;
-
-            // Estado recibido:
-            // 1 = Activo
-            // 0 = Inactivo
-            const activo = Number(req.body.activo);
-
-            // Si no se envía un periodo, usar el periodo activo
-            if (!id_periodo) {
-                id_periodo =
-                    await obtenerPeriodoActivo();
-            }
-
-            if (!id_periodo) {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje:
-                        "No hay un periodo académico activo ni se especificó id_periodo"
-                });
-            }
-
-            // =======================================
-            // Regla: no se puede modificar el estado
-            // de un estudiante en un período que ya
-            // fue cerrado (Finalizado). Ese registro
-            // es histórico y no debe cambiar.
-            // =======================================
-
-            const estadoPeriodo =
-                await obtenerEstadoPeriodo(id_periodo);
-
-            if (!estadoPeriodo) {
-                return res.status(404).json({
-                    ok: false,
-                    mensaje: "El periodo indicado no existe."
-                });
-            }
-
-            if (estadoPeriodo !== "Activo") {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje:
-                        "No se puede modificar el estado de un estudiante en un periodo ya finalizado."
-                });
-            }
-
-            // Validar que únicamente se permita 0 o 1
-            if (![0, 1].includes(activo)) {
-                return res.status(400).json({
-                    ok: false,
-                    mensaje:
-                        "El estado enviado no es válido."
-                });
-            }
-
-            // Actualizar el estado del estudiante en el periodo
-            const [resultado] =
-                await db.query(
-
-                    `UPDATE estudiante_periodo
-                     SET activo = ?
-                     WHERE id_estudiante = ?
-                     AND id_periodo = ?`,
-
-                    [
-                        activo,
-                        id_estudiante,
-                        id_periodo
-                    ]
-                );
-
-            if (resultado.affectedRows === 0) {
-                return res.status(404).json({
-                    ok: false,
-                    mensaje:
-                        "No se encontró el estudiante en el periodo seleccionado."
-                });
-            }
-
-            // Actualizar también el estado general del estudiante
-            // para permitir o bloquear el inicio de sesión
-            await db.query(
-
-                `UPDATE estudiantes
-                 SET activo = ?
-                 WHERE id_estudiante = ?`,
-
-                [
-                    activo,
-                    id_estudiante
-                ]
-            );
-
-            // Respuesta exitosa
-            return res.json({
-                ok: true,
-                mensaje:
-                    activo === 1
-                        ? "Estudiante activado correctamente."
-                        : "Estudiante inactivado correctamente.",
-                activo,
-                id_estudiante,
-                id_periodo
-            });
-
-        } catch (error) {
-
-            console.error(error);
-
-            return res.status(500).json({
-                ok: false,
-                mensaje: "Error del servidor."
-            });
-        }
-    }
-);
-
-// ========================================
-// ESTADISTICAS (de un periodo)
-// ========================================
-
-router.get("/estudiantes/resumen", requiereSesion, requiereAdmin, async (req, res) => {
-
-    try {
-
-        let id_periodo = req.query.id_periodo;
-
-        if (!id_periodo) {
-            id_periodo = await obtenerPeriodoActivo();
-        }
-
-        if (!id_periodo) {
-
-            return res.status(400).json({
-                ok: false,
-                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
-            });
-
-        }
-
-        const [[total]] = await db.query(
-
-            `SELECT COUNT(*) total
-             FROM estudiante_periodo
-             WHERE id_periodo=?`,
-
-            [id_periodo]
-
-        );
-
-        const [[activos]] = await db.query(
-
-            `SELECT COUNT(*) activos
-             FROM estudiante_periodo
-             WHERE id_periodo=? AND activo=1`,
-
-            [id_periodo]
-
-        );
-
-        const [[inactivos]] = await db.query(
-
-            `SELECT COUNT(*) inactivos
-             FROM estudiante_periodo
-             WHERE id_periodo=? AND activo=0`,
-
-            [id_periodo]
-
-        );
-
-        res.json({
-
-            ok:true,
-
-            id_periodo,
-
-            total: total.total,
-
-            activos: activos.activos,
-
-            inactivos: inactivos.inactivos
-
-        });
-
-    } catch(error){
-
-        console.log(error);
-
-        res.status(500).json({
-
-            ok:false,
-
-            mensaje: "Error del servidor."
-
-        });
-
-    }
-
 });
 
 

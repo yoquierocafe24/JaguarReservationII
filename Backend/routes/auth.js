@@ -20,9 +20,10 @@ router.post('/login/admin', async (req, res) => {
 
         const { correo, contrasena } = req.body;
 
+        // El correo nunca distingue mayúsculas de minúsculas
         const [rows] = await db.query(
-            'SELECT * FROM administradores WHERE correo = ?',
-            [correo]
+            'SELECT * FROM administradores WHERE LOWER(correo) = ?',
+            [String(correo || '').trim().toLowerCase()]
         );
 
         if (rows.length === 0) {
@@ -286,13 +287,17 @@ router.put('/perfil', requiereSesion, requiereAdmin, async (req, res) => {
             });
         }
 
+        // El correo nunca distingue mayúsculas de minúsculas,
+        // así que se normaliza ANTES de comparar y de guardar.
+        const correoNormalizado = correo.trim().toLowerCase();
+
         const id_admin = req.session.usuario.id;
 
         // Evitar que el correo choque con otro admin
         const [existente] = await db.query(
             `SELECT id_admin FROM administradores
-             WHERE correo = ? AND id_admin != ?`,
-            [correo.trim(), id_admin]
+             WHERE LOWER(correo) = ? AND id_admin != ?`,
+            [correoNormalizado, id_admin]
         );
 
         if (existente.length > 0) {
@@ -306,12 +311,12 @@ router.put('/perfil', requiereSesion, requiereAdmin, async (req, res) => {
             `UPDATE administradores
              SET nombre = ?, correo = ?
              WHERE id_admin = ?`,
-            [nombre.trim(), correo.trim(), id_admin]
+            [nombre.trim(), correoNormalizado, id_admin]
         );
 
         // Actualizar la sesión activa con los nuevos datos
         req.session.usuario.nombre = nombre.trim();
-        req.session.usuario.correo = correo.trim();
+        req.session.usuario.correo = correoNormalizado;
 
         res.json({
             ok: true,
@@ -441,9 +446,13 @@ router.post('/crear-admin', requiereSesion, requiereSuperAdmin, async (req, res)
             });
         }
 
+        // El correo nunca distingue mayúsculas de minúsculas,
+        // así que se normaliza ANTES de comparar y de guardar.
+        const correoNormalizado = correo.trim().toLowerCase();
+
         const [existente] = await db.query(
-            'SELECT id_admin FROM administradores WHERE correo = ?',
-            [correo.trim()]
+            'SELECT id_admin FROM administradores WHERE LOWER(correo) = ?',
+            [correoNormalizado]
         );
 
         if (existente.length > 0) {
@@ -460,7 +469,7 @@ router.post('/crear-admin', requiereSesion, requiereSuperAdmin, async (req, res)
         const [resultado] = await db.query(
             `INSERT INTO administradores (nombre, correo, contrasena, es_superadmin)
              VALUES (?, ?, ?, 0)`,
-            [nombre.trim(), correo.trim(), hash]
+            [nombre.trim(), correoNormalizado, hash]
         );
 
         res.json({

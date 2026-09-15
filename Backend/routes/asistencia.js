@@ -57,6 +57,10 @@ router.get('/', async (req, res) => {
               equipo_integrantes (solo reservas de equipo,
               excluyendo al líder/sublíder que ya cuenta
               como "titular").
+            - Visitantes (acceso libre): vienen directo de
+              asistencia, ya que NO tienen id_reserva (no
+              nacen de una reserva, sino de un ingreso libre
+              registrado por el guardia).
         */
 
         let consulta = `
@@ -306,12 +310,75 @@ router.get('/', async (req, res) => {
                     AND r.estado = 'aprobada'
                     AND r.tipo_reserva = 'equipo'
 
+
+                UNION ALL
+
+
+                /* =====================================
+                   VISITANTES (acceso libre)
+                   No nacen de una reserva (id_reserva es
+                   NULL en la tabla asistencia), por eso no
+                   pueden salir de ningún JOIN con "reservas".
+                   Se toman directo de "asistencia", y como
+                   ya implican que el guardia los dejó pasar,
+                   siempre cuentan como "presente".
+                ===================================== */
+
+                SELECT
+
+                    a.id_reserva,
+
+                    a.id_estudiante,
+
+                    e.nombre AS estudiante_nombre,
+
+                    e.cuenta AS estudiante_cuenta,
+
+                    'visitante' AS tipo,
+
+                    a.fecha_entrada AS fecha,
+
+                    a.hora_entrada AS hora_inicio,
+
+                    a.hora_entrada AS hora_fin,
+
+                    a.id_espacio,
+
+                    es.nombre AS espacio_nombre,
+
+                    a.id_asistencia,
+
+                    a.hora_entrada,
+
+                    g.nombre AS guardia_nombre,
+
+                    'presente' AS estado_asistencia
+
+                FROM asistencia a
+
+                INNER JOIN estudiantes e
+                    ON e.id_estudiante =
+                       a.id_estudiante
+
+                INNER JOIN espacios es
+                    ON es.id_espacio =
+                       a.id_espacio
+
+                LEFT JOIN guardia g
+                    ON g.id_guardia =
+                       a.id_guardia
+
+                WHERE
+                    a.tipo_ingreso = 'libre'
+                    AND a.fecha_entrada = ?
+
             ) AS control
 
             WHERE 1 = 1
         `;
 
         const valores = [
+            fecha,
             fecha,
             fecha,
             fecha
@@ -351,12 +418,22 @@ router.get('/', async (req, res) => {
         }
 
 
-        // Mostrar primero las reservas más tempranas
-        // y dentro de ellas titular antes que los demás
+        // Orden:
+        // 1. Reservas más tempranas primero (los visitantes,
+        //    que no tienen hora_inicio real, se ordenan según
+        //    la hora en que efectivamente entraron).
+        // 2. A igualdad de horario, la reserva más reciente
+        //    primero (código de reserva más alto = reservada
+        //    más tarde). Los visitantes (sin id_reserva) van
+        //    al final de ese empate.
+        // 3. Dentro de una misma reserva: titular primero.
+        // 4. Por último, orden alfabético por nombre.
         consulta += `
 
             ORDER BY
                 control.hora_inicio ASC,
+
+                control.id_reserva DESC,
 
                 CASE
                     WHEN control.tipo = 'titular'
@@ -435,6 +512,12 @@ router.get('/resumen', async (req, res) => {
             agrupado por estado_asistencia para contar
             presentes, pendientes e inasistencias en una
             sola consulta.
+
+            NOTA: los visitantes (acceso libre) NO se incluyen
+            aquí a propósito: "esperados hoy" son personas con
+            reserva aprobada, y un acceso libre no corresponde
+            a ninguna reserva. Si más adelante se quiere sumar
+            a "presentes", avisar para agregar esa rama también.
         */
 
         const [filas] = await db.query(
