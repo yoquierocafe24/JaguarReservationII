@@ -590,7 +590,13 @@ function renderIntegrantes(integrantes) {
         return;
     }
 
+    // Se guarda cada integrante por id para poder mostrar
+    // su nombre en los modales de confirmación al hacer clic.
+    const integrantesPorId = {};
+
     elements.integrantesList.innerHTML = integrantes.map(i => {
+
+        integrantesPorId[i.id] = i;
 
         // =====================================
         // Los 3 botones de acción SIEMPRE se
@@ -649,11 +655,17 @@ function renderIntegrantes(integrantes) {
     }).join('');
 
     elements.integrantesList.querySelectorAll('[data-hacer-lider]').forEach(btn => {
-        btn.addEventListener('click', () => hacerLider(btn.dataset.hacerLider));
+        btn.addEventListener('click', () => {
+            const integrante = integrantesPorId[btn.dataset.hacerLider];
+            solicitarConfirmacionHacerLider(btn.dataset.hacerLider, integrante?.estudiante_nombre);
+        });
     });
 
     elements.integrantesList.querySelectorAll('[data-cambiar-rol]').forEach(btn => {
-        btn.addEventListener('click', () => cambiarRolIntegrante(btn.dataset.cambiarRol, btn.dataset.nuevoRol));
+        btn.addEventListener('click', () => {
+            const integrante = integrantesPorId[btn.dataset.cambiarRol];
+            solicitarConfirmacionCambiarRol(btn.dataset.cambiarRol, btn.dataset.nuevoRol, integrante?.estudiante_nombre);
+        });
     });
 
     elements.integrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
@@ -744,6 +756,17 @@ async function agregarIntegrante() {
     }
 }
 
+function solicitarConfirmacionHacerLider(idIntegrante, nombre) {
+    abrirModalConfirmacion({
+        title: 'Cambiar líder del equipo',
+        message: `¿Deseas convertir a ${nombre || 'este integrante'} en el nuevo líder del equipo? El líder actual pasará a otro rol automáticamente.`,
+        confirmText: 'Hacer líder',
+        onConfirm: async () => {
+            await hacerLider(idIntegrante);
+        }
+    });
+}
+
 async function hacerLider(idIntegrante) {
     try {
         const response = await fetch(`${API_URL}/api/equipos/${state.equipoIdActivo}/lider/${idIntegrante}`, {
@@ -763,6 +786,21 @@ async function hacerLider(idIntegrante) {
         console.error(error);
         setIntegranteFormStatus(error.message || 'Ocurrió un error al cambiar el líder.', true);
     }
+}
+
+function solicitarConfirmacionCambiarRol(idIntegrante, nuevoRol, nombre) {
+
+    const etiquetaRol =
+        nuevoRol === 'sublider' ? 'sublíder' : 'jugador';
+
+    abrirModalConfirmacion({
+        title: 'Cambiar rol',
+        message: `¿Deseas cambiar a ${nombre || 'este integrante'} a ${etiquetaRol}?`,
+        confirmText: 'Cambiar rol',
+        onConfirm: async () => {
+            await cambiarRolIntegrante(idIntegrante, nuevoRol);
+        }
+    });
 }
 
 async function cambiarRolIntegrante(idIntegrante, nuevoRol) {
