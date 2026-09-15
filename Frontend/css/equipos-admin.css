@@ -467,6 +467,12 @@ body.modal-open{
     background: #fdecec;
     color: #93061E;
 }
+
+.action-btn:disabled,
+.action-btn.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
 /* ======================================
    RESPONSIVE
 ====================================== */

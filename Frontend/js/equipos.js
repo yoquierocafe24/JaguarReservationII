@@ -590,39 +590,63 @@ function renderIntegrantes(integrantes) {
         return;
     }
 
-    elements.integrantesList.innerHTML = integrantes.map(i => `
-        <div class="integrante-item">
-            <div class="integrante-info">
-                <span class="integrante-nombre">${escapeHtml(i.estudiante_nombre)}</span>
-                <span class="integrante-cuenta">Cuenta: ${escapeHtml(i.estudiante_cuenta)}</span>
+    elements.integrantesList.innerHTML = integrantes.map(i => {
+
+        // =====================================
+        // Los 3 botones de acción SIEMPRE se
+        // renderizan, en el mismo orden, para
+        // que todas las filas se vean uniformes.
+        // Los que no aplican se deshabilitan en
+        // vez de desaparecer, con un tooltip que
+        // explica por qué.
+        // =====================================
+
+        const esLider = i.rol === 'lider';
+        const esSublider = i.rol === 'sublider';
+        const esJugador = i.rol === 'jugador';
+
+        // Botón 1: "Hacer líder"
+        const botonHacerLider = esLider
+            ? `<button type="button" class="action-btn disabled" disabled title="Ya es el líder de este equipo">Hacer líder</button>`
+            : `<button type="button" class="action-btn" data-hacer-lider="${i.id}" ${i.activo ? '' : 'disabled title="Debe estar activo para ser líder"'}>Hacer líder</button>`;
+
+        // Botón 2: cambia según el rol actual.
+        // Si es líder, se muestra "A jugador" deshabilitado,
+        // porque primero hay que asignarle el liderazgo a otro.
+        let botonCambiarRol;
+
+        if (esJugador) {
+            botonCambiarRol = `<button type="button" class="action-btn secundario" data-cambiar-rol="${i.id}" data-nuevo-rol="sublider" ${i.activo ? '' : 'disabled'}>A sublíder</button>`;
+        } else if (esSublider) {
+            botonCambiarRol = `<button type="button" class="action-btn secundario" data-cambiar-rol="${i.id}" data-nuevo-rol="jugador" ${i.activo ? '' : 'disabled'}>A jugador</button>`;
+        } else {
+            botonCambiarRol = `<button type="button" class="action-btn secundario disabled" disabled title="Debe asignar el liderazgo a otro integrante antes de cambiarlo de rol">A jugador</button>`;
+        }
+
+        // Botón 3: Inactivar / Activar (esto ya era uniforme)
+        const botonEstado = i.activo
+            ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
+            : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`;
+
+        return `
+            <div class="integrante-item">
+                <div class="integrante-info">
+                    <span class="integrante-nombre">${escapeHtml(i.estudiante_nombre)}</span>
+                    <span class="integrante-cuenta">Cuenta: ${escapeHtml(i.estudiante_cuenta)}</span>
+                </div>
+
+                <span class="chip ${i.rol}">${i.rol}</span>
+                <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
+
+                <div class="integrante-acciones">
+                    ${botonHacerLider}
+                    ${botonCambiarRol}
+                    ${botonEstado}
+                </div>
             </div>
+        `;
 
-            <span class="chip ${i.rol}">${i.rol}</span>
-            <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
-
-            <div class="integrante-acciones">
-                ${i.activo && i.rol !== 'lider'
-                    ? `<button type="button" class="action-btn" data-hacer-lider="${i.id}">Hacer líder</button>`
-                    : ''
-                }
-
-                ${i.activo && i.rol === 'jugador'
-                    ? `<button type="button" class="action-btn secundario" data-cambiar-rol="${i.id}" data-nuevo-rol="sublider">A sublíder</button>`
-                    : ''
-                }
-
-                ${i.activo && i.rol === 'sublider'
-                    ? `<button type="button" class="action-btn secundario" data-cambiar-rol="${i.id}" data-nuevo-rol="jugador">A jugador</button>`
-                    : ''
-                }
-
-                ${i.activo
-                    ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
-                    : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`
-                }
-            </div>
-        </div>
-    `).join('');
+    }).join('');
 
     elements.integrantesList.querySelectorAll('[data-hacer-lider]').forEach(btn => {
         btn.addEventListener('click', () => hacerLider(btn.dataset.hacerLider));
