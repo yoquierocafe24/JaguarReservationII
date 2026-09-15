@@ -136,6 +136,75 @@ function construirFiltros(q) {
     return { clausula, params };
 }
 
+// -------------------------------------------------------------
+// Igual que construirFiltros, pero para los accesos LIBRES
+// (tabla asistencia con id_reserva = NULL). Como no nacen de
+// una reserva, no hay r.fecha / r.id_espacio / r.estado que
+// filtrar — se usan los campos propios de asistencia:
+//   - a.fecha_entrada en vez de r.fecha
+//   - a.id_espacio en vez de r.id_espacio
+//   - carrera/tipo_ingreso del estudiante que entró (a.id_estudiante),
+//     no del titular de una reserva que no existe.
+// No hay equivalente de r.estado ni r.id_equipo para un acceso
+// libre, así que esos dos filtros simplemente no aplican aquí.
+// -------------------------------------------------------------
+function construirFiltrosLibre(q) {
+    const condiciones = [];
+    const params = [];
+
+    if (q.fecha_inicio && q.fecha_fin) {
+        condiciones.push('a.fecha_entrada BETWEEN ? AND ?');
+        params.push(q.fecha_inicio, q.fecha_fin);
+
+    } else if (q.id_periodo) {
+        condiciones.push(
+            'a.fecha_entrada BETWEEN (SELECT fecha_inicio FROM periodo_academico WHERE id_periodo = ?) ' +
+            'AND (SELECT fecha_fin FROM periodo_academico WHERE id_periodo = ?)'
+        );
+        params.push(q.id_periodo, q.id_periodo);
+
+    } else if (q.periodo === 'anual' && q.anio) {
+        condiciones.push('YEAR(a.fecha_entrada) = ?');
+        params.push(q.anio);
+
+    } else if (q.periodo === 'trimestral' && q.anio && q.trimestre) {
+        const t = Number(q.trimestre);
+        const mesInicio = (t - 1) * 3 + 1;
+        const mesFin = mesInicio + 2;
+        const inicio = `${q.anio}-${String(mesInicio).padStart(2, '0')}-01`;
+        const fin = new Date(Number(q.anio), mesFin, 0).toISOString().slice(0, 10);
+        condiciones.push('a.fecha_entrada BETWEEN ? AND ?');
+        params.push(inicio, fin);
+    }
+
+    if (q.fecha_corte) {
+        condiciones.push('a.fecha_entrada <= ?');
+        params.push(q.fecha_corte);
+    }
+
+    if (q.id_espacio) {
+        condiciones.push('a.id_espacio = ?');
+        params.push(q.id_espacio);
+    }
+
+    if (q.carrera) {
+        condiciones.push('ep.carrera = ?');
+        params.push(q.carrera);
+    }
+
+    if (q.primer_ingreso === 'si') {
+        condiciones.push("LOWER(COALESCE(ep.tipo_ingreso, '')) LIKE '%primer%'");
+    } else if (q.primer_ingreso === 'no') {
+        condiciones.push("(ep.tipo_ingreso IS NOT NULL AND ep.tipo_ingreso <> '' AND LOWER(ep.tipo_ingreso) NOT LIKE '%primer%')");
+    } else if (q.tipo_ingreso) {
+        condiciones.push('ep.tipo_ingreso = ?');
+        params.push(q.tipo_ingreso);
+    }
+
+    const clausula = condiciones.length ? 'AND ' + condiciones.join(' AND ') : '';
+    return { clausula, params };
+}
+
 // =============================================================
 // 0) OPCIONES para los filtros (carreras, espacios, periodos, años)
 // =============================================================
@@ -395,6 +464,13 @@ router.get('/resumen', async (req, res) => {
 
         // =======================================
         // Asistencias registradas (KPI)
+        //
+        // Se calculan por separado:
+        //   - "por reserva": alguien marcado presente en una
+        //     reserva real (titular/acompañante/integrante).
+        //   - "libres": accesos libres (sin reserva) registrados
+        //     por el guardia.
+        // El total mostrado es la suma de ambas.
         // =======================================
 
         const [asistenciaRows] = await db.query(
@@ -409,9 +485,36 @@ router.get('/resumen', async (req, res) => {
             params
         );
 
-        const asistencia = asistenciaRows[0] || {
+        const asistenciaPorReserva = asistenciaRows[0] || {
             total_asistencias: 0,
             reservas_con_asistencia: 0
+        };
+
+        const { clausula: clausulaLibre, params: paramsLibre } = construirFiltrosLibre(req.query);
+
+        const [librasRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM asistencia a
+             JOIN estudiantes e ON e.id_estudiante = a.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE a.tipo_ingreso = 'libre'
+             ${clausulaLibre}`,
+            paramsLibre
+        );
+
+        const asistenciasLibres = Number(librasRows[0]?.total || 0);
+        const asistenciasPorReserva = Number(asistenciaPorReserva.total_asistencias || 0);
+
+        const asistencia = {
+            // Suma de ambas: toda entrada registrada, con o sin reserva
+            total_asistencias: asistenciasPorReserva + asistenciasLibres,
+
+            // Desglose
+            asistencias_por_reserva: asistenciasPorReserva,
+            asistencias_libres: asistenciasLibres,
+
+            // Esto sigue siendo específico de reservas (no aplica a libres)
+            reservas_con_asistencia: asistenciaPorReserva.reservas_con_asistencia
         };
 
         // =======================================

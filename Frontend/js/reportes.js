@@ -314,10 +314,25 @@ function exportarCSV() {
     const r = state.ultimoResumen;
     if (!r) return;
 
+    const asistencia = r.asistencia || {
+        total_asistencias: 0,
+        asistencias_por_reserva: 0,
+        asistencias_libres: 0,
+        reservas_con_asistencia: 0
+    };
+
     const lineas = [];
     lineas.push(`Reportes Jaguar Reservation`);
     lineas.push(`Periodo,${state.etiquetaPeriodo}`);
     lineas.push(`Generado,${new Date().toLocaleString('es-HN')}`);
+    lineas.push('');
+
+    lineas.push('Indicadores de asistencia');
+    lineas.push('Indicador,Valor');
+    lineas.push(`Asistencias registradas (total),${asistencia.total_asistencias}`);
+    lineas.push(`Asistencias por reserva,${asistencia.asistencias_por_reserva}`);
+    lineas.push(`Accesos libres registrados,${asistencia.asistencias_libres}`);
+    lineas.push(`Reservas con asistencia registrada,${asistencia.reservas_con_asistencia}`);
     lineas.push('');
 
     lineas.push('Reservas por carrera');
@@ -466,7 +481,12 @@ async function exportarPDF() {
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
 
     const estados = r.reservas_por_estado || {};
-    const asistencia = r.asistencia || { total_asistencias: 0, reservas_con_asistencia: 0 };
+    const asistencia = r.asistencia || {
+        total_asistencias: 0,
+        asistencias_por_reserva: 0,
+        asistencias_libres: 0,
+        reservas_con_asistencia: 0
+    };
 
     // ---- Tabla: Indicadores generales ----
     const filasIndicadores = [
@@ -476,7 +496,9 @@ async function exportarPDF() {
         ['Reservas canceladas', estados.cancelada || 0],
         ['Reservas rechazadas', estados.rechazada || 0],
         ['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0],
-        ['Asistencias registradas', asistencia.total_asistencias],
+        ['Asistencias registradas (total)', asistencia.total_asistencias],
+        ['Asistencias por reserva', asistencia.asistencias_por_reserva],
+        ['Accesos libres registrados', asistencia.asistencias_libres],
         ['Reservas con asistencia registrada', asistencia.reservas_con_asistencia],
         ['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]
     ];
@@ -615,7 +637,12 @@ function exportarExcel() {
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
 
     const estados = r.reservas_por_estado || {};
-    const asistencia = r.asistencia || { total_asistencias: 0, reservas_con_asistencia: 0 };
+    const asistencia = r.asistencia || {
+        total_asistencias: 0,
+        asistencias_por_reserva: 0,
+        asistencias_libres: 0,
+        reservas_con_asistencia: 0
+    };
 
     const filas = [];
 
@@ -635,7 +662,9 @@ function exportarExcel() {
     filas.push(['Reservas canceladas', estados.cancelada || 0]);
     filas.push(['Reservas rechazadas', estados.rechazada || 0]);
     filas.push(['Reservas sin asistencia (nadie llegó)', r.reservas_sin_asistencia || 0]);
-    filas.push(['Asistencias registradas', asistencia.total_asistencias]);
+    filas.push(['Asistencias registradas (total)', asistencia.total_asistencias]);
+    filas.push(['Asistencias por reserva', asistencia.asistencias_por_reserva]);
+    filas.push(['Accesos libres registrados', asistencia.asistencias_libres]);
     filas.push(['Reservas con asistencia registrada', asistencia.reservas_con_asistencia]);
     filas.push(['Estudiantes que reservaron y son integrantes de un club', r.estudiantes_en_clubes || 0]);
     filas.push([]);
