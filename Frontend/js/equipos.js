@@ -672,6 +672,10 @@ function renderIntegrantes(integrantes) {
 function manejarInputCuenta() {
     clearTimeout(state.buscaCuentaTimeout);
 
+    // El usuario está corrigiendo/probando de nuevo:
+    // el mensaje de error anterior ya no aplica.
+    setIntegranteFormStatus('');
+
     const cuenta = elements.integranteCuenta.value.trim();
     elements.integranteEstudiantePreview.textContent = '';
 
@@ -1225,6 +1229,10 @@ function renderIntegrantesClub(integrantes) {
 function manejarInputCuentaClub() {
     clearTimeout(state.buscaCuentaClubTimeout);
 
+    // El usuario está corrigiendo/probando de nuevo:
+    // el mensaje de error anterior ya no aplica.
+    setClubIntegranteFormStatus('');
+
     const cuenta = elements.clubIntegranteCuenta.value.trim();
     elements.clubIntegranteEstudiantePreview.textContent = '';
 
@@ -1409,6 +1417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.equipoForm?.addEventListener('submit', guardarEquipo);
 
     elements.integranteCuenta?.addEventListener('input', manejarInputCuenta);
+    elements.integranteRol?.addEventListener('change', () => setIntegranteFormStatus(''));
     elements.btnAgregarIntegrante?.addEventListener('click', agregarIntegrante);
 
     document.querySelectorAll('#equipo-modal [data-action="close-equipo"]').forEach(el => {
