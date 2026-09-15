@@ -576,6 +576,14 @@ function mostrarPersonasEncontradas(resultados) {
                             : estadoHorario.texto
                     }
                 </button>
+
+                <button
+                    type="button"
+                    class="btn-marcar-persona btn-acceso-libre-encontrada"
+                >
+                    <i class="bi bi-door-open"></i>
+                    Acceso libre
+                </button>
             </div>
         `;
 
@@ -586,7 +594,12 @@ function mostrarPersonasEncontradas(resultados) {
 
         const botonMarcar =
             tarjeta.querySelector(
-                ".btn-marcar-persona"
+                ".btn-marcar-persona:not(.btn-acceso-libre-encontrada)"
+            );
+
+        const botonAccesoLibre =
+            tarjeta.querySelector(
+                ".btn-acceso-libre-encontrada"
             );
 
         // Abrir esta reserva específica
@@ -612,6 +625,20 @@ function mostrarPersonasEncontradas(resultados) {
                 }
             );
         }
+
+        // Acceso libre siempre disponible, sin importar
+        // el estado de la reserva actual (permite registrar
+        // una entrada aparte, a otro espacio u horario).
+        botonAccesoLibre.addEventListener(
+            "click",
+            () => {
+                abrirModalVisitante({
+                    id_estudiante: persona.id_estudiante,
+                    nombre: persona.nombre,
+                    cuenta: persona.cuenta
+                });
+            }
+        );
 
         contenedor.appendChild(tarjeta);
     });
