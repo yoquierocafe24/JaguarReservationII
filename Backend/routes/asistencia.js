@@ -418,20 +418,39 @@ router.get('/', async (req, res) => {
         }
 
 
-        // Orden:
-        // 1. Reservas más tempranas primero (los visitantes,
-        //    que no tienen hora_inicio real, se ordenan según
-        //    la hora en que efectivamente entraron).
-        // 2. A igualdad de horario, la reserva más reciente
-        //    primero (código de reserva más alto = reservada
-        //    más tarde). Los visitantes (sin id_reserva) van
-        //    al final de ese empate.
-        // 3. Dentro de una misma reserva: titular primero.
-        // 4. Por último, orden alfabético por nombre.
+        // Orden (criterio principal: si el horario YA TERMINÓ):
+        //
+        // 1. Primero TODO lo que sigue vigente o está por venir
+        //    (el horario de esa reserva/visita aún no ha pasado).
+        //    Dentro de ese grupo, la que empieza más pronto va
+        //    primero.
+        //
+        // 2. Al final, TODO lo que ya venció (el horario ya pasó,
+        //    haya o no asistido la persona). Dentro de ese grupo,
+        //    se ordena de la más reciente a la más antigua (la
+        //    que terminó hace menos tiempo aparece primero).
+        //
+        // 3. A igualdad de lo anterior, la reserva más reciente
+        //    (código más alto) primero.
+        //
+        // 4. Dentro de una misma reserva: titular primero.
+        //
+        // 5. Por último, orden alfabético por nombre.
         consulta += `
 
             ORDER BY
-                control.hora_inicio ASC,
+
+                (TIMESTAMP(control.fecha, control.hora_fin) < ${HORA_ACTUAL_HN}) ASC,
+
+                CASE
+                    WHEN TIMESTAMP(control.fecha, control.hora_fin) >= ${HORA_ACTUAL_HN}
+                    THEN control.hora_inicio
+                END ASC,
+
+                CASE
+                    WHEN TIMESTAMP(control.fecha, control.hora_fin) < ${HORA_ACTUAL_HN}
+                    THEN control.hora_fin
+                END DESC,
 
                 control.id_reserva DESC,
 

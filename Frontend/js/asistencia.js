@@ -1,7 +1,7 @@
 const API_URL =
   "https://jaguarreservationii-production.up.railway.app";
 
-const ASISTENCIAS_POR_PAGINA = 6;
+const ASISTENCIAS_POR_PAGINA = 15;
 
 let asistencias = [];
 let paginaActual = 1;
@@ -93,7 +93,9 @@ function formatearTipoAsistencia(tipo) {
 
   const tipos = {
     titular: 'Titular',
-    acompanante: 'Acompañante'
+    acompanante: 'Acompañante',
+    integrante: 'Integrante',
+    visitante: 'Visitante (acceso libre)'
   };
 
   return tipos[tipo] || tipo || '—';
@@ -222,9 +224,13 @@ function obtenerIniciales(nombre = '') {
 
 
 // ── CARGAR ASISTENCIAS ──
+// NOTA: esta función YA NO resetea paginaActual.
+// El refresco automático cada 30s llama a esta función,
+// y si reseteara la página aquí, el usuario sería mandado
+// a la página 1 sin querer cada vez que pasa el intervalo.
+// El reset a página 1 debe ocurrir SOLO cuando el usuario
+// cambia un filtro a propósito (ver aplicarFiltros/limpiarFiltros).
 async function cargarAsistencias() {
-
-  paginaActual = 1;
 
   const parametros =
     new URLSearchParams();
@@ -574,17 +580,20 @@ function renderTabla() {
         );
 
 
+      // Los accesos libres ("visitante") no tienen un
+      // horario de reserva real: se les puso hora_inicio
+      // y hora_fin igual a la hora de entrada como truco
+      // de ordenamiento, pero mostrarlo así confundiría.
       const horario =
-        a.hora_inicio &&
-        a.hora_fin
-
-          ? `${formatear12h(
-              a.hora_inicio
-            )} – ${formatear12h(
-              a.hora_fin
-            )}`
-
-          : '—';
+        a.tipo === 'visitante'
+          ? 'Acceso libre'
+          : (a.hora_inicio && a.hora_fin
+              ? `${formatear12h(
+                  a.hora_inicio
+                )} – ${formatear12h(
+                  a.hora_fin
+                )}`
+              : '—');
 
 
       return `
@@ -981,6 +990,8 @@ document.addEventListener(
 
 
 // ── ACTUALIZACIÓN AUTOMÁTICA ──
+// Refresca los datos cada 30s SIN tocar paginaActual,
+// para no sacar al usuario de la página en la que está.
 setInterval(
   async () => {
 
