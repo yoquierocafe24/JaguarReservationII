@@ -270,4 +270,25 @@
     .inventario-busqueda {
         width: 100%;
     }
+
+    /* ... tus reglas existentes se quedan igual ... */
+
+    .inventario-card {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .inventario-table {
+        min-width: 640px;
+    }
+
+    .inventario-table td,
+    .inventario-table th {
+        white-space: nowrap;
+    }
+
+    .inventario-table td:nth-child(4) {
+        white-space: normal;
+        max-width: 200px;
+    }
 }

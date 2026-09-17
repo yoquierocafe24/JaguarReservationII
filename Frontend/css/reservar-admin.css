@@ -549,6 +549,51 @@
         RESPONSIVE PROPIO
 ====================================== */
 
+@media (max-width: 900px) {
+
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+
+        /* Sombra en el borde derecho = "hay más columnas,
+           desliza para verlas". Desaparece sola cuando ya
+           no queda nada más a la derecha. */
+        background:
+            linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+            linear-gradient(to right, rgba(255,255,255,0), white 70%) 100% 0,
+            radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.15), rgba(0,0,0,0)),
+            radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.15), rgba(0,0,0,0)) 100% 0;
+        background-repeat: no-repeat;
+        background-color: white;
+        background-size: 30px 100%, 30px 100%, 12px 100%, 12px 100%;
+        background-attachment: local, local, scroll, scroll;
+    }
+
+    table {
+        min-width: 720px;
+    }
+
+    .celda-persona strong,
+    .celda-persona small {
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 576px) {
+
+    table {
+        min-width: 620px;
+    }
+
+    .page-title h2 {
+        font-size: 21px;
+    }
+
+    .detalle-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media(max-width:600px){
     .page-title h2{
         font-size:21px;
