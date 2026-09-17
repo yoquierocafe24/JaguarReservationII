@@ -103,7 +103,12 @@ function construirFiltros(q) {
 
     // ---- Filtros adicionales ----
     if (q.carrera) {
-        condiciones.push('ep.carrera = ?');
+        // COLLATE utf8mb4_general_ci trata "Psicologia" y "Psicología"
+        // (o "INGENIERIA" y "Ingeniería") como la misma carrera, sin
+        // importar mayúsculas ni tildes. Esto evita que reservas queden
+        // "invisibles" solo porque el Excel institucional escribió la
+        // carrera distinto en cargas diferentes.
+        condiciones.push('ep.carrera COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci');
         params.push(q.carrera);
     }
 
@@ -188,7 +193,8 @@ function construirFiltrosLibre(q) {
     }
 
     if (q.carrera) {
-        condiciones.push('ep.carrera = ?');
+        // Ver comentario equivalente en construirFiltros().
+        condiciones.push('ep.carrera COLLATE utf8mb4_general_ci = ? COLLATE utf8mb4_general_ci');
         params.push(q.carrera);
     }
 
@@ -214,11 +220,37 @@ router.get('/opciones', async (req, res) => {
             `SELECT id_espacio, nombre FROM espacios ORDER BY id_espacio`
         );
 
+        // Carreras que ya no existen en las cargas actuales del
+        // archivo institucional (quedaron de estudiantes cuyo
+        // último registro conocido es de una carga vieja). Se
+        // OCULTAN aquí del desplegable únicamente — no se borra
+        // nada de la base de datos. Si en algún momento vuelven a
+        // aparecer en un archivo real, basta con quitarlas de esta
+        // lista.
+        const CARRERAS_OCULTAS = [
+            'Psicologia',
+            'Diseño grafico',
+            'Informatica',
+            'Ingenería en logística'
+        ];
+
+        // Solo se muestran las carreras que ALGÚN estudiante tiene
+        // como su registro más reciente (SUBQUERY_ULTIMO_PERIODO).
+        // Además, se AGRUPAN por nombre sin importar mayúsculas ni
+        // tildes (COLLATE utf8mb4_general_ci): así "Psicologia" y
+        // "Psicología" cuentan como una sola opción en el filtro,
+        // en vez de aparecer como dos carreras "distintas" solo
+        // porque el Excel institucional las escribió diferente en
+        // cargas distintas. MIN() elige un solo texto representativo
+        // por grupo para mostrar.
         const [carreras] = await db.query(
-            `SELECT DISTINCT carrera
-             FROM estudiante_periodo
-             WHERE carrera IS NOT NULL AND carrera <> ''
-             ORDER BY carrera`
+            `SELECT MIN(ep.carrera) AS carrera
+             FROM ${SUBQUERY_ULTIMO_PERIODO} ep
+             WHERE ep.carrera IS NOT NULL AND ep.carrera <> ''
+             AND ep.carrera COLLATE utf8mb4_general_ci NOT IN (${CARRERAS_OCULTAS.map(() => '? COLLATE utf8mb4_general_ci').join(',')})
+             GROUP BY ep.carrera COLLATE utf8mb4_general_ci
+             ORDER BY carrera`,
+            CARRERAS_OCULTAS
         );
 
         const [periodos] = await db.query(
@@ -255,13 +287,13 @@ router.get('/reservas-por-carrera', async (req, res) => {
         const { clausula, params } = construirFiltros(req.query);
 
         const [rows] = await db.query(
-            `SELECT COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera') AS carrera,
+            `SELECT MIN(COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera')) AS carrera,
                     COUNT(*) AS total_reservas
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
              LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              WHERE 1 = 1 ${clausula}
-             GROUP BY carrera
+             GROUP BY COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera') COLLATE utf8mb4_general_ci
              ORDER BY total_reservas DESC`,
             params
         );
@@ -411,11 +443,11 @@ router.get('/resumen', async (req, res) => {
         const { clausula, params } = construirFiltros(req.query);
 
         const [porCarrera] = await db.query(
-            `SELECT COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera') AS carrera, COUNT(*) AS total_reservas
+            `SELECT MIN(COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera')) AS carrera, COUNT(*) AS total_reservas
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
              LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
-             WHERE 1 = 1 ${clausula} GROUP BY carrera ORDER BY total_reservas DESC`,
+             WHERE 1 = 1 ${clausula} GROUP BY COALESCE(NULLIF(ep.carrera, ''), 'Sin carrera') COLLATE utf8mb4_general_ci ORDER BY total_reservas DESC`,
             params
         );
 
