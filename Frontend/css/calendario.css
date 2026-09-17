@@ -725,4 +725,45 @@ body.modal-open{
     .form-row{
         grid-template-columns:1fr;
     }
+
+    /* ... tus reglas existentes se quedan igual ... */
+
+    .calendar-day{
+        min-height:46px;
+        padding:4px;
+        gap:2px;
+    }
+
+    .calendar-day .dia-numero{
+        font-size:12px;
+    }
+
+    .calendar-day.hoy .dia-numero{
+        width:20px;
+        height:20px;
+    }
+
+    .dia-badges{
+        justify-content:center;
+        gap:3px;
+    }
+
+    /* El texto ("2 reservas", "Horas cerradas") se oculta
+       visualmente y el badge se convierte en un punto de
+       color — el detalle completo se ve al tocar el día. */
+    .dia-badge{
+        width:6px;
+        height:6px;
+        padding:0;
+        border-radius:50%;
+        font-size:0;
+        line-height:0;
+        overflow:hidden;
+    }
+
+    .calendar-weekdays{
+        font-size:10px;
+    }
 }
+
+
