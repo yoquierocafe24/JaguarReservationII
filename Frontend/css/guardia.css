@@ -1179,13 +1179,22 @@ body{
 @media(max-width:768px){
 
     .resultado-persona-item{
+        display:flex;
         flex-direction:column;
-        align-items:flex-start;
+        align-items:stretch;
+        gap:14px;
+        padding:20px;
     }
 
     .resultado-persona-item
     .resultado-persona-acciones{
         width:100%;
+        min-width:0;
+    }
+
+    .resultado-persona-superior{
+        flex-wrap:wrap;
+        gap:8px;
     }
 }
 
