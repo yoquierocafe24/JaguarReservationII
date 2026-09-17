@@ -606,4 +606,19 @@
         grid-template-columns:1fr;
     }
 
+    .pagination-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .pagination-buttons {
+        justify-content: center;
+    }
+
+    /* Oculta los botones numerados, deja solo
+       el primer hijo (Anterior) y el último (Siguiente) */
+    .pagination-buttons .pagination-btn:not(:first-child):not(:last-child) {
+        display: none;
+    }
+
 }
