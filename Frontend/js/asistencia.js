@@ -95,6 +95,7 @@ function formatearTipoAsistencia(tipo) {
     titular: 'Titular',
     acompanante: 'Acompañante',
     integrante: 'Integrante',
+    miembro: 'Miembro',
     visitante: 'Visitante (acceso libre)'
   };
 

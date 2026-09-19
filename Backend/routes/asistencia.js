@@ -331,7 +331,7 @@ router.get('/', async (req, res) => {
 
                     e.cuenta AS estudiante_cuenta,
 
-                    'integrante' AS tipo,
+                    'miembro' AS tipo,
 
                     r.fecha,
 
@@ -694,10 +694,33 @@ router.get('/resumen', async (req, res) => {
                 AND r.estado = 'aprobada'
                 AND r.tipo_reserva = 'equipo'
 
+                UNION ALL
+
+                SELECT
+                    r.id_reserva,
+                    CASE
+                        WHEN a.id_asistencia IS NOT NULL
+                        THEN 'presente'
+                        WHEN TIMESTAMP(r.fecha, r.hora_fin) < ${HORA_ACTUAL_HN}
+                        THEN 'inasistencia'
+                        ELSE 'pendiente'
+                    END AS estado_asistencia
+                FROM reservas r
+                INNER JOIN club_integrantes ci
+                    ON ci.id_club = r.id_club
+                    AND ci.activo = 1
+                    AND ci.id_estudiante <> r.id_estudiante
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = r.id_reserva
+                    AND a.id_estudiante = ci.id_estudiante
+                WHERE r.fecha = ?
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'club'
+
              ) AS control
              GROUP BY control.estado_asistencia`,
 
-            [fecha, fecha, fecha]
+            [fecha, fecha, fecha, fecha]
 
         );
 
