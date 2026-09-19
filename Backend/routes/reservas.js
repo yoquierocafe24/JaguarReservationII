@@ -86,15 +86,18 @@ function normalizarTexto(texto) {
 // de horario, considerando:
 //   - Sus reservas personales (individuales,
 //     o donde él sea el titular/líder de un
-//     equipo).
+//     equipo o club).
 //   - Cualquier reserva de EQUIPO donde sea
 //     integrante activo (aunque no haya sido
 //     él quien la creó).
+//   - Cualquier reserva de CLUB donde sea
+//     integrante activo (líder, sublíder o
+//     miembro — igual que equipo).
 //
 // Esto evita que una misma persona quede
 // "reservada" en dos lugares a la vez, sin
-// importar si fue una reserva individual o
-// de equipo la que generó el choque.
+// importar si fue una reserva individual, de
+// equipo o de club la que generó el choque.
 // =======================================
 async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, horaFin) {
 
@@ -118,10 +121,20 @@ async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, 
                      AND ei.activo = 1
                  )
              )
+             OR (
+                 r.tipo_reserva = 'club'
+                 AND EXISTS (
+                     SELECT 1
+                     FROM club_integrantes ci
+                     WHERE ci.id_club = r.id_club
+                     AND ci.id_estudiante = ?
+                     AND ci.activo = 1
+                 )
+             )
          )
          LIMIT 1`,
 
-        [fecha, horaFin, horaInicio, idEstudiante, idEstudiante]
+        [fecha, horaFin, horaInicio, idEstudiante, idEstudiante, idEstudiante]
     );
 
     return conflicto.length > 0;
@@ -145,6 +158,7 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
             id_item,
             tipo_reserva,
             id_equipo,
+            id_club,
             fecha,
             hora_inicio,
             hora_fin,
@@ -246,9 +260,12 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
         // =======================================
  
         const tipoReservaFinal =
-            tipo_reserva === "equipo" ? "equipo" : "individual";
+            tipo_reserva === "equipo" ? "equipo" :
+            tipo_reserva === "club" ? "club" :
+            "individual";
  
         let idEquipoFinal = null;
+        let idClubFinal = null;
     
       // =======================================
         // Regla (Fase 2): reserva de EQUIPO —
@@ -323,6 +340,62 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
         }
 
         // =======================================
+        // Regla: reserva de CLUB — quien envía debe
+        // ser líder o sublíder activo del club. A
+        // diferencia de equipo, un club NO está
+        // atado a un deporte/espacio específico:
+        // puede reservar CUALQUIER espacio (fútbol,
+        // baloncesto, voleibol, Zona Jaguar, etc.).
+        // =======================================
+
+        if (tipoReservaFinal === "club") {
+
+            if (!id_club) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: "Debe indicar el club."
+                });
+            }
+
+            const [club] = await db.query(
+                `SELECT id_club, activo
+                 FROM clubes
+                 WHERE id_club = ?`,
+                [id_club]
+            );
+
+            if (club.length === 0 || !club[0].activo) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje: "El club no existe o está inactivo."
+                });
+            }
+
+            const [membresiaClub] = await db.query(
+                `SELECT rol
+                 FROM club_integrantes
+                 WHERE id_club = ?
+                 AND id_estudiante = ?
+                 AND activo = 1
+                 AND rol IN ('lider','sublider')`,
+                [id_club, id_estudiante]
+            );
+
+            if (membresiaClub.length === 0) {
+                return res.status(403).json({
+                    ok: false,
+                    mensaje: "Solo el líder o sublíder del club pueden reservar en su nombre."
+                });
+            }
+
+            // Nota: a propósito NO se valida que el
+            // espacio "coincida" con nada del club —
+            // un club puede reservar cualquier espacio.
+
+            idClubFinal = id_club;
+        }
+
+        // =======================================
         // Choque de horario
         //
         // - Reserva individual: se revisa solo al
@@ -330,9 +403,10 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
         // - Reserva de equipo: se revisa a CADA
         //   integrante activo del equipo (líder,
         //   sublíder y jugadores), no solo a quien
-        //   la está creando — así se evita que
-        //   alguien quede "reservado" en dos
-        //   lugares a la misma hora.
+        //   la está creando.
+        // - Reserva de club: igual que equipo, pero
+        //   sobre los integrantes activos del club
+        //   (líder, sublíder y miembros).
         // =======================================
 
         if (tipoReservaFinal === "individual") {
@@ -378,6 +452,37 @@ router.post('/', requiereSesion, requiereEstudiante, async (req, res) => {
                     return res.status(400).json({
                         ok: false,
                         mensaje: `${integrante.nombre} ya tiene una reserva en ese horario. No se puede reservar para el equipo.`
+                    });
+
+                }
+
+            }
+
+        } else if (tipoReservaFinal === "club" && idClubFinal) {
+
+            const [integrantesClub] = await db.query(
+                `SELECT ci.id_estudiante, e.nombre
+                 FROM club_integrantes ci
+                 INNER JOIN estudiantes e ON e.id_estudiante = ci.id_estudiante
+                 WHERE ci.id_club = ?
+                 AND ci.activo = 1`,
+                [idClubFinal]
+            );
+
+            for (const integrante of integrantesClub) {
+
+                const hayConflicto = await estudianteTieneConflictoHorario(
+                    integrante.id_estudiante,
+                    fecha,
+                    hora_inicio,
+                    hora_fin
+                );
+
+                if (hayConflicto) {
+
+                    return res.status(400).json({
+                        ok: false,
+                        mensaje: `${integrante.nombre} ya tiene una reserva en ese horario. No se puede reservar para el club.`
                     });
 
                 }
@@ -529,6 +634,8 @@ const cantidadAcompanantes =
 
 
 // Por defecto la reserva no tendrá código QR.
+// (Igual que equipo: el roster ya se conoce de
+// antemano, así que un club tampoco necesita QR.)
 let qr_token = null;
 
         if (tipoReservaFinal === "individual" && cantidadAcompanantes > 0) {
@@ -555,6 +662,7 @@ let qr_token = null;
                 id_item,
                 tipo_reserva,
                 id_equipo,
+                id_club,
                 fecha,
                 hora_inicio,
                 hora_fin,
@@ -566,7 +674,7 @@ let qr_token = null;
 
             )
 
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 
             [
 
@@ -576,6 +684,7 @@ let qr_token = null;
                 id_item,
                 tipoReservaFinal,
                 idEquipoFinal,
+                idClubFinal,
                 fecha,
                 hora_inicio,
                 hora_fin,
@@ -617,6 +726,51 @@ let qr_token = null;
 });
 
 // =======================================
+// Listar los clubes donde el estudiante
+// autenticado es líder o sublíder activo
+// (para que el frontend sepa si mostrarle
+// la opción "Reservar como club").
+// GET /api/reservas/mis-clubes-liderados
+// =======================================
+
+router.get('/mis-clubes-liderados', requiereSesion, requiereEstudiante, async (req, res) => {
+
+    try {
+
+        const [clubes] = await db.query(
+            `SELECT
+                c.id_club,
+                c.nombre,
+                ci.rol
+             FROM club_integrantes ci
+             INNER JOIN clubes c ON c.id_club = ci.id_club
+             WHERE ci.id_estudiante = ?
+             AND ci.activo = 1
+             AND ci.rol IN ('lider','sublider')
+             AND c.activo = 1
+             ORDER BY c.nombre ASC`,
+            [req.session.usuario.id]
+        );
+
+        res.json({
+            ok: true,
+            clubes
+        });
+
+    } catch (error) {
+
+        console.error("ERROR LISTANDO CLUBES LIDERADOS:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
 // Obtener todas las reservas
 // GET /api/reservas
 // =======================================
@@ -639,7 +793,13 @@ router.get('/', requiereSesion, async (req, res) => {
                     FROM equipo_integrantes ei
                     WHERE ei.id_equipo = r.id_equipo
                       AND ei.activo = 1
-                ) AS cantidad_equipo
+                ) AS cantidad_equipo,
+                (
+                    SELECT COUNT(*)
+                    FROM club_integrantes ci
+                    WHERE ci.id_club = r.id_club
+                      AND ci.activo = 1
+                ) AS cantidad_club
             FROM reservas r
             INNER JOIN estudiantes e
                 ON e.id_estudiante = r.id_estudiante
@@ -852,6 +1012,69 @@ router.get('/:id/equipo-cantidad', requiereSesion, requiereEstudiante, async (re
 
 });
 
+// =======================================
+//  Cantidad de integrantes del club
+//  (vista ESTUDIANTE - solo el dueño de la reserva)
+// GET /api/reservas/:id/club-cantidad
+// =======================================
+
+router.get('/:id/club-cantidad', requiereSesion, requiereEstudiante, async (req, res) => {
+
+    try {
+
+        const id_estudiante = req.session.usuario.id;
+
+        const [reservas] = await db.query(
+            `SELECT id_club, tipo_reserva, id_estudiante
+             FROM reservas
+             WHERE id_reserva = ?`,
+            [req.params.id]
+        );
+
+        if (reservas.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Reserva no encontrada."
+            });
+        }
+
+        const reserva = reservas[0];
+
+        if (reserva.id_estudiante !== id_estudiante) {
+            return res.status(403).json({
+                ok: false,
+                mensaje: "No tienes permiso para consultar esta reserva."
+            });
+        }
+
+        if (reserva.tipo_reserva !== 'club') {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Esta reserva no es de tipo club."
+            });
+        }
+
+        const [[{ cantidad }]] = await db.query(
+            `SELECT COUNT(*) AS cantidad
+             FROM club_integrantes
+             WHERE id_club = ?
+               AND activo = 1`,
+            [reserva.id_club]
+        );
+
+        res.json({
+            ok: true,
+            id_club: reserva.id_club,
+            cantidad
+        });
+
+    } catch (error) {
+        console.error("ERROR OBTENIENDO CANTIDAD DE INTEGRANTES DEL CLUB:", error);
+        res.status(500).json({ ok: false, mensaje: "Error del servidor." });
+    }
+
+});
+
 
 // =======================================
 // Obtener horarios ocupados de un ESPACIO
@@ -930,7 +1153,7 @@ router.get('/horarios/consultar', requiereSesion, async (req, res) => {
 //
 // Incluye también las horas donde el
 // estudiante está comprometido por ser
-// integrante activo de un equipo con
+// integrante activo de un equipo o club con
 // reserva ese día (no solo sus reservas
 // personales), para que el aviso visual
 // coincida con la validación real del
@@ -971,9 +1194,19 @@ router.get('/mis-horarios', requiereSesion, requiereEstudiante, async (req, res)
                          AND ei.activo = 1
                      )
                  )
+                 OR (
+                     r.tipo_reserva = 'club'
+                     AND EXISTS (
+                         SELECT 1
+                         FROM club_integrantes ci
+                         WHERE ci.id_club = r.id_club
+                         AND ci.id_estudiante = ?
+                         AND ci.activo = 1
+                     )
+                 )
              )`,
 
-            [fecha, req.session.usuario.id, req.session.usuario.id]
+            [fecha, req.session.usuario.id, req.session.usuario.id, req.session.usuario.id]
 
         );
 

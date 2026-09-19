@@ -464,10 +464,11 @@ async function enviarReserva() {
     const solicitud = document.getElementById('campo-solicitud').value.trim();
     const cantAcompanantes = parseInt(document.getElementById('campo-acompanantes').value) || 0;
 
-    // NUEVO: saber si es reserva Personal o de Equipo
+    // Saber si es reserva Personal, de Equipo o de Club
     const esReservaDeEquipo = tipoReservaSeleccionado === "equipo";
+    const esReservaDeClub = tipoReservaSeleccionado === "club";
 
-    // NUEVO: id_equipo elegido (si aplica)
+    // id_equipo elegido (si aplica)
     let idEquipoSeleccionado = null;
 
     if (esReservaDeEquipo) {
@@ -479,6 +480,22 @@ async function enviarReserva() {
 
         if (!idEquipoSeleccionado) {
             mostrarToast("Selecciona el equipo con el que vas a reservar.", "danger");
+            return;
+        }
+    }
+
+    // id_club elegido (si aplica)
+    let idClubSeleccionado = null;
+
+    if (esReservaDeClub) {
+
+        const selectClub =
+            document.getElementById("select-club");
+
+        idClubSeleccionado = selectClub?.value || null;
+
+        if (!idClubSeleccionado) {
+            mostrarToast("Selecciona el club con el que vas a reservar.", "danger");
             return;
         }
     }
@@ -519,6 +536,12 @@ if (!/^\d{8}$/.test(telefono)) {
 
     const [horaInicio, horaFin] = horaSel.split("–");
 
+    // Tipo de reserva final para el backend
+    const tipoReservaFinal =
+        esReservaDeEquipo ? "equipo" :
+        esReservaDeClub ? "club" :
+        "individual";
+
     const body = {
 
     id_espacio: espacios[espacio],
@@ -528,10 +551,11 @@ if (!/^\d{8}$/.test(telefono)) {
             ? document.getElementById("juego").value
             : null,
 
-    // NUEVO: tipo de reserva e id_equipo
-    tipo_reserva: esReservaDeEquipo ? "equipo" : "individual",
+    tipo_reserva: tipoReservaFinal,
 
     id_equipo: esReservaDeEquipo ? idEquipoSeleccionado : null,
+
+    id_club: esReservaDeClub ? idClubSeleccionado : null,
 
     fecha: fechaSel,
 
@@ -543,8 +567,9 @@ if (!/^\d{8}$/.test(telefono)) {
 
     solicitud_especial: solicitud,
 
-    // NUEVO: si es equipo, no aplican acompañantes por QR
-    cant_acompanantes: esReservaDeEquipo ? 0 : cantAcompanantes
+    // Si es equipo o club, no aplican acompañantes por QR
+    // (el roster ya se conoce de antemano en ambos casos)
+    cant_acompanantes: (esReservaDeEquipo || esReservaDeClub) ? 0 : cantAcompanantes
 
 };
 
@@ -568,13 +593,22 @@ if (!/^\d{8}$/.test(telefono)) {
         
       if (data.ok) {
 
-    // NUEVO: nombre del equipo, para mostrarlo en confirmar.html
+    // Nombre del equipo, para mostrarlo en confirmar.html
     const selectEquipo =
         document.getElementById("select-equipo");
 
     const nombreEquipoSeleccionado =
         esReservaDeEquipo && selectEquipo
             ? selectEquipo.options[selectEquipo.selectedIndex].text
+            : null;
+
+    // Nombre del club, para mostrarlo en confirmar.html
+    const selectClub =
+        document.getElementById("select-club");
+
+    const nombreClubSeleccionado =
+        esReservaDeClub && selectClub
+            ? selectClub.options[selectClub.selectedIndex].text
             : null;
 
     // Guardamos la información para confirmar.html
@@ -591,14 +625,16 @@ if (!/^\d{8}$/.test(telefono)) {
         data.qr_token || null,
 
     cant_acompanantes:
-        esReservaDeEquipo ? 0 : cantAcompanantes,
+        (esReservaDeEquipo || esReservaDeClub) ? 0 : cantAcompanantes,
 
-            tipo_reserva:
-        esReservaDeEquipo ? "equipo" : "individual",
+            tipo_reserva: tipoReservaFinal,
 
-    // NUEVO: nombre del equipo (si aplica)
+    // Nombre del equipo o club (si aplica)
     nombre_equipo:
         nombreEquipoSeleccionado,
+
+    nombre_club:
+        nombreClubSeleccionado,
 
         nombre: document.getElementById("campo-nombre").value,
 
@@ -844,21 +880,26 @@ if (espacio === "zona_jaguar") {
 }
 
 /* ======================================
-   TIPO DE RESERVA: PERSONAL / EQUIPO
+   TIPO DE RESERVA: PERSONAL / EQUIPO / CLUB
 ====================================== */
 
 let tipoReservaSeleccionado = 'individual';
 let misEquiposDisponibles = [];
+let misClubesDisponibles = [];
 
 async function cargarMisEquipos() {
 
     // Zona Jaguar nunca admite reservas de equipo
+    // (los equipos están atados a un deporte específico)
     if (espacio === "zona_jaguar") {
         return;
     }
 
     const grupoTipoReserva =
         document.getElementById("grupo-tipo-reserva");
+
+    const opcionEquipo =
+        document.getElementById("opcion-equipo");
 
     if (!grupoTipoReserva) {
         return;
@@ -884,7 +925,7 @@ async function cargarMisEquipos() {
         misEquiposDisponibles = datos.equipos || [];
 
         // Si no es líder/sublíder de ningún equipo de este
-        // deporte, la pantalla se queda igual que siempre.
+        // deporte, no se muestra esa opción.
         if (misEquiposDisponibles.length === 0) {
             return;
         }
@@ -900,13 +941,86 @@ async function cargarMisEquipos() {
                 </option>
             `).join("");
 
-        // Mostrar la tarjeta de tipo de reserva
+        // Mostrar la opción "Equipo" y la tarjeta de tipo de reserva
+        if (opcionEquipo) {
+            opcionEquipo.style.display = "";
+        }
+
         grupoTipoReserva.style.display = "block";
 
     } catch (error) {
 
         console.error(
             "Error cargando mis equipos:",
+            error
+        );
+    }
+}
+
+// =======================================
+// Clubes que lidera/sublidera el estudiante.
+// A diferencia de equipo, un club SÍ aplica
+// para CUALQUIER espacio (incluida Zona
+// Jaguar), porque no está atado a un deporte.
+// =======================================
+
+async function cargarMisClubes() {
+
+    const grupoTipoReserva =
+        document.getElementById("grupo-tipo-reserva");
+
+    const opcionClub =
+        document.getElementById("opcion-club");
+
+    if (!grupoTipoReserva) {
+        return;
+    }
+
+    try {
+
+        const respuesta = await fetch(
+            `${API_URL}/api/reservas/mis-clubes-liderados`,
+            {
+                credentials: "include"
+            }
+        );
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok || !datos.ok) {
+            return;
+        }
+
+        misClubesDisponibles = datos.clubes || [];
+
+        // Si no es líder/sublíder de ningún club, no
+        // se muestra esa opción.
+        if (misClubesDisponibles.length === 0) {
+            return;
+        }
+
+        // Llenar el select de clubes
+        const selectClub =
+            document.getElementById("select-club");
+
+        selectClub.innerHTML =
+            misClubesDisponibles.map(c => `
+                <option value="${c.id_club}">
+                    ${escaparHTML(c.nombre)}
+                </option>
+            `).join("");
+
+        // Mostrar la opción "Club" y la tarjeta de tipo de reserva
+        if (opcionClub) {
+            opcionClub.style.display = "";
+        }
+
+        grupoTipoReserva.style.display = "block";
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando mis clubes:",
             error
         );
     }
@@ -921,7 +1035,7 @@ function escaparHTML(valor = "") {
         .replaceAll("'", "&#039;");
 }
 
-// Cambiar entre Personal y Equipo
+// Cambiar entre Personal, Equipo y Club
 document.addEventListener("change", (evento) => {
 
     if (evento.target.name !== "tipoReserva") {
@@ -933,12 +1047,37 @@ document.addEventListener("change", (evento) => {
     const grupoSeleccionarEquipo =
         document.getElementById("grupo-seleccionar-equipo");
 
+    const grupoSeleccionarClub =
+        document.getElementById("grupo-seleccionar-club");
+
     const grupoAcompanantes =
         document.getElementById("grupo-acompanantes");
 
+    // Se ocultan ambos primero, y solo se muestra el
+    // que corresponda al tipo elegido.
+    if (grupoSeleccionarEquipo) {
+        grupoSeleccionarEquipo.style.display = "none";
+    }
+
+    if (grupoSeleccionarClub) {
+        grupoSeleccionarClub.style.display = "none";
+    }
+
     if (tipoReservaSeleccionado === "equipo") {
 
-        grupoSeleccionarEquipo.style.display = "block";
+        if (grupoSeleccionarEquipo) {
+            grupoSeleccionarEquipo.style.display = "block";
+        }
+
+        if (grupoAcompanantes) {
+            grupoAcompanantes.style.display = "none";
+        }
+
+    } else if (tipoReservaSeleccionado === "club") {
+
+        if (grupoSeleccionarClub) {
+            grupoSeleccionarClub.style.display = "block";
+        }
 
         if (grupoAcompanantes) {
             grupoAcompanantes.style.display = "none";
@@ -946,13 +1085,12 @@ document.addEventListener("change", (evento) => {
 
     } else {
 
-        grupoSeleccionarEquipo.style.display = "none";
-
         if (grupoAcompanantes) {
             grupoAcompanantes.style.display = "block";
         }
     }
 });
 
-// Cargar los equipos disponibles al iniciar la pantalla
+// Cargar los equipos y clubes disponibles al iniciar la pantalla
 cargarMisEquipos();
+cargarMisClubes();

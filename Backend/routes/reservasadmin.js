@@ -78,15 +78,18 @@ async function generarIdReserva() {
 // de horario, considerando:
 //   - Sus reservas personales (individuales,
 //     o donde él sea el titular/líder de un
-//     equipo).
+//     equipo o club).
 //   - Cualquier reserva de EQUIPO donde sea
 //     integrante activo (aunque no haya sido
 //     él quien la creó).
+//   - Cualquier reserva de CLUB donde sea
+//     integrante activo (líder, sublíder o
+//     miembro — igual que equipo).
 //
 // Esto evita que una misma persona quede
 // "reservada" en dos lugares a la vez, sin
-// importar si fue una reserva individual o
-// de equipo la que generó el choque.
+// importar si fue una reserva individual, de
+// equipo o de club la que generó el choque.
 // =======================================
 async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, horaFin) {
 
@@ -110,10 +113,20 @@ async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, 
                      AND ei.activo = 1
                  )
              )
+             OR (
+                 r.tipo_reserva = 'club'
+                 AND EXISTS (
+                     SELECT 1
+                     FROM club_integrantes ci
+                     WHERE ci.id_club = r.id_club
+                     AND ci.id_estudiante = ?
+                     AND ci.activo = 1
+                 )
+             )
          )
          LIMIT 1`,
 
-        [fecha, horaFin, horaInicio, idEstudiante, idEstudiante]
+        [fecha, horaFin, horaInicio, idEstudiante, idEstudiante, idEstudiante]
     );
 
     return conflicto.length > 0;
@@ -121,17 +134,20 @@ async function estudianteTieneConflictoHorario(idEstudiante, fecha, horaInicio, 
 
 // =======================================
 // ADMIN - Crear reserva en nombre de un
-// estudiante o de un equipo
+// estudiante, de un equipo o de un club
 // POST /api/reservas-admin
 //
 // body:
-//   modo: "individual" | "equipo"
+//   modo: "individual" | "equipo" | "club"
 //
 //   -- modo individual --
 //   id_estudiante  (obligatorio)
 //
 //   -- modo equipo --
 //   id_equipo      (obligatorio)
+//
+//   -- modo club --
+//   id_club        (obligatorio)
 //
 //   -- siempre --
 //   id_espacio, fecha, hora_inicio, hora_fin
@@ -146,6 +162,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             modo,
             id_estudiante: idEstudianteBody,
             id_equipo,
+            id_club,
             id_espacio,
             id_item,
             fecha,
@@ -156,10 +173,10 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             cant_acompanantes
         } = req.body;
 
-        if (!["individual", "equipo"].includes(modo)) {
+        if (!["individual", "equipo", "club"].includes(modo)) {
             return res.status(400).json({
                 ok: false,
-                mensaje: "Debe indicar el modo: individual o equipo."
+                mensaje: "Debe indicar el modo: individual, equipo o club."
             });
         }
 
@@ -199,6 +216,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
         let id_estudiante = null;
         let tipoReservaFinal = modo;
         let idEquipoFinal = null;
+        let idClubFinal = null;
 
         if (modo === "individual") {
 
@@ -297,6 +315,55 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
             id_estudiante = lider[0].id_estudiante;
             idEquipoFinal = id_equipo;
 
+        } else if (modo === "club") {
+
+            if (!id_club) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: "Debe indicar el club."
+                });
+            }
+
+            const [club] = await db.query(
+                `SELECT id_club FROM clubes
+                 WHERE id_club = ?
+                 AND activo = 1`,
+                [id_club]
+            );
+
+            if (club.length === 0) {
+                return res.status(404).json({
+                    ok: false,
+                    mensaje: "El club no existe o está inactivo."
+                });
+            }
+
+            // A diferencia de equipo, un club NO está atado a
+            // un deporte/espacio específico — puede reservar
+            // cualquier espacio, así que no se valida nada de
+            // deporte aquí.
+
+            // El líder activo del club queda como titular de la reserva
+            const [lider] = await db.query(
+                `SELECT id_estudiante
+                 FROM club_integrantes
+                 WHERE id_club = ?
+                 AND rol = 'lider'
+                 AND activo = 1
+                 LIMIT 1`,
+                [id_club]
+            );
+
+            if (lider.length === 0) {
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: "Este club no tiene un líder activo asignado."
+                });
+            }
+
+            id_estudiante = lider[0].id_estudiante;
+            idClubFinal = id_club;
+
         }
 
         // =======================================
@@ -306,9 +373,10 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
         //   estudiante que hace la reserva.
         // - Modo equipo: se revisa a CADA integrante
         //   activo del equipo (líder, sublíder y
-        //   jugadores), no solo al líder — así se
-        //   evita que alguien quede "reservado" en
-        //   dos lugares a la misma hora.
+        //   jugadores), no solo al líder.
+        // - Modo club: igual que equipo, pero sobre
+        //   los integrantes activos del club (líder,
+        //   sublíder y miembros).
         // =======================================
 
         if (modo === "individual" && id_estudiante) {
@@ -351,6 +419,35 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                     return res.status(400).json({
                         ok: false,
                         mensaje: `${integrante.nombre} ya tiene una reserva en ese horario. No se puede reservar para el equipo.`
+                    });
+                }
+
+            }
+
+        } else if (modo === "club" && idClubFinal) {
+
+            const [integrantesClub] = await db.query(
+                `SELECT ci.id_estudiante, e.nombre
+                 FROM club_integrantes ci
+                 INNER JOIN estudiantes e ON e.id_estudiante = ci.id_estudiante
+                 WHERE ci.id_club = ?
+                 AND ci.activo = 1`,
+                [idClubFinal]
+            );
+
+            for (const integrante of integrantesClub) {
+
+                const hayConflicto = await estudianteTieneConflictoHorario(
+                    integrante.id_estudiante,
+                    fecha,
+                    hora_inicio,
+                    hora_fin
+                );
+
+                if (hayConflicto) {
+                    return res.status(400).json({
+                        ok: false,
+                        mensaje: `${integrante.nombre} ya tiene una reserva en ese horario. No se puede reservar para el club.`
                     });
                 }
 
@@ -454,7 +551,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
         // El QR de acompañantes solo aplica a reservas individuales
         // de estudiantes reales (el flujo de "unirse por QR" exige
         // que el acompañante sea un estudiante matriculado, algo
-        // que no aplica a equipos).
+        // que no aplica a equipos ni clubes).
         let qr_token = null;
 
         if (tipoReservaFinal === "individual" && cantidadAcompanantes > 0) {
@@ -475,6 +572,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 id_item,
                 tipo_reserva,
                 id_equipo,
+                id_club,
                 fecha,
                 hora_inicio,
                 hora_fin,
@@ -484,7 +582,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 estado,
                 qr_token
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [
                 id_reserva,
                 id_estudiante,
@@ -492,6 +590,7 @@ router.post('/', requiereSesion, requiereAdmin, async (req, res) => {
                 id_item || null,
                 tipoReservaFinal,
                 idEquipoFinal,
+                idClubFinal,
                 fecha,
                 hora_inicio,
                 hora_fin,
@@ -579,6 +678,65 @@ router.get('/:id/equipo-integrantes', requiereSesion, requiereAdmin, async (req,
 
     } catch (error) {
         console.error("ERROR OBTENIENDO INTEGRANTES DE EQUIPO:", error);
+        res.status(500).json({ ok: false, mensaje: "Error del servidor." });
+    }
+
+});
+
+// =======================================
+//  Integrantes de una reserva de club
+// GET /api/reservas-admin/:id/club-integrantes
+// =======================================
+
+router.get('/:id/club-integrantes', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const [reservas] = await db.query(
+            `SELECT id_club, tipo_reserva
+             FROM reservas
+             WHERE id_reserva = ?`,
+            [req.params.id]
+        );
+
+        if (reservas.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Reserva no encontrada."
+            });
+        }
+
+        if (reservas[0].tipo_reserva !== 'club') {
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Esta reserva no es de tipo club."
+            });
+        }
+
+        const [integrantes] = await db.query(
+            `SELECT
+                ci.id,
+                ci.id_estudiante,
+                ci.rol,
+                ci.activo,
+                e.nombre,
+                e.cuenta
+             FROM club_integrantes ci
+             INNER JOIN estudiantes e ON e.id_estudiante = ci.id_estudiante
+             WHERE ci.id_club = ?
+               AND ci.activo = 1
+             ORDER BY FIELD(ci.rol,'lider','sublider','miembro'), e.nombre ASC`,
+            [reservas[0].id_club]
+        );
+
+        res.json({
+            ok: true,
+            id_club: reservas[0].id_club,
+            integrantes
+        });
+
+    } catch (error) {
+        console.error("ERROR OBTENIENDO INTEGRANTES DE CLUB:", error);
         res.status(500).json({ ok: false, mensaje: "Error del servidor." });
     }
 

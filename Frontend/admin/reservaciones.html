@@ -414,34 +414,45 @@
 
         <div class="custom-modal-body">
 
-            <div class="form-group">
-                <label>Reservar para</label>
-                <div class="modo-reserva-toggle">
-                    <button type="button" id="modo-btn-individual" class="modo-btn activo" onclick="cambiarModoReserva('individual')">
-                        <i class="bi bi-person"></i> Alumno
-                    </button>
-                    <button type="button" id="modo-btn-equipo" class="modo-btn" onclick="cambiarModoReserva('equipo')">
-                        <i class="bi bi-people"></i> Equipo
-                    </button>
-                </div>
-            </div>
+           <div class="form-group">
+    <label>Reservar para</label>
+    <div class="modo-reserva-toggle">
+        <button type="button" id="modo-btn-individual" class="modo-btn activo" onclick="cambiarModoReserva('individual')">
+            <i class="bi bi-person"></i> Alumno
+        </button>
+        <button type="button" id="modo-btn-equipo" class="modo-btn" onclick="cambiarModoReserva('equipo')">
+            <i class="bi bi-people"></i> Equipo
+        </button>
+        <button type="button" id="modo-btn-club" class="modo-btn" onclick="cambiarModoReserva('club')">
+            <i class="bi bi-flag"></i> Club
+        </button>
+    </div>
+</div>
 
-            <!-- BUSCAR ALUMNO -->
-            <div class="form-group" id="bloque-alumno">
-                <label for="buscar-cuenta-reserva">Número de cuenta del alumno</label>
-                <input type="text" id="buscar-cuenta-reserva" placeholder="Ej: 42411047" autocomplete="off">
-                <div id="resultados-alumno" class="resultados-busqueda"></div>
-                <input type="hidden" id="id-estudiante-seleccionado">
-                <div id="alumno-seleccionado-info" class="alumno-chip" style="display:none;"></div>
-            </div>
+<!-- BUSCAR ALUMNO -->
+<div class="form-group" id="bloque-alumno">
+    <label for="buscar-cuenta-reserva">Número de cuenta del alumno</label>
+    <input type="text" id="buscar-cuenta-reserva" placeholder="Ej: 42411047" autocomplete="off">
+    <div id="resultados-alumno" class="resultados-busqueda"></div>
+    <input type="hidden" id="id-estudiante-seleccionado">
+    <div id="alumno-seleccionado-info" class="alumno-chip" style="display:none;"></div>
+</div>
 
-            <!-- SELECCIONAR EQUIPO -->
-            <div class="form-group" id="bloque-equipo" style="display:none;">
-                <label for="select-equipo-reserva">Equipo</label>
-                <select id="select-equipo-reserva">
-                    <option value="">Selecciona un equipo</option>
-                </select>
-            </div>
+<!-- SELECCIONAR EQUIPO -->
+<div class="form-group" id="bloque-equipo" style="display:none;">
+    <label for="select-equipo-reserva">Equipo</label>
+    <select id="select-equipo-reserva">
+        <option value="">Selecciona un equipo</option>
+    </select>
+</div>
+
+<!-- SELECCIONAR CLUB -->
+<div class="form-group" id="bloque-club" style="display:none;">
+    <label for="select-club-reserva">Club</label>
+    <select id="select-club-reserva">
+        <option value="">Selecciona un club</option>
+    </select>
+</div>
 
             <div class="form-row">
                 <div class="form-group">

@@ -26,6 +26,13 @@ function requiereAdmin(req, res, next) {
     next();
 }
 
+// Roles válidos para un integrante de club (igual que equipos:
+// líder, sublíder, miembro). El "rol" se agregó a club_integrantes
+// con: ALTER TABLE club_integrantes ADD COLUMN rol ENUM('lider',
+// 'sublider','miembro') NOT NULL DEFAULT 'miembro';
+const ROLES_VALIDOS = ['lider', 'sublider', 'miembro'];
+const MAX_SUBLIDERES_ACTIVOS = 2;
+
 // =======================================
 // Listar clubes, con sus integrantes
 // GET /api/clubes?incluir_inactivos=true
@@ -69,6 +76,7 @@ router.get('/', requiereSesion, requiereAdmin, async (req, res) => {
                 ci.id,
                 ci.id_club,
                 ci.id_estudiante,
+                ci.rol,
                 ci.activo,
                 e.nombre AS estudiante_nombre,
                 e.cuenta AS estudiante_cuenta
@@ -76,7 +84,13 @@ router.get('/', requiereSesion, requiereAdmin, async (req, res) => {
              INNER JOIN estudiantes e
                 ON e.id_estudiante = ci.id_estudiante
              WHERE ci.id_club IN (?)
-             ORDER BY e.nombre ASC`,
+             ORDER BY
+                CASE ci.rol
+                    WHEN 'lider' THEN 1
+                    WHEN 'sublider' THEN 2
+                    ELSE 3
+                END,
+                e.nombre ASC`,
             [idsClubes]
         );
 
@@ -85,9 +99,13 @@ router.get('/', requiereSesion, requiereAdmin, async (req, res) => {
             const integrantesDelClub =
                 integrantes.filter(i => i.id_club === c.id_club);
 
+            const lider =
+                integrantesDelClub.find(i => i.rol === 'lider' && i.activo);
+
             return {
                 ...c,
-                integrantes: integrantesDelClub
+                integrantes: integrantesDelClub,
+                lider_nombre: lider ? lider.estudiante_nombre : null
             };
 
         });
@@ -140,6 +158,7 @@ router.get('/:id', requiereSesion, requiereAdmin, async (req, res) => {
                 ci.id,
                 ci.id_club,
                 ci.id_estudiante,
+                ci.rol,
                 ci.activo,
                 e.nombre AS estudiante_nombre,
                 e.cuenta AS estudiante_cuenta
@@ -147,7 +166,13 @@ router.get('/:id', requiereSesion, requiereAdmin, async (req, res) => {
              INNER JOIN estudiantes e
                 ON e.id_estudiante = ci.id_estudiante
              WHERE ci.id_club = ?
-             ORDER BY e.nombre ASC`,
+             ORDER BY
+                CASE ci.rol
+                    WHEN 'lider' THEN 1
+                    WHEN 'sublider' THEN 2
+                    ELSE 3
+                END,
+                e.nombre ASC`,
             [req.params.id]
         );
 
@@ -375,13 +400,16 @@ router.put('/:id/activar', requiereSesion, requiereAdmin, async (req, res) => {
 // Agregar integrante a un club
 // POST /api/clubes/:id/integrantes
 //
-// body: cuenta
+// body: cuenta, rol (opcional: 'sublider' o 'miembro',
+//       por defecto 'miembro'; NO se acepta 'lider' aquí
+//       — para eso está el endpoint /lider/:idIntegrante)
 //
 // Reglas:
 // - El club debe existir y estar activo
 // - El estudiante debe existir y estar activo
 // - Un estudiante no puede repetirse activo en el mismo club
 //   (pero sí puede estar en otros clubes distintos)
+// - Máximo 2 sublíderes activos por club
 // =======================================
 
 router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) => {
@@ -390,11 +418,22 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         const { cuenta } = req.body;
 
+        const rol = req.body.rol || 'miembro';
+
         if (!cuenta) {
 
             return res.status(400).json({
                 ok: false,
                 mensaje: "Debe indicar la cuenta del estudiante."
+            });
+
+        }
+
+        if (rol === 'lider' || !ROLES_VALIDOS.includes(rol)) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Rol inválido. Use 'sublider' o 'miembro' al agregar; el líder se asigna aparte."
             });
 
         }
@@ -455,12 +494,32 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
+        if (rol === 'sublider') {
+
+            const [sublideresActivos] = await db.query(
+                `SELECT COUNT(*) AS total
+                 FROM club_integrantes
+                 WHERE id_club = ? AND rol = 'sublider' AND activo = 1`,
+                [req.params.id]
+            );
+
+            if (sublideresActivos[0].total >= MAX_SUBLIDERES_ACTIVOS) {
+
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: `Este club ya tiene el máximo de ${MAX_SUBLIDERES_ACTIVOS} sublíderes activos.`
+                });
+
+            }
+
+        }
+
         const [resultado] = await db.query(
 
-            `INSERT INTO club_integrantes(id_club, id_estudiante, activo)
-             VALUES(?,?,1)`,
+            `INSERT INTO club_integrantes(id_club, id_estudiante, rol, activo)
+             VALUES(?,?,?,1)`,
 
-            [req.params.id, estudiante.id_estudiante]
+            [req.params.id, estudiante.id_estudiante, rol]
 
         );
 
@@ -485,16 +544,47 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 });
 
 // =======================================
-// Inactivar (quitar) integrante de un club
-// PUT /api/clubes/:idClub/integrantes/:idIntegrante/inactivar
+// Hacer líder a un integrante del club
+// PUT /api/clubes/:idClub/lider/:idIntegrante
+//
+// El líder anterior (si había uno) pasa
+// automáticamente a 'miembro'. Un club puede
+// no tener líder (recién creado, o si el
+// líder fue inactivado), así que no siempre
+// hay alguien que degradar.
 // =======================================
 
-router.put('/:idClub/integrantes/:idIntegrante/inactivar', requiereSesion, requiereAdmin, async (req, res) => {
+router.put('/:idClub/lider/:idIntegrante', requiereSesion, requiereAdmin, async (req, res) => {
+
+    let conexion;
 
     try {
 
+        const [clubes] = await db.query(
+            `SELECT id_club, activo FROM clubes WHERE id_club = ?`,
+            [req.params.idClub]
+        );
+
+        if (clubes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Club no encontrado."
+            });
+
+        }
+
+        if (!clubes[0].activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se puede cambiar el líder de un club inactivo."
+            });
+
+        }
+
         const [integrantes] = await db.query(
-            `SELECT id, activo
+            `SELECT id, activo, rol
              FROM club_integrantes
              WHERE id = ? AND id_club = ?`,
             [req.params.idIntegrante, req.params.idClub]
@@ -505,6 +595,215 @@ router.put('/:idClub/integrantes/:idIntegrante/inactivar', requiereSesion, requi
             return res.status(404).json({
                 ok: false,
                 mensaje: "Integrante no encontrado en este club."
+            });
+
+        }
+
+        if (!integrantes[0].activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe estar activo para poder ser líder."
+            });
+
+        }
+
+        if (integrantes[0].rol === 'lider') {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Este integrante ya es el líder del club."
+            });
+
+        }
+
+        conexion = await db.getConnection();
+        await conexion.beginTransaction();
+
+        // Degradar al líder anterior, si existe
+        await conexion.query(
+            `UPDATE club_integrantes
+             SET rol = 'miembro'
+             WHERE id_club = ? AND rol = 'lider' AND activo = 1`,
+            [req.params.idClub]
+        );
+
+        // Asignar el nuevo líder
+        await conexion.query(
+            `UPDATE club_integrantes
+             SET rol = 'lider'
+             WHERE id = ?`,
+            [req.params.idIntegrante]
+        );
+
+        await conexion.commit();
+
+        res.json({
+            ok: true,
+            mensaje: "Líder del club actualizado correctamente."
+        });
+
+    } catch (error) {
+
+        if (conexion) {
+            try { await conexion.rollback(); } catch (_) {}
+        }
+
+        console.error("ERROR CAMBIANDO LÍDER DE CLUB:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    } finally {
+
+        if (conexion) conexion.release();
+
+    }
+
+});
+
+// =======================================
+// Cambiar rol de un integrante (sublider <-> miembro)
+// PUT /api/clubes/:idClub/integrantes/:idIntegrante/rol
+//
+// body: rol ('sublider' o 'miembro')
+//
+// No permite asignar 'lider' aquí (usar el
+// endpoint dedicado /lider/:idIntegrante), ni
+// cambiar el rol del líder actual (debe
+// transferirse el liderazgo primero).
+// =======================================
+
+router.put('/:idClub/integrantes/:idIntegrante/rol', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const { rol } = req.body;
+
+        if (!rol || rol === 'lider' || !ROLES_VALIDOS.includes(rol)) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Rol inválido. Use 'sublider' o 'miembro'."
+            });
+
+        }
+
+        const [integrantes] = await db.query(
+            `SELECT id, id_club, activo, rol
+             FROM club_integrantes
+             WHERE id = ? AND id_club = ?`,
+            [req.params.idIntegrante, req.params.idClub]
+        );
+
+        if (integrantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Integrante no encontrado en este club."
+            });
+
+        }
+
+        const integrante = integrantes[0];
+
+        if (!integrante.activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "El integrante debe estar activo para cambiar su rol."
+            });
+
+        }
+
+        if (integrante.rol === 'lider') {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe asignar el liderazgo a otro integrante antes de cambiar el rol del líder actual."
+            });
+
+        }
+
+        if (rol === 'sublider' && integrante.rol !== 'sublider') {
+
+            const [sublideresActivos] = await db.query(
+                `SELECT COUNT(*) AS total
+                 FROM club_integrantes
+                 WHERE id_club = ? AND rol = 'sublider' AND activo = 1`,
+                [req.params.idClub]
+            );
+
+            if (sublideresActivos[0].total >= MAX_SUBLIDERES_ACTIVOS) {
+
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: `Este club ya tiene el máximo de ${MAX_SUBLIDERES_ACTIVOS} sublíderes activos.`
+                });
+
+            }
+
+        }
+
+        await db.query(
+            `UPDATE club_integrantes SET rol = ? WHERE id = ?`,
+            [rol, req.params.idIntegrante]
+        );
+
+        res.json({
+            ok: true,
+            mensaje: "Rol actualizado correctamente."
+        });
+
+    } catch (error) {
+
+        console.error("ERROR CAMBIANDO ROL DE INTEGRANTE:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// =======================================
+// Inactivar (quitar) integrante de un club
+// PUT /api/clubes/:idClub/integrantes/:idIntegrante/inactivar
+//
+// No se puede inactivar al líder actual sin
+// antes transferirle el liderazgo a otro
+// integrante (mismo criterio usado en Equipos).
+// =======================================
+
+router.put('/:idClub/integrantes/:idIntegrante/inactivar', requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const [integrantes] = await db.query(
+            `SELECT id, activo, rol
+             FROM club_integrantes
+             WHERE id = ? AND id_club = ?`,
+            [req.params.idIntegrante, req.params.idClub]
+        );
+
+        if (integrantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Integrante no encontrado en este club."
+            });
+
+        }
+
+        if (integrantes[0].rol === 'lider') {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se puede inactivar al líder actual. Asigne el liderazgo a otro integrante primero."
             });
 
         }
@@ -541,6 +840,9 @@ router.put('/:idClub/integrantes/:idIntegrante/inactivar', requiereSesion, requi
 // - No puede quedar duplicado: si el mismo
 //   estudiante ya tiene otro registro activo
 //   en este club, se bloquea.
+// - Vuelve a entrar como 'miembro' (no conserva
+//   un rol de líder/sublíder previo, evitando
+//   que se reactive con liderazgo por accidente).
 // =======================================
 
 router.put('/:idClub/integrantes/:idIntegrante/activar', requiereSesion, requiereAdmin, async (req, res) => {
@@ -611,7 +913,7 @@ router.put('/:idClub/integrantes/:idIntegrante/activar', requiereSesion, requier
         }
 
         await db.query(
-            `UPDATE club_integrantes SET activo = 1 WHERE id = ?`,
+            `UPDATE club_integrantes SET activo = 1, rol = 'miembro' WHERE id = ?`,
             [req.params.idIntegrante]
         );
 

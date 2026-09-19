@@ -402,11 +402,14 @@ function renderTabla() {
 
     // Cantidad a mostrar en la columna ACOMP.:
     // - Reserva de equipo → cantidad_equipo (integrantes activos)
+    // - Reserva de club → cantidad_club (integrantes activos)
     // - Reserva individual → cant_acompanantes, igual que antes
     const cantidadMostrada =
       r.tipo_reserva === 'equipo'
         ? Number(r.cantidad_equipo || 0)
-        : Number(r.cant_acompanantes || 0);
+        : r.tipo_reserva === 'club'
+          ? Number(r.cantidad_club || 0)
+          : Number(r.cant_acompanantes || 0);
 
     return `
       <tr>
@@ -937,6 +940,7 @@ async function verDetalle(id) {
   if (!r) return;
 
   const esEquipo = r.tipo_reserva === 'equipo';
+  const esClub = r.tipo_reserva === 'club';
 
   try {
 
@@ -987,6 +991,64 @@ async function verDetalle(id) {
           if (rol === 'lider') return 'Líder';
           if (rol === 'sublider') return 'Sublíder';
           return 'Jugador';
+        };
+
+        listaAcompanantes =
+          integrantes.map(persona => `
+            <div class="acompanante-registrado">
+              ${escapar(persona.nombre)}
+              —
+              ${escapar(persona.cuenta)}
+              <span class="rol-integrante">
+                (${etiquetaRol(persona.rol)})
+              </span>
+            </div>
+          `).join("");
+      }
+
+    } else if (esClub) {
+
+      // =======================================
+      // RESERVA DE CLUB → consultar integrantes
+      // =======================================
+
+      etiquetaLista = 'Integrantes del club';
+
+      const respuesta = await fetch(
+        `${API_URL}/api/reservas-admin/${encodeURIComponent(id)}/club-integrantes`,
+        {
+          method: "GET",
+          credentials: "include"
+        }
+      );
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok || !datos.ok) {
+        throw new Error(
+          datos.mensaje ||
+          "No se pudieron consultar los integrantes del club."
+        );
+      }
+
+      const integrantes = datos.integrantes || [];
+
+      cantidadPermitida = integrantes.length;
+
+      if (integrantes.length === 0) {
+
+        listaAcompanantes = `
+          <span class="sin-registros">
+            Sin integrantes registrados
+          </span>
+        `;
+
+      } else {
+
+        const etiquetaRol = rol => {
+          if (rol === 'lider') return 'Líder';
+          if (rol === 'sublider') return 'Sublíder';
+          return 'Miembro';
         };
 
         listaAcompanantes =
@@ -1134,7 +1196,9 @@ async function verDetalle(id) {
       [
         esEquipo
           ? 'Integrantes del equipo'
-          : 'Acompañantes permitidos',
+          : esClub
+            ? 'Integrantes del club'
+            : 'Acompañantes permitidos',
         cantidadPermitida
       ]
     ];
@@ -1329,7 +1393,7 @@ async function cerrarSesion() {
 }
 
 // =======================================
-// CREAR RESERVA (ADMIN) — Alumno o Equipo
+// CREAR RESERVA (ADMIN) — Alumno, Equipo o Club
 // =======================================
 
 let estudiantesCache = null;   // lista completa, se carga una vez y se filtra en el navegador
@@ -1360,6 +1424,7 @@ function abrirModalCrearReserva() {
     status.classList.remove('error');
 
     cargarEquiposParaReserva();
+    cargarClubesParaReserva();
 
     abrirModal(document.getElementById('modal-crear-reserva'));
 }
@@ -1368,12 +1433,18 @@ function cambiarModoReserva(modo) {
 
     document.getElementById('modo-btn-individual').classList.toggle('activo', modo === 'individual');
     document.getElementById('modo-btn-equipo').classList.toggle('activo', modo === 'equipo');
+    document.getElementById('modo-btn-club')?.classList.toggle('activo', modo === 'club');
 
     document.getElementById('bloque-alumno').style.display = modo === 'individual' ? 'block' : 'none';
     document.getElementById('bloque-equipo').style.display = modo === 'equipo' ? 'block' : 'none';
 
+    const bloqueClub = document.getElementById('bloque-club');
+    if (bloqueClub) {
+        bloqueClub.style.display = modo === 'club' ? 'block' : 'none';
+    }
+
     // Los acompañantes con QR solo aplican a reservas individuales
-    // (un equipo ya tiene su roster conocido de antemano)
+    // (un equipo o club ya tiene su roster conocido de antemano)
     document.getElementById('bloque-acompanantes').style.display = modo === 'individual' ? 'block' : 'none';
 
     const selectEspacio = document.getElementById('reserva-espacio');
@@ -1384,7 +1455,7 @@ function cambiarModoReserva(modo) {
         // (puede que haya quedado bloqueado desde modo equipo)
         selectEspacio.disabled = false;
 
-    } else {
+    } else if (modo === 'equipo') {
 
         // En modo equipo, el espacio se auto-selecciona y
         // se bloquea según el equipo elegido (ver
@@ -1398,6 +1469,13 @@ function cambiarModoReserva(modo) {
         } else {
             selectEspacio.disabled = true;
         }
+
+    } else if (modo === 'club') {
+
+        // A diferencia de equipo, un club NO está atado a un
+        // deporte específico — puede reservar cualquier
+        // espacio, así que el selector se deja libre.
+        selectEspacio.disabled = false;
     }
 }
 
@@ -1507,6 +1585,43 @@ async function cargarEquiposParaReserva() {
     }
 }
 
+// =======================================
+// Cargar clubes activos para el modo "Club"
+// (a diferencia de equipos, no hay deporte
+// que autocompletar/bloquear en el espacio).
+// =======================================
+async function cargarClubesParaReserva() {
+
+    const select = document.getElementById('select-club-reserva');
+
+    if (!select) return;
+
+    try {
+
+        const res = await fetch(`${API_URL}/api/clubes`, {
+            credentials: 'include'
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudieron cargar los clubes.');
+        }
+
+        const clubes = (data.clubes || []).filter(c => Number(c.activo) === 1);
+
+        select.innerHTML = '<option value="">Selecciona un club</option>' +
+            clubes.map(c =>
+                `<option value="${c.id_club}">${escapar(c.nombre)}</option>`
+            ).join('');
+
+    } catch (error) {
+
+        console.error('Error cargando clubes:', error);
+        select.innerHTML = '<option value="">No se pudieron cargar los clubes</option>';
+    }
+}
+
 // Cuando cambia el equipo elegido, se actualiza el espacio
 document.getElementById('select-equipo-reserva')?.addEventListener(
     'change',
@@ -1586,9 +1701,12 @@ async function confirmarCrearReservaAdmin() {
     status.textContent = '';
     status.classList.remove('error');
 
-    const modo = document.getElementById('modo-btn-equipo').classList.contains('activo')
-        ? 'equipo'
-        : 'individual';
+    const modo =
+        document.getElementById('modo-btn-club')?.classList.contains('activo')
+            ? 'club'
+            : document.getElementById('modo-btn-equipo').classList.contains('activo')
+                ? 'equipo'
+                : 'individual';
 
     const id_espacio = Number(document.getElementById('reserva-espacio').value);
     const fecha = document.getElementById('reserva-fecha').value;
@@ -1644,7 +1762,7 @@ async function confirmarCrearReservaAdmin() {
 
         body.id_estudiante = Number(idEstudiante);
 
-    } else {
+    } else if (modo === 'equipo') {
 
         const idEquipo = document.getElementById('select-equipo-reserva').value;
 
@@ -1655,6 +1773,18 @@ async function confirmarCrearReservaAdmin() {
         }
 
         body.id_equipo = Number(idEquipo);
+
+    } else if (modo === 'club') {
+
+        const idClub = document.getElementById('select-club-reserva').value;
+
+        if (!idClub) {
+            status.textContent = 'Debe seleccionar un club.';
+            status.classList.add('error');
+            return;
+        }
+
+        body.id_club = Number(idClub);
     }
 
     try {

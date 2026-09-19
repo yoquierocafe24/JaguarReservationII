@@ -182,6 +182,7 @@ const elements = {
     clubIntegrantesModalTitle: document.getElementById('club-integrantes-modal-title'),
     clubIntegrantesList: document.getElementById('club-integrantes-list'),
     clubIntegranteCuenta: document.getElementById('club-integrante-cuenta'),
+    clubIntegranteRol: document.getElementById('club-integrante-rol'),
     clubIntegranteEstudiantePreview: document.getElementById('club-integrante-estudiante-preview'),
     clubIntegranteFormStatus: document.getElementById('club-integrante-form-status'),
     btnAgregarIntegranteClub: document.getElementById('btn-agregar-integrante-club')
@@ -949,7 +950,7 @@ function renderClubes() {
     if (!elements.clubTableBody) return;
 
     if (!state.clubes.length) {
-        elements.clubTableBody.innerHTML = '<tr><td colspan="4" class="empty-state">No hay clubes registrados.</td></tr>';
+        elements.clubTableBody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay clubes registrados.</td></tr>';
 
         if (elements.clubesPaginacion) {
             elements.clubesPaginacion.innerHTML = '';
@@ -982,6 +983,7 @@ function renderClubes() {
         return `
             <tr class="${club.activo ? '' : 'inactivo'}">
                 <td>${escapeHtml(club.nombre)}</td>
+                <td>${club.lider_nombre ? escapeHtml(club.lider_nombre) : '<span class="integrantes-count">Sin líder</span>'}</td>
                 <td><span class="integrantes-count">${integrantesActivos} activo(s)</span></td>
                 <td><span class="chip ${club.activo ? 'activo' : 'inactivo'}">${club.activo ? 'Activo' : 'Inactivo'}</span></td>
                 <td>
@@ -1189,6 +1191,7 @@ async function abrirModalIntegrantesClub(idClub) {
     state.clubIdActivo = idClub;
 
     elements.clubIntegranteCuenta.value = '';
+    if (elements.clubIntegranteRol) elements.clubIntegranteRol.value = 'miembro';
     elements.clubIntegranteEstudiantePreview.textContent = '';
     setClubIntegranteFormStatus('');
 
@@ -1233,23 +1236,83 @@ function renderIntegrantesClub(integrantes) {
         return;
     }
 
-    elements.clubIntegrantesList.innerHTML = integrantes.map(i => `
-        <div class="integrante-item">
-            <div class="integrante-info">
-                <span class="integrante-nombre">${escapeHtml(i.estudiante_nombre)}</span>
-                <span class="integrante-cuenta">Cuenta: ${escapeHtml(i.estudiante_cuenta)}</span>
-            </div>
+    // Se guarda cada integrante por id para poder mostrar
+    // su nombre en los modales de confirmación al hacer clic.
+    const integrantesPorId = {};
 
-            <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
+    elements.clubIntegrantesList.innerHTML = integrantes.map(i => {
 
-            <div class="integrante-acciones">
-                ${i.activo
-                    ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
-                    : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`
-                }
+        integrantesPorId[i.id] = i;
+
+        // =====================================
+        // Mismo patrón que Equipos: los 3 botones
+        // de acción SIEMPRE se renderizan, en el
+        // mismo orden, para que todas las filas
+        // se vean uniformes. Los que no aplican se
+        // deshabilitan en vez de desaparecer, con
+        // un tooltip que explica por qué.
+        // =====================================
+
+        const esLider = i.rol === 'lider';
+        const esSublider = i.rol === 'sublider';
+        const esMiembro = i.rol === 'miembro' || !i.rol;
+
+        // Botón 1: "Hacer líder"
+        const botonHacerLider = esLider
+            ? `<button type="button" class="action-btn disabled" disabled title="Ya es el líder de este club">Hacer líder</button>`
+            : `<button type="button" class="action-btn" data-club-hacer-lider="${i.id}" ${i.activo ? '' : 'disabled title="Debe estar activo para ser líder"'}>Hacer líder</button>`;
+
+        // Botón 2: cambia según el rol actual.
+        // Si es líder, se muestra "A miembro" deshabilitado,
+        // porque primero hay que asignarle el liderazgo a otro.
+        let botonCambiarRol;
+
+        if (esMiembro) {
+            botonCambiarRol = `<button type="button" class="action-btn secundario" data-club-cambiar-rol="${i.id}" data-nuevo-rol="sublider" ${i.activo ? '' : 'disabled'}>A sublíder</button>`;
+        } else if (esSublider) {
+            botonCambiarRol = `<button type="button" class="action-btn secundario" data-club-cambiar-rol="${i.id}" data-nuevo-rol="miembro" ${i.activo ? '' : 'disabled'}>A miembro</button>`;
+        } else {
+            botonCambiarRol = `<button type="button" class="action-btn secundario disabled" disabled title="Debe asignar el liderazgo a otro integrante antes de cambiarlo de rol">A miembro</button>`;
+        }
+
+        // Botón 3: Inactivar / Activar (esto ya era uniforme)
+        const botonEstado = i.activo
+            ? `<button type="button" class="action-btn secundario" data-inactivar-integrante="${i.id}">Inactivar</button>`
+            : `<button type="button" class="action-btn exito" data-activar-integrante="${i.id}">Activar</button>`;
+
+        return `
+            <div class="integrante-item">
+                <div class="integrante-info">
+                    <span class="integrante-nombre">${escapeHtml(i.estudiante_nombre)}</span>
+                    <span class="integrante-cuenta">Cuenta: ${escapeHtml(i.estudiante_cuenta)}</span>
+                </div>
+
+                <span class="chip ${i.rol || 'miembro'}">${i.rol || 'miembro'}</span>
+                <span class="chip ${i.activo ? 'activo' : 'inactivo'}">${i.activo ? 'Activo' : 'Inactivo'}</span>
+
+                <div class="integrante-acciones">
+                    ${botonHacerLider}
+                    ${botonCambiarRol}
+                    ${botonEstado}
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+
+    }).join('');
+
+    elements.clubIntegrantesList.querySelectorAll('[data-club-hacer-lider]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const integrante = integrantesPorId[btn.dataset.clubHacerLider];
+            solicitarConfirmacionHacerLiderClub(btn.dataset.clubHacerLider, integrante?.estudiante_nombre);
+        });
+    });
+
+    elements.clubIntegrantesList.querySelectorAll('[data-club-cambiar-rol]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const integrante = integrantesPorId[btn.dataset.clubCambiarRol];
+            solicitarConfirmacionCambiarRolClub(btn.dataset.clubCambiarRol, btn.dataset.nuevoRol, integrante?.estudiante_nombre);
+        });
+    });
 
     elements.clubIntegrantesList.querySelectorAll('[data-inactivar-integrante]').forEach(btn => {
         btn.addEventListener('click', () => solicitarConfirmacionInactivarIntegranteClub(btn.dataset.inactivarIntegrante));
@@ -1258,6 +1321,76 @@ function renderIntegrantesClub(integrantes) {
     elements.clubIntegrantesList.querySelectorAll('[data-activar-integrante]').forEach(btn => {
         btn.addEventListener('click', () => solicitarConfirmacionActivarIntegranteClub(btn.dataset.activarIntegrante));
     });
+}
+
+function solicitarConfirmacionHacerLiderClub(idIntegrante, nombre) {
+    abrirModalConfirmacion({
+        title: 'Cambiar líder del club',
+        message: `¿Deseas convertir a ${nombre || 'este integrante'} en el nuevo líder del club? El líder actual pasará a otro rol automáticamente.`,
+        confirmText: 'Hacer líder',
+        onConfirm: async () => {
+            await hacerLiderClub(idIntegrante);
+        }
+    });
+}
+
+async function hacerLiderClub(idIntegrante) {
+    try {
+        const response = await fetch(`${API_URL}/api/clubes/${state.clubIdActivo}/lider/${idIntegrante}`, {
+            method: 'PUT',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo cambiar el líder.');
+        }
+
+        await recargarDetalleClub();
+
+    } catch (error) {
+        console.error(error);
+        setClubIntegranteFormStatus(error.message || 'Ocurrió un error al cambiar el líder.', true);
+    }
+}
+
+function solicitarConfirmacionCambiarRolClub(idIntegrante, nuevoRol, nombre) {
+
+    const etiquetaRol =
+        nuevoRol === 'sublider' ? 'sublíder' : 'miembro';
+
+    abrirModalConfirmacion({
+        title: 'Cambiar rol',
+        message: `¿Deseas cambiar a ${nombre || 'este integrante'} a ${etiquetaRol}?`,
+        confirmText: 'Cambiar rol',
+        onConfirm: async () => {
+            await cambiarRolIntegranteClub(idIntegrante, nuevoRol);
+        }
+    });
+}
+
+async function cambiarRolIntegranteClub(idIntegrante, nuevoRol) {
+    try {
+        const response = await fetch(`${API_URL}/api/clubes/${state.clubIdActivo}/integrantes/${idIntegrante}/rol`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rol: nuevoRol })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.mensaje || 'No se pudo cambiar el rol.');
+        }
+
+        await recargarDetalleClub();
+
+    } catch (error) {
+        console.error(error);
+        setClubIntegranteFormStatus(error.message || 'Ocurrió un error al cambiar el rol.', true);
+    }
 }
 
 // =======================================
@@ -1301,6 +1434,7 @@ function manejarInputCuentaClub() {
 
 async function agregarIntegranteClub() {
     const cuenta = elements.clubIntegranteCuenta.value.trim();
+    const rol = elements.clubIntegranteRol?.value || 'miembro';
 
     if (!cuenta) {
         setClubIntegranteFormStatus('Debes indicar el número de cuenta.', true);
@@ -1315,7 +1449,7 @@ async function agregarIntegranteClub() {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cuenta })
+            body: JSON.stringify({ cuenta, rol })
         });
 
         const data = await response.json();
@@ -1518,6 +1652,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.clubForm?.addEventListener('submit', guardarClub);
 
     elements.clubIntegranteCuenta?.addEventListener('input', manejarInputCuentaClub);
+    elements.clubIntegranteRol?.addEventListener('change', () => setClubIntegranteFormStatus(''));
     elements.btnAgregarIntegranteClub?.addEventListener('click', agregarIntegranteClub);
 
     elements.clubesPaginacion?.addEventListener('click', (event) => {
