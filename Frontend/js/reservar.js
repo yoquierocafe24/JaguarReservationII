@@ -529,8 +529,8 @@ async function enviarReserva() {
     return;
 }
 
-if (!/^\d{8}$/.test(telefono)) {
-    mostrarToast("El teléfono debe tener exactamente 8 dígitos.", "danger");
+if (!/^\d{7,12}$/.test(telefono)) {
+    mostrarToast("El teléfono debe tener entre 7 y 12 dígitos.", "danger");
     return;
 }
 
@@ -825,13 +825,15 @@ if (campoAcompanantes) {
 
 
 
-// Solo permite números en el campo de teléfono, máximo 8 dígitos
+// Solo permite números en el campo de teléfono, máximo 12 dígitos
+// (8 para números hondureños, hasta 12 para números
+// internacionales de estudiantes extranjeros).
 document.getElementById('campo-telefono').addEventListener('input', function(e) {
   // Elimina cualquier caracter que no sea número
   let valor = e.target.value.replace(/\D/g, '');
-  // Limita a 8 dígitos máximo
-  if (valor.length > 8) {
-    valor = valor.slice(0, 8);
+  // Limita a 12 dígitos máximo
+  if (valor.length > 12) {
+    valor = valor.slice(0, 12);
   }
   e.target.value = valor;
 });

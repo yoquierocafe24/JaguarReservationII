@@ -1721,8 +1721,8 @@ async function confirmarCrearReservaAdmin() {
         return;
     }
 
-    if (!/^\d{8}$/.test(telefono)) {
-        status.textContent = 'El teléfono debe tener exactamente 8 dígitos.';
+    if (!/^\d{7,12}$/.test(telefono)) {
+        status.textContent = 'El teléfono debe tener entre 7 y 12 dígitos.';
         status.classList.add('error');
         return;
     }

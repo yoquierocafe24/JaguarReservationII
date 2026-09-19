@@ -36,8 +36,6 @@ function formatearFecha(fecha) {
         return "";
     }
 
-    // Evita problemas cuando MySQL devuelve:
-    // 2026-07-23T06:00:00.000Z
     const fechaLimpia =
         String(fecha).substring(0, 10);
 
@@ -189,7 +187,6 @@ function reservaPuedeCancelarse(reserva) {
         return false;
     }
 
-    // Solo puede cancelar antes de que inicie.
     return fechaInicio > new Date();
 }
 
@@ -336,16 +333,6 @@ function actualizarEstadisticas(reservas) {
         .textContent = reservas.length;
 }
 
-// function colocarTexto(id, valor) {
-
-   // const elemento =
-     //   document.getElementById(id);
-
-   // if (elemento) {
-       // elemento.textContent = valor;
-   // }
-// }
-
 
 // ======================================
 // Renderizar reservas
@@ -370,7 +357,6 @@ function renderizarReservas(reservas) {
         return;
     }
 
-// Ordenar reservas
    const reservasOrdenadas = [...reservas];
 
     contenedor.innerHTML =
@@ -533,17 +519,12 @@ async function cargarReservas(actualizarCards = false) {
 
         reservasEstudiante = data.reservas || [];
 
-        // Solo actualiza las tarjetas al entrar a la página
         if (actualizarCards) {
             actualizarEstadisticas(reservasEstudiante);
         }
 
-       // La lista siempre se actualiza
     renderizarReservas(reservasEstudiante);
 
-    // Si existen varias reservas, activamos el scroll.
-    // Con pocas reservas dejamos que el contenedor
-    // se adapte a la altura del contenido.
     const lista =
          document.getElementById("lista-reservas");
 
@@ -641,6 +622,7 @@ async function verDetalleReserva(idReserva) {
 
     // ======================================
     // Acompañantes / Integrantes del equipo
+    // o del club
     // ======================================
 
     const elAcompanantes =
@@ -656,11 +638,16 @@ async function verDetalleReserva(idReserva) {
     const esEquipo =
         reserva.tipo_reserva === "equipo";
 
+    const esClub =
+        reserva.tipo_reserva === "club";
+
     if (elEtiquetaAcompanantes) {
         elEtiquetaAcompanantes.textContent =
             esEquipo
                 ? "Integrantes del equipo"
-                : "Acompañantes autorizados";
+                : esClub
+                    ? "Integrantes del club"
+                    : "Acompañantes autorizados";
     }
 
     // Valor temporal mientras se resuelve
@@ -702,6 +689,46 @@ async function verDetalleReserva(idReserva) {
             elAcompanantes.textContent = "—";
         }
 
+    } else if (esClub) {
+
+        // =======================================
+        // Mismo patrón que equipo, pero usando el
+        // endpoint dedicado de club (club-cantidad),
+        // ya que un club NO tiene id_equipo.
+        // =======================================
+
+        try {
+
+            const respuesta = await fetch(
+                `${API_URL}/api/reservas/${encodeURIComponent(idReserva)}/club-cantidad`,
+                {
+                    method: "GET",
+                    credentials: "include"
+                }
+            );
+
+            const datos = await respuesta.json();
+
+            if (!respuesta.ok || !datos.ok) {
+                throw new Error(
+                    datos.mensaje ||
+                    "No se pudo obtener la cantidad de integrantes del club."
+                );
+            }
+
+            elAcompanantes.textContent =
+                Number(datos.cantidad) || 0;
+
+        } catch (error) {
+
+            console.error(
+                "Error obteniendo cantidad de integrantes del club:",
+                error
+            );
+
+            elAcompanantes.textContent = "—";
+        }
+
     } else {
 
         elAcompanantes.textContent =
@@ -720,11 +747,6 @@ async function verDetalleReserva(idReserva) {
     // ======================================
     // Datos de cancelación
     // ======================================
-
-    const grupoCanceladoPor =
-        document.getElementById(
-            "grupo-cancelado-por"
-        );
 
     const grupoMotivo =
         document.getElementById(
@@ -817,25 +839,18 @@ async function verQrReserva(idReserva) {
             "qr-modal-mensaje"
         );
 
-    // Mostramos el código de la reserva en el encabezado del modal
 document
     .getElementById("qr-modal-codigo")
     .textContent =
         reserva.id_reserva;
 
-// Guardamos el código para utilizarlo
-// como nombre del archivo al descargar el QR.
 codigoQrModal =
     reserva.id_reserva;
 
-// Al abrir el modal mostramos únicamente
-// el mensaje de carga.
 cargando.hidden = false;
 imagen.hidden = true;
 mensaje.hidden = true;
 
-// Ocultamos el texto informativo
-// y el botón mientras el QR se genera.
 document
     .getElementById("qr-modal-info")
     .hidden = true;
@@ -874,30 +889,22 @@ try {
         );
     }
 
-    // Guardamos la imagen del QR para
-    // poder descargarla más adelante.
     qrModalBlob =
         await respuesta.blob();
 
     const imagenURL =
         URL.createObjectURL(qrModalBlob);
 
-    // Mostramos la imagen del QR.
     imagen.src = imagenURL;
 
-    // Ya terminó de cargar,
-    // ocultamos el mensaje.
     cargando.hidden = true;
 
-    // Mostramos el QR.
     imagen.hidden = false;
 
-    // Mostramos el texto informativo.
     document
         .getElementById("qr-modal-info")
         .hidden = false;
 
-    // Mostramos el botón para descargar.
     document
         .getElementById("btn-descargar-qr-modal")
         .hidden = false;
@@ -909,23 +916,18 @@ try {
         error
     );
 
-    // Ocultamos el mensaje de carga
     cargando.hidden = true;
 
-    // Ocultamos la imagen
     imagen.hidden = true;
 
-    // Ocultamos el texto informativo
     document
         .getElementById("qr-modal-info")
         .hidden = true;
 
-    // Ocultamos el botón de descarga
     document
         .getElementById("btn-descargar-qr-modal")
         .hidden = true;
 
-    // Mostramos el mensaje de error
     mensaje.textContent =
         error.message;
 
@@ -938,7 +940,6 @@ try {
 // ======================================
 function cancelarReserva(idReserva) {
 
-    // Buscamos la reserva seleccionada
     const reserva =
         obtenerReserva(idReserva);
 
@@ -946,8 +947,6 @@ function cancelarReserva(idReserva) {
         return;
     }
 
-    // Guardamos el código de la reserva
-    // para usarlo cuando se envíe el motivo.
     reservaSeleccionadaCancelar =
         idReserva;
 
@@ -966,14 +965,12 @@ function cancelarReserva(idReserva) {
             "mensaje-cancelacion"
         );
 
-    // Limpiamos datos anteriores
     textarea.value = "";
     contador.textContent = "0";
 
     mensaje.textContent = "";
     mensaje.hidden = true;
 
-    // Abrimos el modal
     const modal =
         bootstrap.Modal.getOrCreateInstance(
             document.getElementById(
@@ -983,7 +980,6 @@ function cancelarReserva(idReserva) {
 
     modal.show();
 
-    // Colocamos el cursor en el textarea
     setTimeout(() => {
         textarea.focus();
     }, 300);
@@ -1012,7 +1008,6 @@ async function enviarCancelacion() {
     const motivo =
         textarea.value.trim();
 
-    // Validar que exista un motivo
     if (!motivo) {
 
         mensaje.textContent =
@@ -1041,7 +1036,6 @@ async function enviarCancelacion() {
 
     try {
 
-        // Evita enviar varias veces
         boton.disabled = true;
 
         boton.innerHTML = `
@@ -1076,7 +1070,6 @@ async function enviarCancelacion() {
             );
         }
 
-        // Cerramos el modal
         const modalElemento =
             document.getElementById(
                 "modalCancelarReserva"
@@ -1089,10 +1082,8 @@ async function enviarCancelacion() {
 
         modal?.hide();
 
-        // Limpiamos la reserva seleccionada
         reservaSeleccionadaCancelar = null;
 
-        // Actualizamos la lista
         await cargarReservas(false);
 
     } catch (error) {
@@ -1109,7 +1100,6 @@ async function enviarCancelacion() {
 
     } finally {
 
-        // Restauramos el botón
         boton.disabled = false;
 
         boton.innerHTML = `
@@ -1137,141 +1127,6 @@ function actualizarContadorMotivo() {
     contador.textContent =
         textarea.value.length;
 }
-
-// ======================================
-// Enviar cancelación al servidor
-// ======================================
-async function enviarCancelacion() {
-
-    const textarea =
-        document.getElementById(
-            "motivo-cancelacion"
-        );
-
-    const mensaje =
-        document.getElementById(
-            "mensaje-cancelacion"
-        );
-
-    const boton =
-        document.getElementById(
-            "btn-enviar-cancelacion"
-        );
-
-    const motivo =
-        textarea.value.trim();
-
-    // Validamos que el estudiante
-    // haya escrito un motivo.
-    if (!motivo) {
-
-        mensaje.textContent =
-            "Debes escribir el motivo de la cancelación.";
-
-        mensaje.hidden = false;
-
-        textarea.focus();
-        return;
-    }
-
-    // Puedes cambiar este mínimo si deseas.
-    if (motivo.length < 5) {
-
-        mensaje.textContent =
-            "El motivo debe contener al menos 5 caracteres.";
-
-        mensaje.hidden = false;
-
-        textarea.focus();
-        return;
-    }
-
-    if (!reservaSeleccionadaCancelar) {
-        return;
-    }
-
-    try {
-
-        // Desactivamos el botón para evitar
-        // que se envíe dos veces.
-        boton.disabled = true;
-        boton.innerHTML = `
-            <span class="spinner-border spinner-border-sm"></span>
-            Enviando...
-        `;
-
-        mensaje.hidden = true;
-
-        const respuesta = await fetch(
-               `${API_URL}/api/reservas/${encodeURIComponent(reservaSeleccionadaCancelar)}/cancelar`,
-            {
-                method: "PUT",
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    motivo_cancelacion: motivo
-                })
-            }
-        );
-
-        const data =
-            await respuesta.json();
-
-        if (
-            !respuesta.ok ||
-            !data.ok
-        ) {
-            throw new Error(
-                data.mensaje ||
-                "No se pudo cancelar la reserva."
-            );
-        }
-
-        // Cerramos el modal.
-        const modalElemento =
-            document.getElementById(
-                "modalCancelarReserva"
-            );
-
-        const modal =
-            bootstrap.Modal.getInstance(
-                modalElemento
-            );
-
-        modal?.hide();
-
-        // Limpiamos la reserva seleccionada.
-        reservaSeleccionadaCancelar = null;
-
-        // Actualizamos la lista.
-        await cargarReservas(false);
-
-    } catch (error) {
-
-        console.error(
-            "Error cancelando reserva:",
-            error
-        );
-
-        mensaje.textContent =
-            error.message;
-
-        mensaje.hidden = false;
-
-    } finally {
-
-        // Restauramos el botón.
-        boton.disabled = false;
-
-        boton.innerHTML = `
-            <i class="bi bi-send"></i>
-            Enviar cancelación
-        `;
-    }
-}
-
 
 // ======================================
 // Menú responsive
@@ -1375,7 +1230,6 @@ document.addEventListener(
                 limpiarFiltros
             );
 
-        // Contador del motivo
         document
             .getElementById("motivo-cancelacion")
             ?.addEventListener(
@@ -1383,7 +1237,6 @@ document.addEventListener(
              actualizarContadorMotivo
             );
 
-        // Botón para confirmar la cancelación
         document
              .getElementById("btn-enviar-cancelacion")
               ?.addEventListener(
@@ -1397,18 +1250,12 @@ document.addEventListener(
 // =====================================
 // Descargar código QR
 // =====================================
-// Permite volver a descargar el QR
-// desde el perfil del estudiante.
 function descargarQrModal() {
 
-    // Si el QR aún no existe,
-    // no hacemos nada.
     if (!qrModalBlob) {
         return;
     }
 
-    // Creamos una URL temporal
-    // para descargar la imagen.
     const url =
         URL.createObjectURL(qrModalBlob);
 
@@ -1417,27 +1264,21 @@ function descargarQrModal() {
 
     enlace.href = url;
 
-    // Nombre del archivo descargado.
     enlace.download =
         `QR-${codigoQrModal}.png`;
 
     document.body.appendChild(enlace);
 
-    // Simulamos un clic para iniciar
-    // la descarga.
     enlace.click();
 
     enlace.remove();
 
-    // Liberamos la memoria utilizada.
     URL.revokeObjectURL(url);
 }
 
 // =====================================
 // Evento del botón Descargar QR
 // =====================================
-// Cuando el estudiante haga clic,
-// se descargará nuevamente el QR.
 document
     .getElementById("btn-descargar-qr-modal")
     ?.addEventListener(
