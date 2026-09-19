@@ -8,6 +8,7 @@ let reservaSeleccionada = null;
 let personaEncontrada = null;
 let modalReserva = null;
 let modalVisitante = null;
+let modalVincular = null;
 let espaciosCache = null;
 let idsEstudiantesConReserva = [];
 
@@ -22,6 +23,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
    modalVisitante = new bootstrap.Modal(
         document.getElementById("modalVisitante")
+    );
+   modalVincular = new bootstrap.Modal(
+        document.getElementById("modalVincularReserva")
     );
    mostrarFechaActual();
     prepararBuscador();
@@ -1615,6 +1619,14 @@ async function renderizarResultadoSinReserva(estudiantes) {
             <div class="resultado-persona-acciones">
                 <button
                     type="button"
+                    class="btn-marcar-persona btn-vincular-reserva"
+                >
+                    <i class="bi bi-link-45deg"></i>
+                    Vincular a reserva
+                </button>
+
+                <button
+                    type="button"
                     class="btn-marcar-persona btn-registrar-visita"
                     ${esDomingo ? "disabled" : ""}
                     title="${esDomingo ? "No disponible los domingos, el polideportivo está cerrado" : ""}"
@@ -1624,6 +1636,12 @@ async function renderizarResultadoSinReserva(estudiantes) {
                 </button>
             </div>
         `;
+
+        const botonVincular = tarjeta.querySelector(".btn-vincular-reserva");
+
+        botonVincular.addEventListener("click", () => {
+            abrirModalVincular(estudiante);
+        });
 
         const boton = tarjeta.querySelector(".btn-registrar-visita");
 
@@ -1783,6 +1801,196 @@ document
     ?.addEventListener("click", confirmarVisitante);
 
 // =======================================
+// MODAL: VINCULAR A UNA RESERVACIÓN
+// (para alguien SIN reserva propia que se
+// une a jugar con una reserva individual
+// ya existente — ej. un amigo que llega
+// sobre la marcha)
+// =======================================
+
+let estudianteParaVincular = null;
+
+async function abrirModalVincular(estudiante) {
+
+    estudianteParaVincular = estudiante;
+
+    document.getElementById("vincular-estudiante-nombre").textContent =
+        `${estudiante.nombre} · Cuenta ${estudiante.cuenta}`;
+
+    const buscador = document.getElementById("vincular-buscador");
+
+    if (buscador) {
+        buscador.value = "";
+    }
+
+    const estado = document.getElementById("vincular-estado");
+
+    if (estado) {
+        estado.textContent = "";
+    }
+
+    renderizarListaVincular(obtenerReservasVinculables(""));
+
+    modalVincular.show();
+}
+
+// Solo reservas INDIVIDUALES y aprobadas — el
+// equipo/club se maneja aparte y no aplica aquí.
+function obtenerReservasVinculables(textoBusqueda) {
+
+    const termino = normalizarTexto(textoBusqueda);
+
+    return reservasDelDia.filter(reserva => {
+
+        if (reserva.tipo_reserva && reserva.tipo_reserva !== "individual") {
+            return false;
+        }
+
+        if (reserva.estado !== "aprobada") {
+            return false;
+        }
+
+        if (!termino) {
+            return true;
+        }
+
+        const nombre = normalizarTexto(reserva.estudiante);
+        const cuenta = normalizarTexto(reserva.estudiante_cuenta);
+        const codigo = normalizarTexto(reserva.id_reserva);
+
+        return (
+            nombre.includes(termino) ||
+            cuenta.includes(termino) ||
+            codigo.includes(termino)
+        );
+    });
+}
+
+function renderizarListaVincular(reservas) {
+
+    const contenedor =
+        document.getElementById("vincular-lista-reservas");
+
+    if (!contenedor) return;
+
+    if (!reservas.length) {
+
+        contenedor.innerHTML = `
+            <p class="empty-state">
+                No hay reservas individuales que coincidan con la búsqueda.
+            </p>
+        `;
+
+        return;
+    }
+
+    contenedor.innerHTML = reservas.map(reserva => {
+
+        const estadoHorario = calcularEstadoHorario(reserva);
+
+        return `
+            <button
+                type="button"
+                class="vincular-reserva-item"
+                data-id-reserva="${escaparHTML(reserva.id_reserva)}"
+            >
+                <div class="vincular-reserva-info">
+                    <strong>${escaparHTML(reserva.estudiante)}</strong>
+                    <small>
+                        Cuenta: ${escaparHTML(reserva.estudiante_cuenta)}
+                        · Reserva: ${escaparHTML(reserva.id_reserva)}
+                    </small>
+                </div>
+
+                <div class="vincular-reserva-detalle">
+                    <span>${escaparHTML(reserva.espacio)}</span>
+                    <span>
+                        ${formatearHora(reserva.hora_inicio)}
+                        -
+                        ${formatearHora(reserva.hora_fin)}
+                    </span>
+                    <span class="estado ${estadoHorario.clase}">
+                        ${estadoHorario.texto}
+                    </span>
+                </div>
+            </button>
+        `;
+
+    }).join("");
+
+    contenedor.querySelectorAll("[data-id-reserva]").forEach(boton => {
+        boton.addEventListener("click", () => {
+            confirmarVincular(boton.dataset.idReserva);
+        });
+    });
+}
+
+document
+    .getElementById("vincular-buscador")
+    ?.addEventListener("input", (evento) => {
+        renderizarListaVincular(
+            obtenerReservasVinculables(evento.target.value)
+        );
+    });
+
+async function confirmarVincular(idReserva) {
+
+    if (!estudianteParaVincular) return;
+
+    const estado = document.getElementById("vincular-estado");
+
+    if (estado) {
+        estado.style.color = "#6b7280";
+        estado.textContent = "Vinculando...";
+    }
+
+    try {
+
+        const respuesta = await fetch(
+            `${API_URL}/api/guardias/vincular`,
+            {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    id_estudiante: estudianteParaVincular.id_estudiante,
+                    id_reserva: idReserva
+                })
+            }
+        );
+
+        const data = await respuesta.json();
+
+        if (!respuesta.ok || !data.ok) {
+            throw new Error(
+                data.mensaje || "No se pudo vincular a la reserva."
+            );
+        }
+
+        modalVincular.hide();
+
+        mostrarToast(data.mensaje, "success");
+
+        // Limpia la búsqueda para reflejar el nuevo estado
+        document.getElementById("buscador-reservas").value = "";
+        ocultarResultadoSinReserva();
+        ocultarPersonaEncontrada();
+        cambiarVistaBusqueda(false);
+        renderizarReservas(reservasDelDia);
+
+    } catch (error) {
+
+        if (estado) {
+            estado.style.color = "#b5121b";
+            estado.textContent = error.message;
+        }
+    }
+
+}
+
+// =======================================
 // MOSTRAR U OCULTAR CONTENIDO GENERAL
 // =======================================
 
@@ -1885,3 +2093,4 @@ function etiquetaTipoAsistencia(tipo) {
 
     return "Acompañante";
 }
+

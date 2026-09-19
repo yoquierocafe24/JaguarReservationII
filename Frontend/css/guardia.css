@@ -1176,6 +1176,46 @@ body{
     gap:12px;
 }
 
+.vincular-reserva-item {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    text-align: left;
+    transition: .2s;
+}
+
+.vincular-reserva-item:hover {
+    border-color: var(--crimson);
+    background: #fffafb;
+}
+
+.vincular-reserva-info strong {
+    display: block;
+    font-size: 15px;
+}
+
+.vincular-reserva-info small {
+    color: var(--subtexto);
+    font-size: 13px;
+}
+
+.vincular-reserva-detalle {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--subtexto);
+    white-space: nowrap;
+}
+
 @media(max-width:768px){
 
     .resultado-persona-item{

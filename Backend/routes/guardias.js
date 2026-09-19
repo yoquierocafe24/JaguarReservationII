@@ -56,6 +56,7 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
                 r.id_club,
 
                 e.nombre AS estudiante,
+                e.cuenta AS estudiante_cuenta,
 
                 es.nombre AS espacio,
 
@@ -1442,6 +1443,292 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
     }
 
 });
+
+
+// =======================================
+// GUARDIA - Vincular a un estudiante SIN
+// reserva propia a una reservación
+// individual existente del día (ej: un
+// amigo que llega a jugar con el grupo sin
+// haber reservado ni escaneado el QR).
+//
+// Se guarda en reserva_acompanantes, igual
+// que un acompañante normal, pero con
+// origen = 'guardia' en vez de 'qr' — así
+// se puede distinguir después en reportes.
+//
+// Reglas:
+// - Solo aplica a reservas de tipo INDIVIDUAL
+//   (equipo/club tienen roster fijo, vincular
+//   ahí alteraría el conteo real de miembros).
+// - La reserva debe ser de HOY, estar aprobada,
+//   y su horario debe seguir activo (no vencida).
+// - El estudiante debe existir y estar activo.
+// - No puede ya estar vinculado a ESA MISMA
+//   reserva (como titular o acompañante).
+// - No puede tener otra reserva/compromiso
+//   (individual, equipo o club) que se cruce
+//   con el horario de esta reserva — mismo
+//   criterio que la "regla de oro" de acceso
+//   libre, para no dejarlo "en dos lugares".
+// - A propósito NO se valida el límite
+//   declarado de cant_acompanantes: el
+//   guardia puede vincular de todas formas.
+// POST /api/guardias/vincular
+//
+// body: id_estudiante, id_reserva
+// =======================================
+
+router.post('/vincular', requiereSesion, requiereGuardia, async (req, res) => {
+
+    try {
+
+        const id_guardia = req.session.usuario.id;
+        const id_estudiante = Number(req.body.id_estudiante);
+        const id_reserva = String(req.body.id_reserva || "").trim();
+
+        if (
+            !Number.isInteger(id_estudiante) || id_estudiante <= 0 ||
+            !id_reserva
+        ) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Debe indicar el estudiante y la reserva."
+            });
+
+        }
+
+        const [estudiantes] = await db.query(
+            `SELECT id_estudiante, nombre
+             FROM estudiantes
+             WHERE id_estudiante = ? AND activo = 1`,
+            [id_estudiante]
+        );
+
+        if (estudiantes.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Estudiante no encontrado o inactivo."
+            });
+
+        }
+
+        const [reservasRows] = await db.query(
+
+            `SELECT
+                r.id_reserva,
+                r.id_estudiante,
+                r.tipo_reserva,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                r.estado,
+                es.nombre AS espacio
+
+            FROM reservas r
+
+            INNER JOIN espacios es
+                ON es.id_espacio = r.id_espacio
+
+            WHERE r.id_reserva = ?`,
+
+            [id_reserva]
+
+        );
+
+        if (reservasRows.length === 0) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "Reserva no encontrada."
+            });
+
+        }
+
+        const reserva = reservasRows[0];
+
+        if (reserva.tipo_reserva !== 'individual') {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Solo se puede vincular a reservas individuales, no de equipo o club."
+            });
+
+        }
+
+        if (reserva.estado !== 'aprobada') {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Esta reserva no está aprobada."
+            });
+
+        }
+
+        const [vigenciaRows] = await db.query(
+            `SELECT
+                fecha = ${FECHA_HN} AS es_hoy,
+                ${HORA_HN} BETWEEN hora_inicio AND hora_fin AS horario_activo
+             FROM reservas
+             WHERE id_reserva = ?`,
+            [id_reserva]
+        );
+
+        if (!vigenciaRows[0]?.es_hoy) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "Esta reserva no corresponde al día de hoy."
+            });
+
+        }
+
+        if (!vigenciaRows[0]?.horario_activo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "El horario de esta reserva no está activo (ya venció o todavía no empieza)."
+            });
+
+        }
+
+        if (Number(reserva.id_estudiante) === id_estudiante) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Este estudiante ya es el titular de esta reserva."
+            });
+
+        }
+
+        const [yaVinculado] = await db.query(
+            `SELECT id FROM reserva_acompanantes
+             WHERE id_reserva = ? AND id_estudiante = ?`,
+            [id_reserva, id_estudiante]
+        );
+
+        if (yaVinculado.length > 0) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Este estudiante ya está vinculado a esta reserva."
+            });
+
+        }
+
+        // =======================================
+        // Regla de oro: no puede estar comprometido
+        // en otra reserva (individual/equipo/club)
+        // que se cruce con este horario — mismo
+        // criterio que POST /visitante.
+        // =======================================
+
+        const [conflicto] = await db.query(
+
+            `SELECT r.id_reserva
+             FROM (
+
+                SELECT r.id_reserva, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.id_estudiante = ?
+
+                UNION ALL
+
+                SELECT r.id_reserva, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                INNER JOIN reserva_acompanantes ra
+                    ON ra.id_reserva = r.id_reserva
+                    AND ra.confirmado = 1
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND ra.id_estudiante = ?
+
+                UNION ALL
+
+                SELECT r.id_reserva, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                INNER JOIN equipo_integrantes ei
+                    ON ei.id_equipo = r.id_equipo
+                    AND ei.activo = 1
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'equipo'
+                AND ei.id_estudiante = ?
+
+                UNION ALL
+
+                SELECT r.id_reserva, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                INNER JOIN club_integrantes ci
+                    ON ci.id_club = r.id_club
+                    AND ci.activo = 1
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'club'
+                AND ci.id_estudiante = ?
+
+             ) AS r
+
+             WHERE ? BETWEEN r.hora_inicio AND r.hora_fin
+
+             LIMIT 1`,
+
+            [
+                id_estudiante,
+                id_estudiante,
+                id_estudiante,
+                id_estudiante,
+                reserva.hora_inicio
+            ]
+
+        );
+
+        if (conflicto.length > 0) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Este estudiante ya tiene otra reserva activa en este horario."
+            });
+
+        }
+
+        await db.query(
+
+            `INSERT INTO reserva_acompanantes(
+                id_reserva,
+                id_estudiante,
+                confirmado,
+                rol,
+                origen
+            )
+            VALUES(?, ?, 1, 'acompanante', 'guardia')`,
+
+            [id_reserva, id_estudiante]
+
+        );
+
+        res.json({
+            ok: true,
+            mensaje: `${estudiantes[0].nombre} fue vinculado correctamente a la reserva ${id_reserva}.`
+        });
+
+    } catch (error) {
+
+        console.error("ERROR VINCULANDO A RESERVA:", error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
 
 
 
