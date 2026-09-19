@@ -284,6 +284,43 @@ router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
                 AND integrante.cuenta = ?
                 AND ei.id_estudiante <> r.id_estudiante
 
+                UNION ALL
+
+                /* Buscar como integrante de un CLUB
+                   (se excluye al líder porque ya aparece
+                   arriba como 'titular'; misma lógica que
+                   equipo, pero sobre club_integrantes) */
+                SELECT
+                    r.id_reserva,
+                    r.id_espacio,
+                    r.fecha,
+                    r.hora_inicio,
+                    r.hora_fin,
+                    r.estado,
+                    r.cant_acompanantes,
+
+                    integranteClub.id_estudiante,
+                    integranteClub.nombre,
+                    integranteClub.cuenta,
+
+                    'integrante' AS tipo_asistencia
+
+                FROM reservas r
+
+                INNER JOIN club_integrantes ci
+                    ON ci.id_club = r.id_club
+                    AND ci.activo = 1
+
+                INNER JOIN estudiantes integranteClub
+                    ON integranteClub.id_estudiante =
+                       ci.id_estudiante
+
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'club'
+                AND integranteClub.cuenta = ?
+                AND ci.id_estudiante <> r.id_estudiante
+
             ) AS persona
 
             INNER JOIN espacios es
@@ -325,6 +362,7 @@ router.get('/buscar', requiereSesion, requiereGuardia, async (req, res) => {
     END DESC`,
 
             [
+                cuenta,
                 cuenta,
                 cuenta,
                 cuenta
@@ -505,6 +543,7 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
                 r.id_estudiante,
                 r.tipo_reserva,
                 r.id_equipo,
+                r.id_club,
                 r.fecha,
                 r.hora_inicio,
                 r.hora_fin,
@@ -589,6 +628,64 @@ router.get('/:id', requiereSesion, requiereGuardia, async (req, res) => {
                     reserva.id_estudiante,
                     req.params.id,
                     reserva.id_equipo,
+                    reserva.id_estudiante
+                ]
+            );
+
+            personas = filas;
+
+        } else if (reserva.tipo_reserva === 'club') {
+
+            // =======================================
+            // RESERVA DE CLUB
+            // Misma lógica que equipo: el líder/sublíder
+            // que reservó = "titular" (coincide con
+            // reserva.id_estudiante). El resto de
+            // integrantes activos = "integrante".
+            // =======================================
+
+            const [filas] = await db.query(
+
+                `SELECT
+                    ci.id_estudiante,
+                    e.nombre,
+                    e.cuenta,
+
+                    CASE
+                        WHEN ci.id_estudiante = ? THEN 'titular'
+                        ELSE 'integrante'
+                    END AS tipo_asistencia,
+
+                    CASE
+                        WHEN a.id_asistencia IS NULL THEN 0
+                        ELSE 1
+                    END AS asistio,
+
+                    a.hora_entrada
+
+                FROM club_integrantes ci
+
+                INNER JOIN estudiantes e
+                    ON e.id_estudiante = ci.id_estudiante
+
+                LEFT JOIN asistencia a
+                    ON a.id_reserva = ?
+                    AND a.id_estudiante = ci.id_estudiante
+
+                WHERE ci.id_club = ?
+                  AND ci.activo = 1
+
+                ORDER BY
+                    CASE
+                        WHEN ci.id_estudiante = ? THEN 1
+                        ELSE 2
+                    END,
+                    e.nombre`,
+
+                [
+                    reserva.id_estudiante,
+                    req.params.id,
+                    reserva.id_club,
                     reserva.id_estudiante
                 ]
             );
@@ -753,6 +850,7 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
         id_estudiante,
         tipo_reserva,
         id_equipo,
+        id_club,
         fecha,
         hora_inicio,
         hora_fin,
@@ -910,37 +1008,58 @@ router.put('/:id/asistencia', requiereSesion, requiereGuardia, async (req, res) 
 
             } else if (tipo_asistencia === "integrante") {
 
-                // Solo válido si la reserva es de tipo equipo.
+                // Válido si la reserva es de tipo equipo O club.
                 // Se verifica que el estudiante sea integrante
-                // activo del equipo dueño de esta reserva.
+                // activo del equipo/club dueño de esta reserva.
 
-                if (reserva.tipo_reserva !== 'equipo' || !reserva.id_equipo) {
+                if (reserva.tipo_reserva === 'equipo' && reserva.id_equipo) {
+
+                    const [integrante] = await conexion.query(
+
+                        `SELECT id
+                         FROM equipo_integrantes
+                         WHERE id_equipo = ?
+                         AND id_estudiante = ?
+                         AND activo = 1`,
+
+                        [
+                            reserva.id_equipo,
+                            id_estudiante
+                        ]
+
+                    );
+
+                    autorizado = integrante.length > 0;
+
+                } else if (reserva.tipo_reserva === 'club' && reserva.id_club) {
+
+                    const [integranteClub] = await conexion.query(
+
+                        `SELECT id
+                         FROM club_integrantes
+                         WHERE id_club = ?
+                         AND id_estudiante = ?
+                         AND activo = 1`,
+
+                        [
+                            reserva.id_club,
+                            id_estudiante
+                        ]
+
+                    );
+
+                    autorizado = integranteClub.length > 0;
+
+                } else {
 
                     await conexion.rollback();
 
                     return res.status(400).json({
                         ok: false,
-                        mensaje: "Esta reserva no es de tipo equipo."
+                        mensaje: "Esta reserva no es de tipo equipo ni club."
                     });
 
                 }
-
-                const [integrante] = await conexion.query(
-
-                    `SELECT id
-                     FROM equipo_integrantes
-                     WHERE id_equipo = ?
-                     AND id_estudiante = ?
-                     AND activo = 1`,
-
-                    [
-                        reserva.id_equipo,
-                        id_estudiante
-                    ]
-
-                );
-
-                autorizado = integrante.length > 0;
 
             } else {
 
@@ -1167,7 +1286,8 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
         // acceso libre si el estudiante YA está
         // ahora mismo dentro del horario de otra
         // reserva aprobada (como titular,
-        // acompañante o integrante de equipo).
+        // acompañante, integrante de equipo o
+        // integrante de club).
         // =======================================
 
         const [reservaActiva] = await db.query(
@@ -1212,6 +1332,19 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
                 AND r.tipo_reserva = 'equipo'
                 AND ei.id_estudiante = ?
 
+                UNION ALL
+
+                /* Como integrante de club */
+                SELECT r.id_reserva, r.id_espacio, r.hora_inicio, r.hora_fin
+                FROM reservas r
+                INNER JOIN club_integrantes ci
+                    ON ci.id_club = r.id_club
+                    AND ci.activo = 1
+                WHERE r.fecha = ${FECHA_HN}
+                AND r.estado = 'aprobada'
+                AND r.tipo_reserva = 'club'
+                AND ci.id_estudiante = ?
+
             ) AS r
 
             INNER JOIN espacios es
@@ -1221,7 +1354,7 @@ router.post('/visitante', requiereSesion, requiereGuardia, async (req, res) => {
 
             LIMIT 1`,
 
-            [id_estudiante, id_estudiante, id_estudiante]
+            [id_estudiante, id_estudiante, id_estudiante, id_estudiante]
 
         );
 

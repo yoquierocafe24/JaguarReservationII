@@ -315,6 +315,92 @@ router.get('/', async (req, res) => {
 
 
                 /* =====================================
+                   INTEGRANTES DE CLUB
+                   (reservas de tipo club; excluye al
+                   líder/sublíder que ya se contó como
+                   "titular" arriba)
+                ===================================== */
+
+                SELECT
+
+                    r.id_reserva,
+
+                    ci.id_estudiante,
+
+                    e.nombre AS estudiante_nombre,
+
+                    e.cuenta AS estudiante_cuenta,
+
+                    'integrante' AS tipo,
+
+                    r.fecha,
+
+                    r.hora_inicio,
+
+                    r.hora_fin,
+
+                    r.id_espacio,
+
+                    es.nombre AS espacio_nombre,
+
+                    a.id_asistencia,
+
+                    a.hora_entrada,
+
+                    g.nombre AS guardia_nombre,
+
+                    CASE
+
+                        WHEN a.id_asistencia IS NOT NULL
+                        THEN 'presente'
+
+                        WHEN TIMESTAMP(
+                            r.fecha,
+                            r.hora_fin
+                        ) < ${HORA_ACTUAL_HN}
+                        THEN 'inasistencia'
+
+                        ELSE 'pendiente'
+
+                    END AS estado_asistencia
+
+                FROM reservas r
+
+                INNER JOIN club_integrantes ci
+                    ON ci.id_club =
+                       r.id_club
+                    AND ci.activo = 1
+                    AND ci.id_estudiante <>
+                        r.id_estudiante
+
+                INNER JOIN estudiantes e
+                    ON e.id_estudiante =
+                       ci.id_estudiante
+
+                INNER JOIN espacios es
+                    ON es.id_espacio =
+                       r.id_espacio
+
+                LEFT JOIN asistencia a
+                    ON a.id_reserva =
+                       r.id_reserva
+                    AND a.id_estudiante =
+                        ci.id_estudiante
+
+                LEFT JOIN guardia g
+                    ON g.id_guardia =
+                       a.id_guardia
+
+                WHERE
+                    r.fecha = ?
+                    AND r.estado = 'aprobada'
+                    AND r.tipo_reserva = 'club'
+
+
+                UNION ALL
+
+
+                /* =====================================
                    VISITANTES (acceso libre)
                    No nacen de una reserva (id_reserva es
                    NULL en la tabla asistencia), por eso no
@@ -378,6 +464,7 @@ router.get('/', async (req, res) => {
         `;
 
         const valores = [
+            fecha,
             fecha,
             fecha,
             fecha,
