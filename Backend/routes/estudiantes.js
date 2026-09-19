@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const XLSX = require("xlsx");
+const fs = require("fs");
+const path = require("path");
 const db = require("../db");
 
 const upload = multer({
@@ -43,6 +45,104 @@ function requiereSuperAdmin(req, res, next) {
         });
     }
     next();
+}
+
+// ========================================
+// ÚLTIMO ARCHIVO SUBIDO (para poder
+// descargarlo después).
+//
+// IMPORTANTE: el sistema de archivos de
+// Railway es efímero — esta copia y sus
+// metadatos se pierden en cada nuevo
+// despliegue o reinicio del contenedor.
+// Sirve para "descargar lo que acabo de
+// subir" en el uso normal del día a día,
+// no como respaldo permanente.
+// ========================================
+
+const CARPETA_UPLOADS = "uploads";
+
+const RUTA_METADATA_ULTIMO_ARCHIVO =
+    path.join(CARPETA_UPLOADS, "ultimo-archivo-estudiantes.json");
+
+function rutaArchivoGuardado(extension) {
+    return path.join(CARPETA_UPLOADS, `ultimo-archivo-estudiantes${extension}`);
+}
+
+// Guarda una copia del archivo recién subido en una
+// ruta fija y predecible, junto con sus metadatos
+// (nombre original, extensión, fecha de subida y quién
+// lo subió), para poder ofrecer "descargar el último".
+function guardarComoUltimoArchivo(archivoSubido, nombreAdmin) {
+
+    try {
+
+        const extension =
+            path.extname(archivoSubido.originalname) || ".xlsx";
+
+        const rutaDestino = rutaArchivoGuardado(extension);
+
+        fs.copyFileSync(archivoSubido.path, rutaDestino);
+
+        const metadata = {
+            nombreOriginal: archivoSubido.originalname,
+            extension,
+            fechaSubida: new Date().toISOString(),
+            subidoPor: nombreAdmin || "Administrador"
+        };
+
+        fs.writeFileSync(
+            RUTA_METADATA_ULTIMO_ARCHIVO,
+            JSON.stringify(metadata, null, 2)
+        );
+
+    } catch (error) {
+
+        // Si esto falla, NO debe tumbar la subida real del
+        // Excel — solo se pierde la posibilidad de descargarlo
+        // después, así que solo se registra en consola.
+        console.error(
+            "No se pudo guardar la copia del último archivo:",
+            error
+        );
+
+    }
+
+}
+
+function obtenerMetadataUltimoArchivo() {
+
+    try {
+
+        if (!fs.existsSync(RUTA_METADATA_ULTIMO_ARCHIVO)) {
+            return null;
+        }
+
+        const contenido =
+            fs.readFileSync(RUTA_METADATA_ULTIMO_ARCHIVO, "utf-8");
+
+        const metadata = JSON.parse(contenido);
+
+        const rutaArchivo =
+            rutaArchivoGuardado(metadata.extension);
+
+        if (!fs.existsSync(rutaArchivo)) {
+            return null;
+        }
+
+        return { ...metadata, rutaArchivo };
+
+    } catch (error) {
+
+        console.error(
+            "No se pudo leer la metadata del último archivo:",
+            error
+        );
+
+        return null;
+
+    }
+
 }
 
 // ========================================
@@ -159,6 +259,14 @@ router.post("/estudiantes/subir", requiereSesion, requiereSuperAdmin, upload.sin
             });
 
         }
+
+        // Se guarda una copia del archivo ANTES de procesarlo,
+        // para que quede disponible para descargar incluso si
+        // algo falla más abajo durante el procesamiento.
+        guardarComoUltimoArchivo(
+            req.file,
+            req.session.usuario?.nombre
+        );
 
         let id_periodo = req.body.id_periodo;
 
@@ -327,6 +435,67 @@ router.post("/estudiantes/subir", requiereSesion, requiereSuperAdmin, upload.sin
         });
 
     }
+
+});
+
+// ========================================
+// INFORMACIÓN DEL ÚLTIMO ARCHIVO SUBIDO
+// (nombre + fecha, para mostrar en el
+// botón "Descargar último archivo")
+// GET /estudiantes/ultimo-archivo
+// ========================================
+
+router.get("/estudiantes/ultimo-archivo", requiereSesion, requiereAdmin, async (req, res) => {
+
+    const metadata = obtenerMetadataUltimoArchivo();
+
+    if (!metadata) {
+
+        return res.status(404).json({
+            ok: false,
+            mensaje: "Todavía no se ha subido ningún archivo (o el servidor se reinició desde la última subida)."
+        });
+
+    }
+
+    res.json({
+        ok: true,
+        nombreOriginal: metadata.nombreOriginal,
+        fechaSubida: metadata.fechaSubida,
+        subidoPor: metadata.subidoPor
+    });
+
+});
+
+// ========================================
+// DESCARGAR EL ÚLTIMO ARCHIVO SUBIDO
+// GET /estudiantes/ultimo-archivo/descargar
+// ========================================
+
+router.get("/estudiantes/ultimo-archivo/descargar", requiereSesion, requiereAdmin, async (req, res) => {
+
+    const metadata = obtenerMetadataUltimoArchivo();
+
+    if (!metadata) {
+
+        return res.status(404).json({
+            ok: false,
+            mensaje: "Todavía no se ha subido ningún archivo (o el servidor se reinició desde la última subida)."
+        });
+
+    }
+
+    res.download(
+        metadata.rutaArchivo,
+        metadata.nombreOriginal,
+        (error) => {
+
+            if (error) {
+                console.error("ERROR DESCARGANDO ÚLTIMO ARCHIVO:", error);
+            }
+
+        }
+    );
 
 });
 
