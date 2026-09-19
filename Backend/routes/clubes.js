@@ -414,6 +414,8 @@ router.put('/:id/activar', requiereSesion, requiereAdmin, async (req, res) => {
 
 router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) => {
 
+    let conexion;
+
     try {
 
         const { cuenta } = req.body;
@@ -429,11 +431,11 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
-        if (rol === 'lider' || !ROLES_VALIDOS.includes(rol)) {
+        if (!ROLES_VALIDOS.includes(rol)) {
 
             return res.status(400).json({
                 ok: false,
-                mensaje: "Rol inválido. Use 'sublider' o 'miembro' al agregar; el líder se asigna aparte."
+                mensaje: "Rol inválido."
             });
 
         }
@@ -514,6 +516,42 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
+        // Si se agrega directamente como líder, hay que
+        // degradar a cualquier líder anterior dentro de la
+        // misma transacción — igual que en PUT /lider/:id —
+        // para que nunca puedan quedar dos líderes activos.
+        if (rol === 'lider') {
+
+            conexion = await db.getConnection();
+            await conexion.beginTransaction();
+
+            await conexion.query(
+                `UPDATE club_integrantes
+                 SET rol = 'miembro'
+                 WHERE id_club = ? AND rol = 'lider' AND activo = 1`,
+                [req.params.id]
+            );
+
+            const [resultado] = await conexion.query(
+
+                `INSERT INTO club_integrantes(id_club, id_estudiante, rol, activo)
+                 VALUES(?,?,'lider',1)`,
+
+                [req.params.id, estudiante.id_estudiante]
+
+            );
+
+            await conexion.commit();
+
+            return res.json({
+                ok: true,
+                mensaje: "Integrante agregado correctamente como líder.",
+                id: resultado.insertId,
+                estudiante_nombre: estudiante.nombre
+            });
+
+        }
+
         const [resultado] = await db.query(
 
             `INSERT INTO club_integrantes(id_club, id_estudiante, rol, activo)
@@ -532,12 +570,20 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
     } catch (error) {
 
+        if (conexion) {
+            try { await conexion.rollback(); } catch (_) {}
+        }
+
         console.error("ERROR AGREGANDO INTEGRANTE:", error);
 
         res.status(500).json({
             ok: false,
             mensaje: "Error del servidor."
         });
+
+    } finally {
+
+        if (conexion) conexion.release();
 
     }
 
