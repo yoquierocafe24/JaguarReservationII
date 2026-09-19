@@ -53,6 +53,7 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
                 r.cant_acompanantes,
                 r.tipo_reserva,
                 r.id_equipo,
+                r.id_club,
 
                 e.nombre AS estudiante,
 
@@ -63,7 +64,14 @@ router.get('/hoy', requiereSesion, requiereGuardia, async (req, res) => {
                     FROM equipo_integrantes ei
                     WHERE ei.id_equipo = r.id_equipo
                       AND ei.activo = 1
-                ) AS cantidad_equipo
+                ) AS cantidad_equipo,
+
+                (
+                    SELECT COUNT(*)
+                    FROM club_integrantes ci
+                    WHERE ci.id_club = r.id_club
+                      AND ci.activo = 1
+                ) AS cantidad_club
 
             FROM reservas r
 

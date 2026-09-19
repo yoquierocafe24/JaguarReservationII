@@ -191,6 +191,8 @@ function renderizarReservas(reservas) {
              ${
              reserva.tipo_reserva === 'equipo'
             ? Number(reserva.cantidad_equipo || 0)
+            : reserva.tipo_reserva === 'club'
+            ? Number(reserva.cantidad_club || 0)
             : Number(reserva.cant_acompanantes || 0) + 1
                  }
              persona(s) autorizada(s)
