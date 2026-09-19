@@ -414,8 +414,6 @@ router.put('/:id/activar', requiereSesion, requiereAdmin, async (req, res) => {
 
 router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) => {
 
-    let conexion;
-
     try {
 
         const { cuenta } = req.body;
@@ -516,39 +514,29 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         }
 
-        // Si se agrega directamente como líder, hay que
-        // degradar a cualquier líder anterior dentro de la
-        // misma transacción — igual que en PUT /lider/:id —
-        // para que nunca puedan quedar dos líderes activos.
+        // Si se agrega directamente como líder, se sigue la
+        // MISMA regla que Equipos: si el club YA tiene un líder
+        // activo, se rechaza y se pide usar "Hacer líder" (el
+        // botón dedicado, que sí pide confirmación explícita
+        // antes de degradar al líder actual). Solo se permite
+        // agregar como líder directamente cuando el club todavía
+        // NO tiene ninguno.
         if (rol === 'lider') {
 
-            conexion = await db.getConnection();
-            await conexion.beginTransaction();
-
-            await conexion.query(
-                `UPDATE club_integrantes
-                 SET rol = 'miembro'
+            const [liderActivo] = await db.query(
+                `SELECT id FROM club_integrantes
                  WHERE id_club = ? AND rol = 'lider' AND activo = 1`,
                 [req.params.id]
             );
 
-            const [resultado] = await conexion.query(
+            if (liderActivo.length > 0) {
 
-                `INSERT INTO club_integrantes(id_club, id_estudiante, rol, activo)
-                 VALUES(?,?,'lider',1)`,
+                return res.status(400).json({
+                    ok: false,
+                    mensaje: "Este club ya tiene un líder activo. Usa 'Hacer líder' para reasignarlo."
+                });
 
-                [req.params.id, estudiante.id_estudiante]
-
-            );
-
-            await conexion.commit();
-
-            return res.json({
-                ok: true,
-                mensaje: "Integrante agregado correctamente como líder.",
-                id: resultado.insertId,
-                estudiante_nombre: estudiante.nombre
-            });
+            }
 
         }
 
@@ -563,16 +551,15 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
 
         res.json({
             ok: true,
-            mensaje: "Integrante agregado correctamente.",
+            mensaje:
+                rol === 'lider'
+                    ? "Integrante agregado correctamente como líder."
+                    : "Integrante agregado correctamente.",
             id: resultado.insertId,
             estudiante_nombre: estudiante.nombre
         });
 
     } catch (error) {
-
-        if (conexion) {
-            try { await conexion.rollback(); } catch (_) {}
-        }
 
         console.error("ERROR AGREGANDO INTEGRANTE:", error);
 
@@ -580,10 +567,6 @@ router.post('/:id/integrantes', requiereSesion, requiereAdmin, async (req, res) 
             ok: false,
             mensaje: "Error del servidor."
         });
-
-    } finally {
-
-        if (conexion) conexion.release();
 
     }
 
