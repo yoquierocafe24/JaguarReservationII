@@ -163,6 +163,11 @@
                     </form>
 
                     <div class="actions-buttons">
+                        <button id="download-last-file-btn" class="btn-secondary" type="button" style="display:none;" disabled>
+                            <i class="bi bi-download"></i>
+                            Descargar último archivo
+                        </button>
+
                         <button id="close-trimester-btn" class="btn-secondary" type="button" style="display:none;">
                             Cerrar trimestre
                         </button>
@@ -173,6 +178,8 @@
                     </div>
 
                 </div>
+
+                <small id="download-last-file-info" style="display:block; margin-top:-8px; margin-bottom:14px; color:#6b7280; font-size:12px;"></small>
 
                 <div id="status-message" class="status-message">
                     Esperando datos...
@@ -377,7 +384,7 @@
     </div>
 </div>
 
-<script src="../js/estudiantes.js?v=21"></script>
+<script src="../js/estudiantes.js?v=23"></script>
 <script src="../js/perfil-admin.js?v=14"></script>
 </body>
 </html>

@@ -85,6 +85,16 @@ async function cargarSesionAdmin() {
             if (elements.closeTrimesterBtn) {
                 elements.closeTrimesterBtn.style.display = 'inline-block';
             }
+
+            if (elements.downloadLastFileBtn) {
+                elements.downloadLastFileBtn.style.display = 'inline-block';
+            }
+
+            // Al mostrar el botón, ya de una vez se consulta
+            // si existe un último archivo para mostrar su
+            // nombre/fecha (o dejar el botón deshabilitado
+            // si todavía no se ha subido nada).
+            await cargarInfoUltimoArchivo();
         }
 
         return true;
@@ -154,6 +164,8 @@ const elements = {
     uploadForm: document.getElementById('upload-form'),
     refreshBtn: document.getElementById('refresh-btn'),
     closeTrimesterBtn: document.getElementById('close-trimester-btn'),
+    downloadLastFileBtn: document.getElementById('download-last-file-btn'),
+    downloadLastFileInfo: document.getElementById('download-last-file-info'),
     periodoFilter: document.getElementById('periodo-filter'),
     estadoFilter: document.getElementById('estado-filter'),
     searchInput: document.getElementById('student-search'),
@@ -592,10 +604,135 @@ async function handleUpload(event) {
         setStatus(`Archivo procesado correctamente. Estudiantes cargados: ${data.estudiantesProcesados || 0}`);
         fileInput.value = '';
         loadDashboard();
+
+        // El archivo que se acaba de subir ya quedó
+        // disponible para descargar — refrescamos la info.
+        await cargarInfoUltimoArchivo();
+
     } catch (error) {
         console.error(error);
         setStatus(error.message || 'Ocurrió un error al subir el archivo.', true);
     }
+}
+
+// =======================================
+// ÚLTIMO ARCHIVO SUBIDO (info + descarga)
+// =======================================
+
+async function cargarInfoUltimoArchivo() {
+
+    if (!elements.downloadLastFileBtn) return;
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/estudiantes/ultimo-archivo`,
+            { credentials: 'include' }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+
+            // Todavía no se ha subido nada (o el servidor
+            // se reinició desde la última subida) — se
+            // deshabilita el botón en vez de ocultarlo.
+            elements.downloadLastFileBtn.disabled = true;
+
+            if (elements.downloadLastFileInfo) {
+                elements.downloadLastFileInfo.textContent =
+                    'Todavía no hay un archivo disponible para descargar.';
+            }
+
+            return;
+        }
+
+        elements.downloadLastFileBtn.disabled = false;
+
+        if (elements.downloadLastFileInfo) {
+
+            const fecha =
+                new Date(data.fechaSubida).toLocaleString('es-HN');
+
+            elements.downloadLastFileInfo.textContent =
+                `${data.nombreOriginal} · subido el ${fecha} por ${data.subidoPor}`;
+
+        }
+
+    } catch (error) {
+
+        console.error('Error consultando el último archivo:', error);
+
+        elements.downloadLastFileBtn.disabled = true;
+
+    }
+
+}
+
+async function descargarUltimoArchivo() {
+
+    try {
+
+        setStatus('Descargando el último archivo...');
+
+        const response = await fetch(
+            `${API_URL}/estudiantes/ultimo-archivo/descargar`,
+            { credentials: 'include' }
+        );
+
+        if (!response.ok) {
+
+            const error = await response.json().catch(() => null);
+
+            throw new Error(
+                error?.mensaje || 'No se pudo descargar el archivo.'
+            );
+
+        }
+
+        // Se intenta leer el nombre real del archivo desde el
+        // header (puede no estar disponible entre dominios
+        // distintos si el backend no lo expone vía CORS; en
+        // ese caso se usa un nombre genérico como respaldo).
+        const disposition =
+            response.headers.get('Content-Disposition') || '';
+
+        const coincidencia =
+            disposition.match(/filename="?([^"]+)"?/);
+
+        const nombreArchivo =
+            coincidencia
+                ? coincidencia[1]
+                : 'ultimo-archivo-estudiantes.xlsx';
+
+        const blob = await response.blob();
+
+        const url = URL.createObjectURL(blob);
+
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = nombreArchivo;
+
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+
+        URL.revokeObjectURL(url);
+
+        setStatus('Archivo descargado correctamente.');
+
+    } catch (error) {
+
+        console.error(error);
+
+        setStatus(
+            error.message ||
+            'Ocurrió un error al descargar el archivo.',
+            true
+        );
+
+    }
+
 }
 
 async function handleCloseTrimester() {
@@ -664,6 +801,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.closeTrimesterBtn?.addEventListener(
         'click',
         solicitarConfirmacionCierreTrimestre
+    );
+
+    elements.downloadLastFileBtn?.addEventListener(
+        'click',
+        descargarUltimoArchivo
     );
 
     elements.periodoFilter?.addEventListener(
