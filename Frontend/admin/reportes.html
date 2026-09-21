@@ -168,6 +168,24 @@
                             <option value="">Todo el histórico</option>
                         </select>
                     </div>
+
+                    <div class="filter-group">
+                        <label for="filtro-fecha-inicio">Desde</label>
+                        <input type="date" id="filtro-fecha-inicio">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filtro-fecha-fin">Hasta</label>
+                        <input type="date" id="filtro-fecha-fin">
+                    </div>
+
+                    <div class="filter-group" style="justify-content:flex-end;">
+                        <label>&nbsp;</label>
+                        <button type="button" id="limpiar-fechas-btn" class="btn-secondary">
+                            <i class="bi bi-x-circle"></i> Limpiar fechas
+                        </button>
+                    </div>
+
                     <div class="filter-group">
                         <label for="filtro-carrera">Carrera</label>
                         <select id="filtro-carrera">
@@ -301,6 +319,44 @@
                         </div>
                     </article>
 
+                    <!-- 6) Reservas por equipo (nuevo) -->
+                    <article class="report-card alt">
+                        <div class="report-card-header">
+                            <div class="report-card-icon" style="background:linear-gradient(135deg,#090d5e,#3b3fb5);">
+                                <i class="bi bi-calendar2-check"></i>
+                            </div>
+                            <div>
+                                <div class="report-card-title">Reservas por equipo</div>
+                                <div class="report-card-sub">Cuántas veces reservó cada equipo</div>
+                            </div>
+                        </div>
+                        <div id="chart-reservas-equipo" class="bar-list">
+                            <div class="card-empty">Cargando...</div>
+                        </div>
+                        <div class="report-note">
+                            <i class="bi bi-info-circle"></i>
+                            A diferencia de "Integrantes por equipo", esto sí respeta el periodo/fecha seleccionado.
+                        </div>
+                    </article>
+
+                    <!-- 7) Reservas por club (nuevo) -->
+                    <article class="report-card">
+                        <div class="report-card-header">
+                            <div class="report-card-icon"><i class="bi bi-calendar2-check"></i></div>
+                            <div>
+                                <div class="report-card-title">Reservas por club</div>
+                                <div class="report-card-sub">Cuántas veces reservó cada club</div>
+                            </div>
+                        </div>
+                        <div id="chart-reservas-club" class="bar-list">
+                            <div class="card-empty">Cargando...</div>
+                        </div>
+                        <div class="report-note">
+                            <i class="bi bi-info-circle"></i>
+                            A diferencia de "Integrantes por club", esto sí respeta el periodo/fecha seleccionado.
+                        </div>
+                    </article>
+
                 </div>
 
             </section>
@@ -409,7 +465,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="../js/reportes.js?v=3"></script>
+<script src="../js/reportes.js?v=2"></script>
 <script src="../js/perfil-admin.js?v=14"></script>
 </body>
 </html>
