@@ -230,8 +230,7 @@ router.get('/opciones', async (req, res) => {
         const CARRERAS_OCULTAS = [
             'Psicologia',
             'Diseño grafico',
-            'Informatica',
-            'Ingenería en logística'
+            'Informatica'
         ];
 
         // Solo se muestran las carreras que ALGÚN estudiante tiene
@@ -430,7 +429,73 @@ router.get('/integrantes-por-club', async (req, res) => {
 });
 
 // =============================================================
-// 5) RESUMEN: reporte institucional completo (para exportar)
+// 4c) RESERVAS hechas por cada EQUIPO
+// (distinto de "integrantes-por-equipo": esto cuenta cuántas
+// veces reservó cada equipo, no cuántos miembros tiene)
+// =============================================================
+router.get('/reservas-por-equipo', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+
+        const [rows] = await db.query(
+            `SELECT
+                eq.id_equipo,
+                eq.nombre AS equipo,
+                eq.deporte,
+                COUNT(r.id_reserva) AS total_reservas
+             FROM equipos eq
+             INNER JOIN reservas r
+                ON r.id_equipo = eq.id_equipo
+                AND r.tipo_reserva = 'equipo'
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY eq.id_equipo, eq.nombre, eq.deporte
+             ORDER BY total_reservas DESC`,
+            params
+        );
+
+        res.json({ ok: true, reporte: 'reservas_por_equipo', filtros: req.query, total_grupos: rows.length, datos: rows });
+    } catch (error) {
+        console.error('Error reservas-por-equipo:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+// =============================================================
+// 4d) RESERVAS hechas por cada CLUB
+// (distinto de "integrantes-por-club": esto cuenta cuántas
+// veces reservó cada club, no cuántos miembros tiene)
+// =============================================================
+router.get('/reservas-por-club', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+
+        const [rows] = await db.query(
+            `SELECT
+                c.id_club,
+                c.nombre AS club,
+                COUNT(r.id_reserva) AS total_reservas
+             FROM clubes c
+             INNER JOIN reservas r
+                ON r.id_club = c.id_club
+                AND r.tipo_reserva = 'club'
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY c.id_club, c.nombre
+             ORDER BY total_reservas DESC`,
+            params
+        );
+
+        res.json({ ok: true, reporte: 'reservas_por_club', filtros: req.query, total_grupos: rows.length, datos: rows });
+    } catch (error) {
+        console.error('Error reservas-por-club:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+
 //
 // Acepta un filtro adicional opcional:
 //   fecha_corte = YYYY-MM-DD
@@ -492,6 +557,43 @@ router.get('/resumen', async (req, res) => {
              WHERE c.activo = 1
              GROUP BY c.id_club, c.nombre
              ORDER BY cantidad_integrantes DESC`
+        );
+
+        // =======================================
+        // Reservas hechas por cada equipo/club
+        // (distinto de "integrantes": esto es
+        // cuántas veces reservó cada uno, respeta
+        // el mismo filtro de fecha del resumen).
+        // =======================================
+
+        const [reservasPorEquipo] = await db.query(
+            `SELECT eq.id_equipo, eq.nombre AS equipo, eq.deporte,
+                    COUNT(r.id_reserva) AS total_reservas
+             FROM equipos eq
+             INNER JOIN reservas r
+                ON r.id_equipo = eq.id_equipo
+                AND r.tipo_reserva = 'equipo'
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY eq.id_equipo, eq.nombre, eq.deporte
+             ORDER BY total_reservas DESC`,
+            params
+        );
+
+        const [reservasPorClub] = await db.query(
+            `SELECT c.id_club, c.nombre AS club,
+                    COUNT(r.id_reserva) AS total_reservas
+             FROM clubes c
+             INNER JOIN reservas r
+                ON r.id_club = c.id_club
+                AND r.tipo_reserva = 'club'
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}
+             GROUP BY c.id_club, c.nombre
+             ORDER BY total_reservas DESC`,
+            params
         );
 
         // =======================================
@@ -673,6 +775,8 @@ router.get('/resumen', async (req, res) => {
                 comparativo_primer_ingreso: comparativo,
                 integrantes_por_equipo: equipos,
                 integrantes_por_club: clubes,
+                reservas_por_equipo: reservasPorEquipo,
+                reservas_por_club: reservasPorClub,
                 asistencia: asistencia,
 
                 // Reporte institucional extendido

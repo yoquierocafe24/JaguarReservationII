@@ -79,6 +79,9 @@ function setStatus(message, isError = false) {
 // ============================================================
 const els = {
     periodo: document.getElementById('filtro-periodo'),
+    fechaInicio: document.getElementById('filtro-fecha-inicio'),
+    fechaFin: document.getElementById('filtro-fecha-fin'),
+    limpiarFechasBtn: document.getElementById('limpiar-fechas-btn'),
     carrera: document.getElementById('filtro-carrera'),
     espacio: document.getElementById('filtro-espacio'),
     ingreso: document.getElementById('filtro-ingreso'),
@@ -91,6 +94,8 @@ const els = {
     chartIngreso: document.getElementById('chart-ingreso'),
     chartEquipos: document.getElementById('chart-equipos'),
     chartClubes: document.getElementById('chart-clubes'),
+    chartReservasEquipo: document.getElementById('chart-reservas-equipo'),
+    chartReservasClub: document.getElementById('chart-reservas-club'),
     kpiTotal: document.getElementById('kpi-total'),
     kpiCarrera: document.getElementById('kpi-carrera'),
     kpiCarreraHint: document.getElementById('kpi-carrera-hint'),
@@ -113,13 +118,24 @@ const state = {
 function construirQuery() {
     const params = new URLSearchParams();
 
-    // Periodo: el value puede ser '', 'anual:2026' o 'periodo:2'
-    const per = els.periodo.value;
-    if (per.startsWith('anual:')) {
-        params.set('periodo', 'anual');
-        params.set('anio', per.split(':')[1]);
-    } else if (per.startsWith('periodo:')) {
-        params.set('id_periodo', per.split(':')[1]);
+    // Rango de fechas explícito: si el usuario eligió AMBAS
+    // fechas, tiene prioridad sobre el dropdown de periodo
+    // (mismo orden de prioridad que ya usa el backend).
+    const fechaInicio = els.fechaInicio?.value || '';
+    const fechaFin = els.fechaFin?.value || '';
+
+    if (fechaInicio && fechaFin) {
+        params.set('fecha_inicio', fechaInicio);
+        params.set('fecha_fin', fechaFin);
+    } else {
+        // Periodo: el value puede ser '', 'anual:2026' o 'periodo:2'
+        const per = els.periodo.value;
+        if (per.startsWith('anual:')) {
+            params.set('periodo', 'anual');
+            params.set('anio', per.split(':')[1]);
+        } else if (per.startsWith('periodo:')) {
+            params.set('id_periodo', per.split(':')[1]);
+        }
     }
 
     if (els.carrera.value) params.set('carrera', els.carrera.value);
@@ -127,6 +143,24 @@ function construirQuery() {
     if (els.ingreso.value) params.set('primer_ingreso', els.ingreso.value);
 
     return params;
+}
+
+// Etiqueta legible del periodo/rango actualmente aplicado —
+// se usa tanto en pantalla como en los archivos exportados.
+function calcularEtiquetaPeriodo() {
+    const fechaInicio = els.fechaInicio?.value || '';
+    const fechaFin = els.fechaFin?.value || '';
+
+    if (fechaInicio && fechaFin) {
+        const formatear = (iso) => {
+            const [anio, mes, dia] = iso.split('-');
+            return `${dia}/${mes}/${anio}`;
+        };
+        return `Del ${formatear(fechaInicio)} al ${formatear(fechaFin)}`;
+    }
+
+    const perSel = els.periodo.selectedOptions[0];
+    return perSel ? perSel.textContent : 'Todo el histórico';
 }
 
 // ============================================================
@@ -176,6 +210,8 @@ async function cargarOpciones() {
 // Render de gráficos de barras
 // ============================================================
 function renderBarras(contenedor, filas, campoLabel, campoValor) {
+    if (!contenedor) return;
+
     if (!filas || filas.length === 0) {
         contenedor.innerHTML = '<div class="card-empty">Sin reservas para los filtros seleccionados.</div>';
         return;
@@ -279,9 +315,7 @@ async function cargarReportes() {
     setStatus('Cargando reportes...');
     const params = construirQuery();
 
-    // Etiqueta legible del periodo (para exportar y para el estado)
-    const perSel = els.periodo.selectedOptions[0];
-    state.etiquetaPeriodo = perSel ? perSel.textContent : 'Todo el histórico';
+    state.etiquetaPeriodo = calcularEtiquetaPeriodo();
 
     try {
         const res = await fetch(`${API_URL}/api/reportes/resumen?${params.toString()}`, {
@@ -300,11 +334,43 @@ async function cargarReportes() {
         renderBarras(els.chartEquipos, r.integrantes_por_equipo, 'equipo', 'cantidad_integrantes');
         renderBarras(els.chartClubes, r.integrantes_por_club, 'club', 'cantidad_integrantes');
 
+        // Nuevo: cuántas reservas hizo cada equipo/club (distinto
+        // del tamaño de su roster, que es lo que ya mostraban
+        // los dos gráficos de arriba).
+        renderBarras(els.chartReservasEquipo, r.reservas_por_equipo, 'equipo', 'total_reservas');
+        renderBarras(els.chartReservasClub, r.reservas_por_club, 'club', 'total_reservas');
+
         setStatus(`Reportes actualizados · ${state.etiquetaPeriodo} · ${new Date().toLocaleTimeString('es-HN')}`);
     } catch (error) {
         console.error('Error cargando reportes:', error);
         setStatus('No se pudieron cargar los reportes. Revisa que el servidor esté activo.', true);
     }
+}
+
+// ============================================================
+// Filtro de rango de fechas: al elegir una fecha manualmente,
+// el dropdown de periodo se resetea (para que quede claro cuál
+// de los dos filtros está mandando), y viceversa.
+// ============================================================
+function manejarCambioFecha() {
+    if (els.fechaInicio.value && els.fechaFin.value) {
+        els.periodo.value = '';
+    }
+    cargarReportes();
+}
+
+function manejarCambioPeriodo() {
+    if (els.periodo.value) {
+        els.fechaInicio.value = '';
+        els.fechaFin.value = '';
+    }
+    cargarReportes();
+}
+
+function limpiarFechas() {
+    els.fechaInicio.value = '';
+    els.fechaFin.value = '';
+    cargarReportes();
 }
 
 // ============================================================
@@ -377,6 +443,20 @@ function exportarCSV() {
     lineas.push('Club,Integrantes');
     (r.integrantes_por_club || []).forEach(f =>
         lineas.push(`${csv(f.club)},${f.cantidad_integrantes}`));
+    lineas.push('');
+
+    lineas.push('Reservas por equipo');
+    lineas.push('Cuantas veces reservo cada equipo en el periodo seleccionado (no es el tamano del roster).');
+    lineas.push('Equipo,Deporte,Total reservas');
+    (r.reservas_por_equipo || []).forEach(f =>
+        lineas.push(`${csv(f.equipo)},${csv(f.deporte)},${f.total_reservas}`));
+    lineas.push('');
+
+    lineas.push('Reservas por club');
+    lineas.push('Cuantas veces reservo cada club en el periodo seleccionado (no es el tamano del roster).');
+    lineas.push('Club,Total reservas');
+    (r.reservas_por_club || []).forEach(f =>
+        lineas.push(`${csv(f.club)},${f.total_reservas}`));
     lineas.push('');
 
     if ((r.juego_mas_reservado || []).length) {
@@ -650,6 +730,34 @@ async function exportarPDF() {
     });
     y = doc.lastAutoTable.finalY + 10;
 
+    // ---- Tabla: Reservas por equipo ----
+    const filasReservasEquipo = (r.reservas_por_equipo || []).map(f => [f.equipo, f.deporte, f.total_reservas]);
+    y = asegurarEspacio(doc, y, filasReservasEquipo.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Cuántas veces reservó cada equipo en el periodo seleccionado (no es el tamaño del roster).');
+    doc.autoTable({
+        startY: y,
+        head: [['Equipo', 'Deporte', 'Total reservas']],
+        body: filasReservasEquipo,
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ---- Tabla: Reservas por club ----
+    const filasReservasClub = (r.reservas_por_club || []).map(f => [f.club, f.total_reservas]);
+    y = asegurarEspacio(doc, y, filasReservasClub.length + 1);
+    y = dibujarSubtitulo(doc, y, 'Cuántas veces reservó cada club en el periodo seleccionado (no es el tamaño del roster).');
+    doc.autoTable({
+        startY: y,
+        head: [['Club', 'Total reservas']],
+        body: filasReservasClub,
+        theme: 'striped',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 9 }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
     // ---- Tabla: Juego más reservado ----
     if ((r.juego_mas_reservado || []).length) {
         const filasJuegos = r.juego_mas_reservado.map(f => [f.juego, f.total_reservas]);
@@ -796,6 +904,20 @@ function exportarExcel() {
     (r.integrantes_por_club || []).forEach(f => filas.push([f.club, f.cantidad_integrantes]));
     filas.push([]);
 
+    // ---- Reservas por equipo ----
+    filas.push(['RESERVAS POR EQUIPO']);
+    filas.push(['Cuántas veces reservó cada equipo en el periodo seleccionado (no es el tamaño del roster).']);
+    filas.push(['Equipo', 'Deporte', 'Total reservas']);
+    (r.reservas_por_equipo || []).forEach(f => filas.push([f.equipo, f.deporte, f.total_reservas]));
+    filas.push([]);
+
+    // ---- Reservas por club ----
+    filas.push(['RESERVAS POR CLUB']);
+    filas.push(['Cuántas veces reservó cada club en el periodo seleccionado (no es el tamaño del roster).']);
+    filas.push(['Club', 'Total reservas']);
+    (r.reservas_por_club || []).forEach(f => filas.push([f.club, f.total_reservas]));
+    filas.push([]);
+
     // ---- Juego más reservado ----
     // La fila con más reservas se marca con ⭐ (Excel no soporta
     // colorear celdas fácilmente con esta librería gratuita).
@@ -843,7 +965,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     await cargarOpciones();
     await cargarReportes();
 
-    [els.periodo, els.carrera, els.espacio, els.ingreso].forEach(sel =>
+    els.periodo.addEventListener('change', manejarCambioPeriodo);
+    els.fechaInicio?.addEventListener('change', manejarCambioFecha);
+    els.fechaFin?.addEventListener('change', manejarCambioFecha);
+    els.limpiarFechasBtn?.addEventListener('click', limpiarFechas);
+
+    [els.carrera, els.espacio, els.ingreso].forEach(sel =>
         sel.addEventListener('change', cargarReportes));
 
     els.refreshBtn.addEventListener('click', cargarReportes);
