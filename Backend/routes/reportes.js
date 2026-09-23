@@ -794,4 +794,241 @@ router.get('/resumen', async (req, res) => {
     }
 });
 
+// =============================================================
+// Helper de paginación reusable: lee page/pageSize del query,
+// con límites razonables para no permitir pedir "todo" de un
+// jalón (eso tumbaría el servidor con miles de filas).
+// =============================================================
+function leerPaginacion(q) {
+    // Para exportar: sin_limite=1 trae TODAS las filas que
+    // coincidan con los filtros, sin paginar. Se usa solo desde
+    // los botones de exportar PDF/Excel/CSV, nunca desde las
+    // tablas en pantalla (esas sí siempre paginan).
+    if (q.sin_limite === '1') {
+        return { pagina: 1, porPagina: null, offset: 0, sinLimite: true };
+    }
+
+    const pagina = Math.max(1, parseInt(q.pagina, 10) || 1);
+    const porPagina = Math.min(200, Math.max(10, parseInt(q.por_pagina, 10) || 50));
+    const offset = (pagina - 1) * porPagina;
+    return { pagina, porPagina, offset, sinLimite: false };
+}
+
+// =============================================================
+// 6) LISTADO DETALLADO — una fila por cada reserva (no agrupado)
+//
+// Muestra exactamente lo que pide la administración: código,
+// quién la hizo, espacio, fecha/hora, estado, y si el TITULAR
+// pertenece a algún club o equipo (sin importar si la reserva
+// en sí fue individual, de equipo o de club — un estudiante
+// puede ser del Club de Ajedrez y aun así reservar cancha solo).
+//
+// Como un estudiante puede pertenecer a más de un club/equipo
+// a la vez, esas dos columnas usan GROUP_CONCAT para juntar
+// todos los nombres separados por coma, en vez de duplicar filas.
+//
+// GET /api/reportes/listado-detallado?pagina=1&por_pagina=50
+// (acepta los mismos filtros que /resumen: fecha_inicio,
+// fecha_fin, id_periodo, carrera, id_espacio, estado, etc.)
+// =============================================================
+router.get('/listado-detallado', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+        const { pagina, porPagina, offset, sinLimite } = leerPaginacion(req.query);
+
+        const [totalRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausula}`,
+            params
+        );
+
+        const [rows] = await db.query(
+            `SELECT
+                r.id_reserva,
+                e.nombre AS titular_nombre,
+                e.cuenta AS titular_cuenta,
+                COALESCE(es.nombre, 'Sin espacio') AS espacio,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                r.estado,
+                r.tipo_reserva,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ')
+                    FROM club_integrantes ci
+                    INNER JOIN clubes c ON c.id_club = ci.id_club
+                    WHERE ci.id_estudiante = r.id_estudiante
+                    AND ci.activo = 1
+                ) AS club_pertenece,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT eq.nombre SEPARATOR ', ')
+                    FROM equipo_integrantes ei
+                    INNER JOIN equipos eq ON eq.id_equipo = ei.id_equipo
+                    WHERE ei.id_estudiante = r.id_estudiante
+                    AND ei.activo = 1
+                ) AS equipo_pertenece
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             WHERE 1 = 1 ${clausula}
+             ORDER BY r.fecha DESC, r.hora_inicio DESC
+             ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
+            sinLimite ? params : [...params, porPagina, offset]
+        );
+
+        res.json({
+            ok: true,
+            reporte: 'listado_detallado',
+            filtros: req.query,
+            total: totalRows[0]?.total || 0,
+            pagina,
+            por_pagina: sinLimite ? rows.length : porPagina,
+            datos: rows
+        });
+    } catch (error) {
+        console.error('Error listado-detallado:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+// =============================================================
+// 7) LISTADO DE RESERVAS DE CLUB — solo reservas hechas COMO
+// club (tipo_reserva = 'club'), con el nombre del club, quién
+// la hizo (el líder/sublíder que reservó) y cuántos integrantes
+// tenía el club en ese momento.
+//
+// GET /api/reportes/listado-clubes?pagina=1&por_pagina=50
+// =============================================================
+router.get('/listado-clubes', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+        const { pagina, porPagina, offset, sinLimite } = leerPaginacion(req.query);
+
+        const clausulaClub = `${clausula} AND r.tipo_reserva = 'club'`;
+
+        const [totalRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausulaClub}`,
+            params
+        );
+
+        const [rows] = await db.query(
+            `SELECT
+                r.id_reserva,
+                c.nombre AS club,
+                e.nombre AS titular_nombre,
+                e.cuenta AS titular_cuenta,
+                COALESCE(es.nombre, 'Sin espacio') AS espacio,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                r.estado,
+                (
+                    SELECT COUNT(*)
+                    FROM club_integrantes ci
+                    WHERE ci.id_club = r.id_club
+                    AND ci.activo = 1
+                ) AS cantidad_integrantes
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             LEFT JOIN clubes c ON c.id_club = r.id_club
+             WHERE 1 = 1 ${clausulaClub}
+             ORDER BY r.fecha DESC, r.hora_inicio DESC
+             ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
+            sinLimite ? params : [...params, porPagina, offset]
+        );
+
+        res.json({
+            ok: true,
+            reporte: 'listado_clubes',
+            filtros: req.query,
+            total: totalRows[0]?.total || 0,
+            pagina,
+            por_pagina: sinLimite ? rows.length : porPagina,
+            datos: rows
+        });
+    } catch (error) {
+        console.error('Error listado-clubes:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+// =============================================================
+// 8) LISTADO DE ACOMPAÑANTES — una fila por cada persona que se
+// unió a una reserva individual (por QR o vinculada por un
+// guardia), mostrando a qué reserva pertenece y quién es el
+// titular de esa reserva.
+//
+// Los filtros de fecha aplican sobre la FECHA DE LA RESERVA
+// (r.fecha), no sobre cuándo se registró el acompañante.
+//
+// GET /api/reportes/listado-acompanantes?pagina=1&por_pagina=50
+// =============================================================
+router.get('/listado-acompanantes', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+        const { pagina, porPagina, offset, sinLimite } = leerPaginacion(req.query);
+
+        // construirFiltros() genera condiciones sobre alias "r"
+        // (reservas) y "ep" (período del TITULAR) — funcionan
+        // igual aquí, ya que reserva_acompanantes cuelga de "r".
+        const [totalRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM reserva_acompanantes ra
+             INNER JOIN reservas r ON r.id_reserva = ra.id_reserva
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE ra.confirmado = 1 ${clausula}`,
+            params
+        );
+
+        const [rows] = await db.query(
+            `SELECT
+                r.id_reserva,
+                e.nombre AS titular_nombre,
+                e.cuenta AS titular_cuenta,
+                acomp.nombre AS acompanante_nombre,
+                acomp.cuenta AS acompanante_cuenta,
+                COALESCE(es.nombre, 'Sin espacio') AS espacio,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                ra.origen,
+                ra.fecha_registro
+             FROM reserva_acompanantes ra
+             INNER JOIN reservas r ON r.id_reserva = ra.id_reserva
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             INNER JOIN estudiantes acomp ON acomp.id_estudiante = ra.id_estudiante
+             WHERE ra.confirmado = 1 ${clausula}
+             ORDER BY r.fecha DESC, r.hora_inicio DESC
+             ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
+            sinLimite ? params : [...params, porPagina, offset]
+        );
+
+        res.json({
+            ok: true,
+            reporte: 'listado_acompanantes',
+            filtros: req.query,
+            total: totalRows[0]?.total || 0,
+            pagina,
+            por_pagina: sinLimite ? rows.length : porPagina,
+            datos: rows
+        });
+    } catch (error) {
+        console.error('Error listado-acompanantes:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
 module.exports = router;
