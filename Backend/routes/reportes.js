@@ -857,11 +857,13 @@ router.get('/listado-detallado', async (req, res) => {
                 r.estado,
                 r.tipo_reserva,
                 clubes_est.club_pertenece,
-                equipos_est.equipo_pertenece
+                equipos_est.equipo_pertenece,
+                CASE WHEN a.id_asistencia IS NOT NULL THEN 'Si' ELSE 'No' END AS asistio
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
              LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             LEFT JOIN asistencia a ON a.id_reserva = r.id_reserva AND a.id_estudiante = r.id_estudiante
              LEFT JOIN (
                 SELECT
                     ci.id_estudiante,
@@ -1009,13 +1011,15 @@ router.get('/listado-acompanantes', async (req, res) => {
                 r.hora_inicio,
                 r.hora_fin,
                 ra.origen,
-                ra.fecha_registro
+                ra.fecha_registro,
+                CASE WHEN a.id_asistencia IS NOT NULL THEN 'Si' ELSE 'No' END AS asistio
              FROM reserva_acompanantes ra
              INNER JOIN reservas r ON r.id_reserva = ra.id_reserva
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
              LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
              INNER JOIN estudiantes acomp ON acomp.id_estudiante = ra.id_estudiante
+             LEFT JOIN asistencia a ON a.id_reserva = r.id_reserva AND a.id_estudiante = ra.id_estudiante
              WHERE ra.confirmado = 1 ${clausula}
              ORDER BY r.fecha DESC, r.hora_inicio DESC
              ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
@@ -1104,6 +1108,146 @@ router.get('/listado-equipos', async (req, res) => {
         });
     } catch (error) {
         console.error('Error listado-equipos:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+// =============================================================
+// 10) ASISTENCIA DE INTEGRANTES DE CLUB — una fila por cada
+// integrante activo de un club, por cada reserva de ese club,
+// mostrando si ESA PERSONA específicamente registró su entrada
+// o no (a diferencia de "listado-clubes", que solo dice cuántos
+// integrantes tenía el club, sin decir quién asistió).
+//
+// GET /api/reportes/asistencia-integrantes-club?pagina=1&por_pagina=50
+// =============================================================
+router.get('/asistencia-integrantes-club', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+        const { pagina, porPagina, offset, sinLimite } = leerPaginacion(req.query);
+
+        const clausulaClub = `${clausula} AND r.tipo_reserva = 'club'`;
+
+        const [totalRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             INNER JOIN club_integrantes ci ON ci.id_club = r.id_club AND ci.activo = 1
+             WHERE 1 = 1 ${clausulaClub}`,
+            params
+        );
+
+        const [rows] = await db.query(
+            `SELECT
+                r.id_reserva,
+                c.nombre AS club,
+                CASE ci.rol
+                    WHEN 'lider' THEN 'Líder'
+                    WHEN 'sublider' THEN 'Sublíder'
+                    ELSE 'Miembro'
+                END AS rol,
+                integrante.nombre AS integrante_nombre,
+                integrante.cuenta AS integrante_cuenta,
+                COALESCE(es.nombre, 'Sin espacio') AS espacio,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                CASE WHEN a.id_asistencia IS NOT NULL THEN 'Si' ELSE 'No' END AS asistio
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             LEFT JOIN clubes c ON c.id_club = r.id_club
+             INNER JOIN club_integrantes ci ON ci.id_club = r.id_club AND ci.activo = 1
+             INNER JOIN estudiantes integrante ON integrante.id_estudiante = ci.id_estudiante
+             LEFT JOIN asistencia a ON a.id_reserva = r.id_reserva AND a.id_estudiante = ci.id_estudiante
+             WHERE 1 = 1 ${clausulaClub}
+             ORDER BY r.fecha DESC, r.hora_inicio DESC, FIELD(ci.rol,'lider','sublider','miembro'), integrante.nombre
+             ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
+            sinLimite ? params : [...params, porPagina, offset]
+        );
+
+        res.json({
+            ok: true,
+            reporte: 'asistencia_integrantes_club',
+            filtros: req.query,
+            total: totalRows[0]?.total || 0,
+            pagina,
+            por_pagina: sinLimite ? rows.length : porPagina,
+            datos: rows
+        });
+    } catch (error) {
+        console.error('Error asistencia-integrantes-club:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+// =============================================================
+// 11) ASISTENCIA DE INTEGRANTES DE EQUIPO — mismo patrón que el
+// de club, pero para reservas de equipo.
+//
+// GET /api/reportes/asistencia-integrantes-equipo?pagina=1&por_pagina=50
+// =============================================================
+router.get('/asistencia-integrantes-equipo', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+        const { pagina, porPagina, offset, sinLimite } = leerPaginacion(req.query);
+
+        const clausulaEquipo = `${clausula} AND r.tipo_reserva = 'equipo'`;
+
+        const [totalRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             INNER JOIN equipo_integrantes ei ON ei.id_equipo = r.id_equipo AND ei.activo = 1
+             WHERE 1 = 1 ${clausulaEquipo}`,
+            params
+        );
+
+        const [rows] = await db.query(
+            `SELECT
+                r.id_reserva,
+                eq.nombre AS equipo,
+                eq.deporte,
+                CASE ei.rol
+                    WHEN 'lider' THEN 'Líder'
+                    WHEN 'sublider' THEN 'Sublíder'
+                    ELSE 'Jugador'
+                END AS rol,
+                integrante.nombre AS integrante_nombre,
+                integrante.cuenta AS integrante_cuenta,
+                COALESCE(es.nombre, 'Sin espacio') AS espacio,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                CASE WHEN a.id_asistencia IS NOT NULL THEN 'Si' ELSE 'No' END AS asistio
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             LEFT JOIN equipos eq ON eq.id_equipo = r.id_equipo
+             INNER JOIN equipo_integrantes ei ON ei.id_equipo = r.id_equipo AND ei.activo = 1
+             INNER JOIN estudiantes integrante ON integrante.id_estudiante = ei.id_estudiante
+             LEFT JOIN asistencia a ON a.id_reserva = r.id_reserva AND a.id_estudiante = ei.id_estudiante
+             WHERE 1 = 1 ${clausulaEquipo}
+             ORDER BY r.fecha DESC, r.hora_inicio DESC, FIELD(ei.rol,'lider','sublider','jugador'), integrante.nombre
+             ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
+            sinLimite ? params : [...params, porPagina, offset]
+        );
+
+        res.json({
+            ok: true,
+            reporte: 'asistencia_integrantes_equipo',
+            filtros: req.query,
+            total: totalRows[0]?.total || 0,
+            pagina,
+            por_pagina: sinLimite ? rows.length : porPagina,
+            datos: rows
+        });
+    } catch (error) {
+        console.error('Error asistencia-integrantes-equipo:', error);
         res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
     }
 });

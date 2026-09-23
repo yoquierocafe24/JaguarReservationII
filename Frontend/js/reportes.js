@@ -406,25 +406,31 @@ async function obtenerListadosParaExportar() {
     const params = construirQuery();
     params.set('sin_limite', '1');
 
-    const [resListado, resClubes, resEquipos, resAcompanantes] = await Promise.all([
+    const [resListado, resClubes, resEquipos, resAcompanantes, resIntegClub, resIntegEquipo] = await Promise.all([
         fetch(`${API_URL}/api/reportes/listado-detallado?${params.toString()}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/reportes/listado-clubes?${params.toString()}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/reportes/listado-equipos?${params.toString()}`, { credentials: 'include' }),
-        fetch(`${API_URL}/api/reportes/listado-acompanantes?${params.toString()}`, { credentials: 'include' })
+        fetch(`${API_URL}/api/reportes/listado-acompanantes?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/reportes/asistencia-integrantes-club?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/reportes/asistencia-integrantes-equipo?${params.toString()}`, { credentials: 'include' })
     ]);
 
-    const [dataListado, dataClubes, dataEquipos, dataAcompanantes] = await Promise.all([
+    const [dataListado, dataClubes, dataEquipos, dataAcompanantes, dataIntegClub, dataIntegEquipo] = await Promise.all([
         resListado.json(),
         resClubes.json(),
         resEquipos.json(),
-        resAcompanantes.json()
+        resAcompanantes.json(),
+        resIntegClub.json(),
+        resIntegEquipo.json()
     ]);
 
     return {
         listado: dataListado.ok ? dataListado.datos : [],
         clubes: dataClubes.ok ? dataClubes.datos : [],
         equipos: dataEquipos.ok ? dataEquipos.datos : [],
-        acompanantes: dataAcompanantes.ok ? dataAcompanantes.datos : []
+        acompanantes: dataAcompanantes.ok ? dataAcompanantes.datos : [],
+        integrantesClub: dataIntegClub.ok ? dataIntegClub.datos : [],
+        integrantesEquipo: dataIntegEquipo.ok ? dataIntegEquipo.datos : []
     };
 }
 
@@ -437,7 +443,7 @@ async function exportarCSV() {
 
     setStatus('Preparando exportación (esto puede tardar unos segundos)...');
 
-    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
+    const { listado, clubes, equipos, acompanantes, integrantesClub, integrantesEquipo } = await obtenerListadosParaExportar();
 
     const totalReservas = (r.reservas_por_carrera || [])
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
@@ -550,12 +556,12 @@ async function exportarCSV() {
     // filtros, sin importar cuantas sean.
     // =========================================================
     lineas.push('LISTADO DETALLADO DE RESERVAS');
-    lineas.push('Cada fila es una reserva individual. Club/Equipo muestra el nombre si el TITULAR pertenece, sin importar el tipo de reserva.');
-    lineas.push('Codigo,Titular,Cuenta,Espacio,Fecha,Hora inicio,Hora fin,Estado,Club,Equipo');
+    lineas.push('Cada fila es una reserva individual. Club/Equipo muestra el nombre si el TITULAR pertenece, sin importar el tipo de reserva. Asistio se refiere al titular.');
+    lineas.push('Codigo,Titular,Cuenta,Espacio,Fecha,Estado,Club,Equipo,Asistio');
     listado.forEach(f => lineas.push(
         `${csv(f.id_reserva)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
-        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
-        `${csv(etiquetaEstado(f.estado))},${csv(f.club_pertenece || 'No')},${csv(f.equipo_pertenece || 'No')}`
+        `${csv(formatearFechaCorta(f.fecha))},` +
+        `${csv(etiquetaEstado(f.estado))},${csv(f.club_pertenece || 'No')},${csv(f.equipo_pertenece || 'No')},${csv(f.asistio)}`
     ));
     lineas.push('');
 
@@ -590,11 +596,35 @@ async function exportarCSV() {
     // =========================================================
     lineas.push('DETALLE DE ACOMPAÑANTES');
     lineas.push('Cada fila es una persona que se unio a una reserva individual, por QR o vinculada por un guardia.');
-    lineas.push('Codigo reserva,Acompanante,Cuenta acompanante,Titular,Cuenta titular,Espacio,Fecha,Hora inicio,Hora fin,Como se registro');
+    lineas.push('Codigo reserva,Acompanante,Cuenta acompanante,Titular,Cuenta titular,Espacio,Fecha,Como se registro,Asistio');
     acompanantes.forEach(f => lineas.push(
         `${csv(f.id_reserva)},${csv(f.acompanante_nombre)},${csv(f.acompanante_cuenta)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
-        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
-        `${csv(f.origen === 'guardia' ? 'Vinculado por guardia' : 'Codigo QR')}`
+        `${csv(formatearFechaCorta(f.fecha))},` +
+        `${csv(f.origen === 'guardia' ? 'Vinculado por guardia' : 'Codigo QR')},${csv(f.asistio)}`
+    ));
+    lineas.push('');
+
+    // =========================================================
+    // ASISTENCIA DE INTEGRANTES DE CLUB
+    // =========================================================
+    lineas.push('ASISTENCIA DE INTEGRANTES DE CLUB');
+    lineas.push('Una fila por cada integrante activo del club, en cada reserva de ese club, indicando si esa persona especificamente asistio.');
+    lineas.push('Codigo reserva,Club,Rol,Integrante,Cuenta,Espacio,Fecha,Asistio');
+    integrantesClub.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.club)},${csv(f.rol)},${csv(f.integrante_nombre)},${csv(f.integrante_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(f.asistio)}`
+    ));
+    lineas.push('');
+
+    // =========================================================
+    // ASISTENCIA DE INTEGRANTES DE EQUIPO
+    // =========================================================
+    lineas.push('ASISTENCIA DE INTEGRANTES DE EQUIPO');
+    lineas.push('Una fila por cada integrante activo del equipo, en cada reserva de ese equipo, indicando si esa persona especificamente asistio.');
+    lineas.push('Codigo reserva,Equipo,Deporte,Rol,Integrante,Cuenta,Espacio,Fecha,Asistio');
+    integrantesEquipo.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.equipo)},${csv(f.deporte)},${csv(f.rol)},${csv(f.integrante_nombre)},${csv(f.integrante_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(f.asistio)}`
     ));
 
     // BOM para que Excel respete acentos
@@ -607,6 +637,8 @@ async function exportarCSV() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+
+    setStatus('Exportación a CSV completada.');
 }
 
 function csv(valor = '') {
@@ -686,7 +718,7 @@ async function exportarPDF() {
 
     setStatus('Preparando exportación (esto puede tardar unos segundos)...');
 
-    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
+    const { listado, clubes, equipos, acompanantes, integrantesClub, integrantesEquipo } = await obtenerListadosParaExportar();
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -960,16 +992,16 @@ async function exportarPDF() {
         `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
         f.espacio,
         formatearFechaCorta(f.fecha),
-        `${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
         etiquetaEstado(f.estado),
         f.club_pertenece || 'No',
-        f.equipo_pertenece || 'No'
+        f.equipo_pertenece || 'No',
+        f.asistio
     ]);
 
-    y = dibujarSubtitulo(doc, y, 'Cada fila es una reserva individual. Club/Equipo muestra el nombre si el titular pertenece, sin importar el tipo de reserva.');
+    y = dibujarSubtitulo(doc, y, 'Cada fila es una reserva individual. Club/Equipo muestra el nombre si el titular pertenece. Asistió se refiere al titular.');
     doc.autoTable({
         startY: y,
-        head: [['Código', 'Titular', 'Espacio', 'Fecha', 'Hora', 'Estado', 'Club', 'Equipo']],
+        head: [['Código', 'Titular', 'Espacio', 'Fecha', 'Estado', 'Club', 'Equipo', 'Asistió']],
         body: filasListado,
         theme: 'grid',
         headStyles: { fillColor: COLOR_CARMINE },
@@ -1049,21 +1081,83 @@ async function exportarPDF() {
         `${f.acompanante_nombre}\n${f.acompanante_cuenta || ''}`,
         `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
         f.espacio,
-        `${formatearFechaCorta(f.fecha)} ${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
-        f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR'
+        formatearFechaCorta(f.fecha),
+        f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR',
+        f.asistio
     ]);
 
     y = dibujarSubtitulo(doc, y, 'Cada fila es una persona que se unió a una reserva individual, por QR o vinculada por un guardia.');
     doc.autoTable({
         startY: y,
-        head: [['Código reserva', 'Acompañante', 'Titular', 'Espacio', 'Fecha y hora', 'Cómo se registró']],
+        head: [['Código reserva', 'Acompañante', 'Titular', 'Espacio', 'Fecha', 'Cómo se registró', 'Asistió']],
         body: filasAcompanantes,
         theme: 'grid',
         headStyles: { fillColor: COLOR_CARMINE },
         styles: { fontSize: 7, cellPadding: 1.5 }
     });
 
+    // ---- Asistencia de integrantes de club ----
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Asistencia de integrantes de club', 14, y);
+    y += 6;
+
+    const filasIntegClub = integrantesClub.map(f => [
+        f.id_reserva,
+        f.club,
+        f.rol,
+        `${f.integrante_nombre}\n${f.integrante_cuenta || ''}`,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        f.asistio
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Una fila por cada integrante activo del club, en cada reserva de ese club, indicando si esa persona específicamente asistió.');
+    doc.autoTable({
+        startY: y,
+        head: [['Código', 'Club', 'Rol', 'Integrante', 'Espacio', 'Fecha', 'Asistió']],
+        body: filasIntegClub,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
+    // ---- Asistencia de integrantes de equipo ----
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Asistencia de integrantes de equipo', 14, y);
+    y += 6;
+
+    const filasIntegEquipo = integrantesEquipo.map(f => [
+        f.id_reserva,
+        f.equipo,
+        f.deporte,
+        f.rol,
+        `${f.integrante_nombre}\n${f.integrante_cuenta || ''}`,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        f.asistio
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Una fila por cada integrante activo del equipo, en cada reserva de ese equipo, indicando si esa persona específicamente asistió.');
+    doc.autoTable({
+        startY: y,
+        head: [['Código', 'Equipo', 'Deporte', 'Rol', 'Integrante', 'Espacio', 'Fecha', 'Asistió']],
+        body: filasIntegEquipo,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
     doc.save(`reportes_jaguar_${new Date().toISOString().slice(0, 10)}.pdf`);
+
+    setStatus('Exportación a PDF completada.');
 }
 
 // ============================================================
@@ -1076,7 +1170,7 @@ async function exportarExcel() {
 
     setStatus('Preparando exportación (esto puede tardar unos segundos)...');
 
-    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
+    const { listado, clubes, equipos, acompanantes, integrantesClub, integrantesEquipo } = await obtenerListadosParaExportar();
 
     const totalReservas = (r.reservas_por_carrera || [])
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
@@ -1201,8 +1295,8 @@ async function exportarExcel() {
     // =========================================================
     const filasListadoDetallado = [
         ['LISTADO DETALLADO DE RESERVAS'],
-        ['Cada fila es una reserva individual. Club/Equipo muestra el nombre si el titular pertenece, sin importar el tipo de reserva.'],
-        ['Código', 'Titular', 'Cuenta', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Estado', 'Club', 'Equipo']
+        ['Cada fila es una reserva individual. Club/Equipo muestra el nombre si el titular pertenece. Asistió se refiere al titular.'],
+        ['Código', 'Titular', 'Cuenta', 'Espacio', 'Fecha', 'Estado', 'Club', 'Equipo', 'Asistió']
     ];
 
     listado.forEach(f => filasListadoDetallado.push([
@@ -1211,11 +1305,10 @@ async function exportarExcel() {
         f.titular_cuenta,
         f.espacio,
         formatearFechaCorta(f.fecha),
-        String(f.hora_inicio).substring(0, 5),
-        String(f.hora_fin).substring(0, 5),
         etiquetaEstado(f.estado),
         f.club_pertenece || 'No',
-        f.equipo_pertenece || 'No'
+        f.equipo_pertenece || 'No',
+        f.asistio
     ]));
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasListadoDetallado), 'Listado detallado');
@@ -1275,7 +1368,7 @@ async function exportarExcel() {
     const filasAcompanantesExcel = [
         ['DETALLE DE ACOMPAÑANTES'],
         ['Cada fila es una persona que se unió a una reserva individual, por QR o vinculada por un guardia.'],
-        ['Código reserva', 'Acompañante', 'Cuenta acompañante', 'Titular', 'Cuenta titular', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Cómo se registró']
+        ['Código reserva', 'Acompañante', 'Cuenta acompañante', 'Titular', 'Cuenta titular', 'Espacio', 'Fecha', 'Cómo se registró', 'Asistió']
     ];
 
     acompanantes.forEach(f => filasAcompanantesExcel.push([
@@ -1286,14 +1379,60 @@ async function exportarExcel() {
         f.titular_cuenta,
         f.espacio,
         formatearFechaCorta(f.fecha),
-        String(f.hora_inicio).substring(0, 5),
-        String(f.hora_fin).substring(0, 5),
-        f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR'
+        f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR',
+        f.asistio
     ]));
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasAcompanantesExcel), 'Acompañantes');
 
+    // =========================================================
+    // Hoja: Asistencia de integrantes de club
+    // =========================================================
+    const filasIntegClubExcel = [
+        ['ASISTENCIA DE INTEGRANTES DE CLUB'],
+        ['Una fila por cada integrante activo del club, en cada reserva de ese club, indicando si esa persona específicamente asistió.'],
+        ['Código reserva', 'Club', 'Rol', 'Integrante', 'Cuenta', 'Espacio', 'Fecha', 'Asistió']
+    ];
+
+    integrantesClub.forEach(f => filasIntegClubExcel.push([
+        f.id_reserva,
+        f.club,
+        f.rol,
+        f.integrante_nombre,
+        f.integrante_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        f.asistio
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasIntegClubExcel), 'Asistencia club');
+
+    // =========================================================
+    // Hoja: Asistencia de integrantes de equipo
+    // =========================================================
+    const filasIntegEquipoExcel = [
+        ['ASISTENCIA DE INTEGRANTES DE EQUIPO'],
+        ['Una fila por cada integrante activo del equipo, en cada reserva de ese equipo, indicando si esa persona específicamente asistió.'],
+        ['Código reserva', 'Equipo', 'Deporte', 'Rol', 'Integrante', 'Cuenta', 'Espacio', 'Fecha', 'Asistió']
+    ];
+
+    integrantesEquipo.forEach(f => filasIntegEquipoExcel.push([
+        f.id_reserva,
+        f.equipo,
+        f.deporte,
+        f.rol,
+        f.integrante_nombre,
+        f.integrante_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        f.asistio
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasIntegEquipoExcel), 'Asistencia equipo');
+
     XLSX.writeFile(wb, `reportes_jaguar_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    setStatus('Exportación a Excel completada.');
 }
 
 // ============================================================
