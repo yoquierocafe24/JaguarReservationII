@@ -73,9 +73,8 @@ async function cargarSesionAdmin() {
 
         // =======================================
         // Solo el superadmin puede subir el Excel
-        // de estudiantes, cerrar el trimestre, y
-        // agregar estudiantes uno por uno. Un admin
-        // regular no ve ninguna de esas opciones.
+        // de estudiantes y cerrar el trimestre.
+        // Un admin regular no ve esas opciones.
         // =======================================
         if (data.usuario.es_superadmin) {
 
@@ -89,10 +88,6 @@ async function cargarSesionAdmin() {
 
             if (elements.downloadLastFileBtn) {
                 elements.downloadLastFileBtn.style.display = 'inline-block';
-            }
-
-            if (elements.addStudentBtn) {
-                elements.addStudentBtn.style.display = 'inline-block';
             }
 
             // Al mostrar el botón, ya de una vez se consulta
