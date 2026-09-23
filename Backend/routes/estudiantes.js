@@ -665,13 +665,13 @@ router.get("/estudiantes/carreras", requiereSesion, requiereAdmin, async (req, r
         ];
 
         const [rows] = await db.query(
-
+ 
             `SELECT MIN(carrera) AS carrera
              FROM estudiante_periodo
              WHERE carrera IS NOT NULL
              AND TRIM(carrera) <> ''
-             AND carrera COLLATE utf8mb4_general_ci NOT IN (${CARRERAS_OCULTAS.map(() => '? COLLATE utf8mb4_general_ci').join(',')})
-             GROUP BY carrera COLLATE utf8mb4_general_ci
+             AND carrera COLLATE utf8mb4_0900_ai_ci NOT IN (${CARRERAS_OCULTAS.map(() => '? COLLATE utf8mb4_0900_ai_ci').join(',')})
+             GROUP BY carrera COLLATE utf8mb4_0900_ai_ci
              ORDER BY carrera ASC`,
 
             CARRERAS_OCULTAS
