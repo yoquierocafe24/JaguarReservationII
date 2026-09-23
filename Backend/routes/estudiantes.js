@@ -659,9 +659,9 @@ router.get("/estudiantes/carreras", requiereSesion, requiereAdmin, async (req, r
 
         const CARRERAS_OCULTAS = [
             'Psicologia',
-            'Diseño grafico',
+            'Diseño graficos',
             'Informatica',
-            'Ingenería en logística'
+            'Ingenería en Logística'
         ];
 
         const [rows] = await db.query(
