@@ -856,18 +856,31 @@ router.get('/listado-detallado', async (req, res) => {
                 r.hora_fin,
                 r.estado,
                 r.tipo_reserva,
-                GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ') AS club_pertenece,
-                GROUP_CONCAT(DISTINCT eq.nombre SEPARATOR ', ') AS equipo_pertenece
+                clubes_est.club_pertenece,
+                equipos_est.equipo_pertenece
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
              LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
-             LEFT JOIN club_integrantes ci ON ci.id_estudiante = r.id_estudiante AND ci.activo = 1
-             LEFT JOIN clubes c ON c.id_club = ci.id_club
-             LEFT JOIN equipo_integrantes ei ON ei.id_estudiante = r.id_estudiante AND ei.activo = 1
-             LEFT JOIN equipos eq ON eq.id_equipo = ei.id_equipo
+             LEFT JOIN (
+                SELECT
+                    ci.id_estudiante,
+                    GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ') AS club_pertenece
+                FROM club_integrantes ci
+                INNER JOIN clubes c ON c.id_club = ci.id_club
+                WHERE ci.activo = 1
+                GROUP BY ci.id_estudiante
+             ) AS clubes_est ON clubes_est.id_estudiante = r.id_estudiante
+             LEFT JOIN (
+                SELECT
+                    ei.id_estudiante,
+                    GROUP_CONCAT(DISTINCT eq.nombre SEPARATOR ', ') AS equipo_pertenece
+                FROM equipo_integrantes ei
+                INNER JOIN equipos eq ON eq.id_equipo = ei.id_equipo
+                WHERE ei.activo = 1
+                GROUP BY ei.id_estudiante
+             ) AS equipos_est ON equipos_est.id_estudiante = r.id_estudiante
              WHERE 1 = 1 ${clausula}
-             GROUP BY r.id_reserva, e.nombre, e.cuenta, es.nombre, r.fecha, r.hora_inicio, r.hora_fin, r.estado, r.tipo_reserva
              ORDER BY r.fecha DESC, r.hora_inicio DESC
              ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
             sinLimite ? params : [...params, porPagina, offset]
