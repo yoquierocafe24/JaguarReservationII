@@ -661,39 +661,42 @@ router.get("/estudiantes/carreras", requiereSesion, requiereAdmin, async (req, r
             'Psicologia',
             'Diseño graficos',
             'Informatica',
-            'Ingenería en Logística'
+            'Ingenería en Logística',
+            'INGENERIA EN LOGISTICA'
         ];
 
-        const [rows] = await db.query(
- 
-            `SELECT MIN(carrera) AS carrera
-             FROM estudiante_periodo
-             WHERE carrera IS NOT NULL
-             AND TRIM(carrera) <> ''
-             AND carrera COLLATE utf8mb4_0900_ai_ci NOT IN (${CARRERAS_OCULTAS.map(() => '? COLLATE utf8mb4_0900_ai_ci').join(',')})
-             GROUP BY carrera COLLATE utf8mb4_0900_ai_ci
+         const [rows] = await db.query(
+            `SELECT MIN(ep.carrera) AS carrera
+             FROM estudiante_periodo ep
+             INNER JOIN (
+                 SELECT id_estudiante, MAX(id) AS max_id
+                 FROM estudiante_periodo
+                 GROUP BY id_estudiante
+             ) ultimo ON ultimo.max_id = ep.id
+             WHERE ep.carrera IS NOT NULL
+             AND TRIM(ep.carrera) <> ''
+             AND ep.carrera COLLATE utf8mb4_general_ci NOT IN (${CARRERAS_OCULTAS.map(() => '? COLLATE utf8mb4_general_ci').join(',')})
+             GROUP BY ep.carrera COLLATE utf8mb4_general_ci
              ORDER BY carrera ASC`,
-
             CARRERAS_OCULTAS
-
         );
-
+ 
         res.json({
             ok: true,
             carreras: rows.map(fila => fila.carrera)
         });
-
+ 
     } catch (error) {
-
+ 
         console.error(error);
-
+ 
         res.status(500).json({
             ok: false,
             mensaje: "Error del servidor."
         });
-
+ 
     }
-
+ 
 });
 
 // ========================================
