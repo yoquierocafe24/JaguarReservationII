@@ -104,13 +104,38 @@ const els = {
     kpiEquipos: document.getElementById('kpi-equipos'),
     kpiEquiposHint: document.getElementById('kpi-equipos-hint'),
     kpiClubes: document.getElementById('kpi-clubes'),
-    kpiClubesHint: document.getElementById('kpi-clubes-hint')
+    kpiClubesHint: document.getElementById('kpi-clubes-hint'),
+
+    // Pestañas
+    tabButtons: document.querySelectorAll('.reportes-tab-btn'),
+    panelResumen: document.getElementById('panel-resumen'),
+    panelListado: document.getElementById('panel-listado'),
+    panelClubes: document.getElementById('panel-clubes'),
+    panelAcompanantes: document.getElementById('panel-acompanantes'),
+
+    // Listado general
+    tablaListadoBody: document.getElementById('tabla-listado-body'),
+    listadoPaginacion: document.getElementById('listado-paginacion'),
+
+    // Listado de clubes
+    tablaClubesBody: document.getElementById('tabla-clubes-body'),
+    clubesPaginacion: document.getElementById('clubes-paginacion'),
+
+    // Listado de acompañantes
+    tablaAcompanantesBody: document.getElementById('tabla-acompanantes-body'),
+    acompanantesPaginacion: document.getElementById('acompanantes-paginacion')
 };
 
 const state = {
     ultimoResumen: null,
-    etiquetaPeriodo: 'Todo el histórico'
+    etiquetaPeriodo: 'Todo el histórico',
+    tabActiva: 'resumen',
+    paginaListado: 1,
+    paginaClubes: 1,
+    paginaAcompanantes: 1
 };
+
+const POR_PAGINA = 50;
 
 // ============================================================
 // Construcción de los parámetros de filtro para el backend
@@ -356,7 +381,6 @@ function manejarCambioFecha() {
     if (els.fechaInicio.value && els.fechaFin.value) {
         els.periodo.value = '';
     }
-    cargarReportes();
 }
 
 function manejarCambioPeriodo() {
@@ -364,21 +388,56 @@ function manejarCambioPeriodo() {
         els.fechaInicio.value = '';
         els.fechaFin.value = '';
     }
-    cargarReportes();
 }
 
 function limpiarFechas() {
     els.fechaInicio.value = '';
     els.fechaFin.value = '';
-    cargarReportes();
+}
+
+// ============================================================
+// Trae los 3 listados detallados COMPLETOS (sin paginar), para
+// incluirlos en los archivos exportados. Se usa un límite alto
+// de seguridad (50,000) solo para evitar que el navegador se
+// cuelgue si algún día la base de datos crece muchísimo — en la
+// práctica esto siempre trae "todo" lo que pidió el usuario.
+// ============================================================
+async function obtenerListadosParaExportar() {
+    const params = construirQuery();
+    params.set('sin_limite', '1');
+
+    const [resListado, resClubes, resEquipos, resAcompanantes] = await Promise.all([
+        fetch(`${API_URL}/api/reportes/listado-detallado?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/reportes/listado-clubes?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/reportes/listado-equipos?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/reportes/listado-acompanantes?${params.toString()}`, { credentials: 'include' })
+    ]);
+
+    const [dataListado, dataClubes, dataEquipos, dataAcompanantes] = await Promise.all([
+        resListado.json(),
+        resClubes.json(),
+        resEquipos.json(),
+        resAcompanantes.json()
+    ]);
+
+    return {
+        listado: dataListado.ok ? dataListado.datos : [],
+        clubes: dataClubes.ok ? dataClubes.datos : [],
+        equipos: dataEquipos.ok ? dataEquipos.datos : [],
+        acompanantes: dataAcompanantes.ok ? dataAcompanantes.datos : []
+    };
 }
 
 // ============================================================
 // Exportar a CSV (se genera en el navegador)
 // ============================================================
-function exportarCSV() {
+async function exportarCSV() {
     const r = state.ultimoResumen;
     if (!r) return;
+
+    setStatus('Preparando exportación (esto puede tardar unos segundos)...');
+
+    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
 
     const totalReservas = (r.reservas_por_carrera || [])
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
@@ -482,6 +541,61 @@ function exportarCSV() {
         const horaTexto = String(f.hora).substring(0, 5);
         lineas.push(`${csv(idx === 0 ? `* ${horaTexto}` : horaTexto)},${f.total_reservas}`);
     });
+    lineas.push('');
+
+    // =========================================================
+    // LISTADO DETALLADO — una fila por cada reserva, con todos
+    // los datos que pidio administracion (codigo, titular, club,
+    // equipo). Incluye TODAS las reservas que coincidan con los
+    // filtros, sin importar cuantas sean.
+    // =========================================================
+    lineas.push('LISTADO DETALLADO DE RESERVAS');
+    lineas.push('Cada fila es una reserva individual. Club/Equipo muestra el nombre si el TITULAR pertenece, sin importar el tipo de reserva.');
+    lineas.push('Codigo,Titular,Cuenta,Espacio,Fecha,Hora inicio,Hora fin,Estado,Club,Equipo');
+    listado.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
+        `${csv(etiquetaEstado(f.estado))},${csv(f.club_pertenece || 'No')},${csv(f.equipo_pertenece || 'No')}`
+    ));
+    lineas.push('');
+
+    // =========================================================
+    // RESERVAS DE CLUB (detalle)
+    // =========================================================
+    lineas.push('DETALLE DE RESERVAS DE CLUB');
+    lineas.push('Solo reservas hechas como club (no incluye reservas individuales de integrantes de club).');
+    lineas.push('Codigo,Club,Reservo (lider/sublider),Cuenta,Espacio,Fecha,Hora inicio,Hora fin,Estado,Integrantes');
+    clubes.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.club)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
+        `${csv(etiquetaEstado(f.estado))},${f.cantidad_integrantes}`
+    ));
+    lineas.push('');
+
+    // =========================================================
+    // RESERVAS DE EQUIPO (detalle)
+    // =========================================================
+    lineas.push('DETALLE DE RESERVAS DE EQUIPO');
+    lineas.push('Solo reservas hechas como equipo (no incluye reservas individuales de sus integrantes).');
+    lineas.push('Codigo,Equipo,Deporte,Reservo (lider/sublider),Cuenta,Espacio,Fecha,Hora inicio,Hora fin,Estado,Integrantes');
+    equipos.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.equipo)},${csv(f.deporte)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
+        `${csv(etiquetaEstado(f.estado))},${f.cantidad_integrantes}`
+    ));
+    lineas.push('');
+
+    // =========================================================
+    // ACOMPAÑANTES (detalle)
+    // =========================================================
+    lineas.push('DETALLE DE ACOMPAÑANTES');
+    lineas.push('Cada fila es una persona que se unio a una reserva individual, por QR o vinculada por un guardia.');
+    lineas.push('Codigo reserva,Acompanante,Cuenta acompanante,Titular,Cuenta titular,Espacio,Fecha,Hora inicio,Hora fin,Como se registro');
+    acompanantes.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.acompanante_nombre)},${csv(f.acompanante_cuenta)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
+        `${csv(f.origen === 'guardia' ? 'Vinculado por guardia' : 'Codigo QR')}`
+    ));
 
     // BOM para que Excel respete acentos
     const blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
@@ -569,6 +683,10 @@ function dibujarSubtitulo(doc, y, texto) {
 async function exportarPDF() {
     const r = state.ultimoResumen;
     if (!r) return;
+
+    setStatus('Preparando exportación (esto puede tardar unos segundos)...');
+
+    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -822,6 +940,129 @@ async function exportarPDF() {
         }
     });
 
+    y = doc.lastAutoTable.finalY + 10;
+
+    // =========================================================
+    // LISTADO DETALLADO — siempre arranca en página nueva, ya
+    // que puede tener muchas filas y es una sección claramente
+    // distinta al resumen de arriba.
+    // =========================================================
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Listado detallado de reservas', 14, y);
+    y += 6;
+
+    const filasListado = listado.map(f => [
+        f.id_reserva,
+        `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        `${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
+        etiquetaEstado(f.estado),
+        f.club_pertenece || 'No',
+        f.equipo_pertenece || 'No'
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Cada fila es una reserva individual. Club/Equipo muestra el nombre si el titular pertenece, sin importar el tipo de reserva.');
+    doc.autoTable({
+        startY: y,
+        head: [['Código', 'Titular', 'Espacio', 'Fecha', 'Hora', 'Estado', 'Club', 'Equipo']],
+        body: filasListado,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
+    // ---- Detalle de reservas de club ----
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Detalle de reservas de club', 14, y);
+    y += 6;
+
+    const filasDetalleClubes = clubes.map(f => [
+        f.id_reserva,
+        f.club,
+        `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
+        f.espacio,
+        `${formatearFechaCorta(f.fecha)} ${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
+        etiquetaEstado(f.estado),
+        f.cantidad_integrantes
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Solo reservas hechas como club (no incluye reservas individuales de sus integrantes).');
+    doc.autoTable({
+        startY: y,
+        head: [['Código', 'Club', 'Reservó', 'Espacio', 'Fecha y hora', 'Estado', 'Integrantes']],
+        body: filasDetalleClubes,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
+    // ---- Detalle de reservas de equipo ----
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Detalle de reservas de equipo', 14, y);
+    y += 6;
+
+    const filasDetalleEquipos = equipos.map(f => [
+        f.id_reserva,
+        f.equipo,
+        f.deporte,
+        `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
+        f.espacio,
+        `${formatearFechaCorta(f.fecha)} ${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
+        etiquetaEstado(f.estado),
+        f.cantidad_integrantes
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Solo reservas hechas como equipo (no incluye reservas individuales de sus integrantes).');
+    doc.autoTable({
+        startY: y,
+        head: [['Código', 'Equipo', 'Deporte', 'Reservó', 'Espacio', 'Fecha y hora', 'Estado', 'Integrantes']],
+        body: filasDetalleEquipos,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
+    // ---- Detalle de acompañantes ----
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Detalle de acompañantes', 14, y);
+    y += 6;
+
+    const filasAcompanantes = acompanantes.map(f => [
+        f.id_reserva,
+        `${f.acompanante_nombre}\n${f.acompanante_cuenta || ''}`,
+        `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
+        f.espacio,
+        `${formatearFechaCorta(f.fecha)} ${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
+        f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR'
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Cada fila es una persona que se unió a una reserva individual, por QR o vinculada por un guardia.');
+    doc.autoTable({
+        startY: y,
+        head: [['Código reserva', 'Acompañante', 'Titular', 'Espacio', 'Fecha y hora', 'Cómo se registró']],
+        body: filasAcompanantes,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
     doc.save(`reportes_jaguar_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
@@ -829,9 +1070,13 @@ async function exportarPDF() {
 // Exportar a Excel (se genera en el navegador con SheetJS)
 // Todo en UNA sola hoja, con las secciones apiladas.
 // ============================================================
-function exportarExcel() {
+async function exportarExcel() {
     const r = state.ultimoResumen;
     if (!r) return;
+
+    setStatus('Preparando exportación (esto puede tardar unos segundos)...');
+
+    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
 
     const totalReservas = (r.reservas_por_carrera || [])
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
@@ -949,7 +1194,346 @@ function exportarExcel() {
     const hoja = XLSX.utils.aoa_to_sheet(filas);
     XLSX.utils.book_append_sheet(wb, hoja, 'Reporte');
 
+    // =========================================================
+    // Hoja 2: Listado detallado — una fila por cada reserva.
+    // Se pone en una hoja aparte (no mezclada con el resumen)
+    // porque puede tener cientos de filas.
+    // =========================================================
+    const filasListadoDetallado = [
+        ['LISTADO DETALLADO DE RESERVAS'],
+        ['Cada fila es una reserva individual. Club/Equipo muestra el nombre si el titular pertenece, sin importar el tipo de reserva.'],
+        ['Código', 'Titular', 'Cuenta', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Estado', 'Club', 'Equipo']
+    ];
+
+    listado.forEach(f => filasListadoDetallado.push([
+        f.id_reserva,
+        f.titular_nombre,
+        f.titular_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        String(f.hora_inicio).substring(0, 5),
+        String(f.hora_fin).substring(0, 5),
+        etiquetaEstado(f.estado),
+        f.club_pertenece || 'No',
+        f.equipo_pertenece || 'No'
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasListadoDetallado), 'Listado detallado');
+
+    // =========================================================
+    // Hoja 3: Detalle de reservas de club
+    // =========================================================
+    const filasDetalleClubesExcel = [
+        ['DETALLE DE RESERVAS DE CLUB'],
+        ['Solo reservas hechas como club (no incluye reservas individuales de sus integrantes).'],
+        ['Código', 'Club', 'Reservó (líder/sublíder)', 'Cuenta', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Estado', 'Integrantes']
+    ];
+
+    clubes.forEach(f => filasDetalleClubesExcel.push([
+        f.id_reserva,
+        f.club,
+        f.titular_nombre,
+        f.titular_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        String(f.hora_inicio).substring(0, 5),
+        String(f.hora_fin).substring(0, 5),
+        etiquetaEstado(f.estado),
+        f.cantidad_integrantes
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasDetalleClubesExcel), 'Reservas de club');
+
+    // =========================================================
+    // Hoja: Detalle de reservas de equipo
+    // =========================================================
+    const filasDetalleEquiposExcel = [
+        ['DETALLE DE RESERVAS DE EQUIPO'],
+        ['Solo reservas hechas como equipo (no incluye reservas individuales de sus integrantes).'],
+        ['Código', 'Equipo', 'Deporte', 'Reservó (líder/sublíder)', 'Cuenta', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Estado', 'Integrantes']
+    ];
+
+    equipos.forEach(f => filasDetalleEquiposExcel.push([
+        f.id_reserva,
+        f.equipo,
+        f.deporte,
+        f.titular_nombre,
+        f.titular_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        String(f.hora_inicio).substring(0, 5),
+        String(f.hora_fin).substring(0, 5),
+        etiquetaEstado(f.estado),
+        f.cantidad_integrantes
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasDetalleEquiposExcel), 'Reservas de equipo');
+
+    // =========================================================
+    // Hoja: Detalle de acompañantes
+    // =========================================================
+    const filasAcompanantesExcel = [
+        ['DETALLE DE ACOMPAÑANTES'],
+        ['Cada fila es una persona que se unió a una reserva individual, por QR o vinculada por un guardia.'],
+        ['Código reserva', 'Acompañante', 'Cuenta acompañante', 'Titular', 'Cuenta titular', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Cómo se registró']
+    ];
+
+    acompanantes.forEach(f => filasAcompanantesExcel.push([
+        f.id_reserva,
+        f.acompanante_nombre,
+        f.acompanante_cuenta,
+        f.titular_nombre,
+        f.titular_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        String(f.hora_inicio).substring(0, 5),
+        String(f.hora_fin).substring(0, 5),
+        f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR'
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasAcompanantesExcel), 'Acompañantes');
+
     XLSX.writeFile(wb, `reportes_jaguar_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+// ============================================================
+// PESTAÑAS: Resumen / Listado general / Clubes / Acompañantes
+// ============================================================
+
+function cambiarTab(tab) {
+    state.tabActiva = tab;
+
+    els.tabButtons.forEach(btn => {
+        btn.classList.toggle('activa', btn.dataset.tab === tab);
+    });
+
+    if (els.panelResumen) els.panelResumen.style.display = tab === 'resumen' ? 'block' : 'none';
+    if (els.panelListado) els.panelListado.style.display = tab === 'listado' ? 'block' : 'none';
+    if (els.panelClubes) els.panelClubes.style.display = tab === 'clubes' ? 'block' : 'none';
+    if (els.panelAcompanantes) els.panelAcompanantes.style.display = tab === 'acompanantes' ? 'block' : 'none';
+
+    if (tab === 'listado') cargarListadoDetallado();
+    if (tab === 'clubes') cargarListadoClubes();
+    if (tab === 'acompanantes') cargarListadoAcompanantes();
+}
+
+// Formatea "14:00:00" -> "2:00 PM"
+function formatearHora12(horaSql) {
+    if (!horaSql) return '—';
+    const [hStr, mStr] = String(horaSql).substring(0, 5).split(':');
+    let h = Number(hStr);
+    const periodo = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${mStr} ${periodo}`;
+}
+
+function formatearFechaCorta(fechaSql) {
+    if (!fechaSql) return '—';
+    const texto = String(fechaSql).substring(0, 10);
+    const [anio, mes, dia] = texto.split('-');
+    return `${dia}/${mes}/${anio}`;
+}
+
+function etiquetaEstado(estado) {
+    const mapa = {
+        pendiente: 'Pendiente',
+        aprobada: 'Aprobada',
+        rechazada: 'Rechazada',
+        cancelada: 'Cancelada'
+    };
+    return mapa[estado] || estado || '—';
+}
+
+// Construye los botones "Anterior / Página X de Y / Siguiente"
+// para cualquiera de los 3 listados, reutilizando el mismo patrón
+// visual que ya usa el resto del panel administrativo.
+function renderPaginacionListado(contenedor, pagina, total, porPagina, onCambiarPagina) {
+    if (!contenedor) return;
+
+    const totalPaginas = Math.max(1, Math.ceil(total / porPagina));
+
+    if (totalPaginas <= 1) {
+        contenedor.innerHTML = '';
+        return;
+    }
+
+    contenedor.innerHTML = `
+        <button type="button" class="pagination-btn" data-dir="prev" ${pagina <= 1 ? 'disabled' : ''}>
+            Anterior
+        </button>
+        <span class="pagination-page">Página ${pagina} de ${totalPaginas} · ${total} en total</span>
+        <button type="button" class="pagination-btn" data-dir="next" ${pagina >= totalPaginas ? 'disabled' : ''}>
+            Siguiente
+        </button>
+    `;
+
+    contenedor.querySelector('[data-dir="prev"]')?.addEventListener('click', () => onCambiarPagina(pagina - 1));
+    contenedor.querySelector('[data-dir="next"]')?.addEventListener('click', () => onCambiarPagina(pagina + 1));
+}
+
+// ---- Listado general ----
+async function cargarListadoDetallado() {
+    if (!els.tablaListadoBody) return;
+
+    els.tablaListadoBody.innerHTML = '<tr><td colspan="8" class="empty-state">Cargando...</td></tr>';
+
+    const params = construirQuery();
+    params.set('pagina', state.paginaListado);
+    params.set('por_pagina', POR_PAGINA);
+
+    try {
+        const res = await fetch(`${API_URL}/api/reportes/listado-detallado?${params.toString()}`, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.ok) throw new Error('Respuesta no válida');
+
+        if (!data.datos.length) {
+            els.tablaListadoBody.innerHTML = '<tr><td colspan="8" class="empty-state">No hay reservas que coincidan con los filtros.</td></tr>';
+        } else {
+            els.tablaListadoBody.innerHTML = data.datos.map(f => `
+                <tr>
+                    <td>${escapeHtml(f.id_reserva)}</td>
+                    <td>
+                        <strong>${escapeHtml(f.titular_nombre)}</strong>
+                        <br><small style="color:#6b7280;">${escapeHtml(f.titular_cuenta || '—')}</small>
+                    </td>
+                    <td>${escapeHtml(f.espacio)}</td>
+                    <td>${formatearFechaCorta(f.fecha)}</td>
+                    <td>${formatearHora12(f.hora_inicio)} – ${formatearHora12(f.hora_fin)}</td>
+                    <td><span class="badge ${f.estado}">${etiquetaEstado(f.estado)}</span></td>
+                    <td>${f.club_pertenece ? escapeHtml(f.club_pertenece) : 'No'}</td>
+                    <td>${f.equipo_pertenece ? escapeHtml(f.equipo_pertenece) : 'No'}</td>
+                </tr>
+            `).join('');
+        }
+
+        renderPaginacionListado(els.listadoPaginacion, data.pagina, data.total, data.por_pagina, (nuevaPagina) => {
+            state.paginaListado = nuevaPagina;
+            cargarListadoDetallado();
+        });
+
+    } catch (error) {
+        console.error('Error cargando listado detallado:', error);
+        els.tablaListadoBody.innerHTML = '<tr><td colspan="8" class="empty-state">No se pudo cargar el listado.</td></tr>';
+    }
+}
+
+// ---- Listado de clubes ----
+async function cargarListadoClubes() {
+    if (!els.tablaClubesBody) return;
+
+    els.tablaClubesBody.innerHTML = '<tr><td colspan="7" class="empty-state">Cargando...</td></tr>';
+
+    const params = construirQuery();
+    params.set('pagina', state.paginaClubes);
+    params.set('por_pagina', POR_PAGINA);
+
+    try {
+        const res = await fetch(`${API_URL}/api/reportes/listado-clubes?${params.toString()}`, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.ok) throw new Error('Respuesta no válida');
+
+        if (!data.datos.length) {
+            els.tablaClubesBody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay reservas de club que coincidan con los filtros.</td></tr>';
+        } else {
+            els.tablaClubesBody.innerHTML = data.datos.map(f => `
+                <tr>
+                    <td>${escapeHtml(f.id_reserva)}</td>
+                    <td>${escapeHtml(f.club)}</td>
+                    <td>
+                        <strong>${escapeHtml(f.titular_nombre)}</strong>
+                        <br><small style="color:#6b7280;">${escapeHtml(f.titular_cuenta || '—')}</small>
+                    </td>
+                    <td>${escapeHtml(f.espacio)}</td>
+                    <td>${formatearFechaCorta(f.fecha)} · ${formatearHora12(f.hora_inicio)} – ${formatearHora12(f.hora_fin)}</td>
+                    <td><span class="badge ${f.estado}">${etiquetaEstado(f.estado)}</span></td>
+                    <td>${f.cantidad_integrantes}</td>
+                </tr>
+            `).join('');
+        }
+
+        renderPaginacionListado(els.clubesPaginacion, data.pagina, data.total, data.por_pagina, (nuevaPagina) => {
+            state.paginaClubes = nuevaPagina;
+            cargarListadoClubes();
+        });
+
+    } catch (error) {
+        console.error('Error cargando listado de clubes:', error);
+        els.tablaClubesBody.innerHTML = '<tr><td colspan="7" class="empty-state">No se pudo cargar el listado.</td></tr>';
+    }
+}
+
+// ---- Listado de acompañantes ----
+async function cargarListadoAcompanantes() {
+    if (!els.tablaAcompanantesBody) return;
+
+    els.tablaAcompanantesBody.innerHTML = '<tr><td colspan="6" class="empty-state">Cargando...</td></tr>';
+
+    const params = construirQuery();
+    params.set('pagina', state.paginaAcompanantes);
+    params.set('por_pagina', POR_PAGINA);
+
+    try {
+        const res = await fetch(`${API_URL}/api/reportes/listado-acompanantes?${params.toString()}`, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.ok) throw new Error('Respuesta no válida');
+
+        if (!data.datos.length) {
+            els.tablaAcompanantesBody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay acompañantes que coincidan con los filtros.</td></tr>';
+        } else {
+            els.tablaAcompanantesBody.innerHTML = data.datos.map(f => `
+                <tr>
+                    <td>${escapeHtml(f.id_reserva)}</td>
+                    <td>
+                        <strong>${escapeHtml(f.acompanante_nombre)}</strong>
+                        <br><small style="color:#6b7280;">${escapeHtml(f.acompanante_cuenta || '—')}</small>
+                    </td>
+                    <td>
+                        <strong>${escapeHtml(f.titular_nombre)}</strong>
+                        <br><small style="color:#6b7280;">${escapeHtml(f.titular_cuenta || '—')}</small>
+                    </td>
+                    <td>${escapeHtml(f.espacio)}</td>
+                    <td>${formatearFechaCorta(f.fecha)} · ${formatearHora12(f.hora_inicio)} – ${formatearHora12(f.hora_fin)}</td>
+                    <td>${f.origen === 'guardia' ? 'Vinculado por guardia' : 'Código QR'}</td>
+                </tr>
+            `).join('');
+        }
+
+        renderPaginacionListado(els.acompanantesPaginacion, data.pagina, data.total, data.por_pagina, (nuevaPagina) => {
+            state.paginaAcompanantes = nuevaPagina;
+            cargarListadoAcompanantes();
+        });
+
+    } catch (error) {
+        console.error('Error cargando listado de acompañantes:', error);
+        els.tablaAcompanantesBody.innerHTML = '<tr><td colspan="6" class="empty-state">No se pudo cargar el listado.</td></tr>';
+    }
+}
+
+// Cuando cambian los filtros, si hay una pestaña de listado
+// activa, hay que recargarla también (no solo el resumen) y
+// resetear a la página 1 (los filtros nuevos pueden tener
+// muchas menos filas que antes).
+function recargarTabActiva() {
+    if (state.tabActiva === 'resumen') {
+        cargarReportes();
+        return;
+    }
+
+    if (state.tabActiva === 'listado') {
+        state.paginaListado = 1;
+        cargarListadoDetallado();
+    } else if (state.tabActiva === 'clubes') {
+        state.paginaClubes = 1;
+        cargarListadoClubes();
+    } else if (state.tabActiva === 'acompanantes') {
+        state.paginaAcompanantes = 1;
+        cargarListadoAcompanantes();
+    }
+
+    // El resumen (KPIs/gráficos) se mantiene actualizado en
+    // segundo plano, para que al volver a esa pestaña ya esté listo.
+    cargarReportes();
 }
 
 // ============================================================
@@ -965,15 +1549,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await cargarOpciones();
     await cargarReportes();
 
-    els.periodo.addEventListener('change', manejarCambioPeriodo);
-    els.fechaInicio?.addEventListener('change', manejarCambioFecha);
-    els.fechaFin?.addEventListener('change', manejarCambioFecha);
-    els.limpiarFechasBtn?.addEventListener('click', limpiarFechas);
+    els.tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => cambiarTab(btn.dataset.tab));
+    });
+
+    els.periodo.addEventListener('change', () => { manejarCambioPeriodo(); recargarTabActiva(); });
+    els.fechaInicio?.addEventListener('change', () => { manejarCambioFecha(); recargarTabActiva(); });
+    els.fechaFin?.addEventListener('change', () => { manejarCambioFecha(); recargarTabActiva(); });
+    els.limpiarFechasBtn?.addEventListener('click', () => { limpiarFechas(); recargarTabActiva(); });
 
     [els.carrera, els.espacio, els.ingreso].forEach(sel =>
-        sel.addEventListener('change', cargarReportes));
+        sel.addEventListener('change', recargarTabActiva));
 
-    els.refreshBtn.addEventListener('click', cargarReportes);
+    els.refreshBtn.addEventListener('click', recargarTabActiva);
     els.exportBtn.addEventListener('click', exportarCSV);
     els.exportPdfBtn.addEventListener('click', exportarPDF);
     els.exportExcelBtn.addEventListener('click', exportarExcel);
