@@ -645,6 +645,11 @@ router.get("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
 // (para el select del formulario de
 // "Agregar estudiante" — evita que se
 // escriban a mano y queden inconsistentes)
+//
+// Mismo criterio que reportes.js: agrupa
+// sin importar mayusculas/tildes y oculta
+// carreras viejas que ya no vienen en las
+// cargas actuales del Excel institucional.
 // GET /estudiantes/carreras
 // ========================================
 
@@ -652,13 +657,24 @@ router.get("/estudiantes/carreras", requiereSesion, requiereAdmin, async (req, r
 
     try {
 
+        const CARRERAS_OCULTAS = [
+            'Psicologia',
+            'Diseño grafico',
+            'Informatica',
+            'Ingenería en logística'
+        ];
+
         const [rows] = await db.query(
 
-            `SELECT DISTINCT carrera
+            `SELECT MIN(carrera) AS carrera
              FROM estudiante_periodo
              WHERE carrera IS NOT NULL
              AND TRIM(carrera) <> ''
-             ORDER BY carrera ASC`
+             AND carrera COLLATE utf8mb4_general_ci NOT IN (${CARRERAS_OCULTAS.map(() => '? COLLATE utf8mb4_general_ci').join(',')})
+             GROUP BY carrera COLLATE utf8mb4_general_ci
+             ORDER BY carrera ASC`,
+
+            CARRERAS_OCULTAS
 
         );
 
@@ -689,7 +705,7 @@ router.get("/estudiantes/carreras", requiereSesion, requiereAdmin, async (req, r
 // defecto usa el periodo activo)
 // ========================================
 
-router.post("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
+router.post("/estudiantes", requiereSesion, requiereSuperAdmin, async (req, res) => {
 
     try {
 
