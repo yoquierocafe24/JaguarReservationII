@@ -180,7 +180,19 @@ const elements = {
     confirmModalConfirmBtn: document.querySelector('#confirm-modal [data-action="confirm"]'),
     confirmModalCancelBtn: document.querySelector('#confirm-modal [data-action="cancel"]'),
     confirmModalCloseBtn: document.querySelector('#confirm-modal .modal-close-btn'),
-    confirmModalBackdrop: document.querySelector('#confirm-modal .custom-modal-backdrop')
+    confirmModalBackdrop: document.querySelector('#confirm-modal .custom-modal-backdrop'),
+
+    addStudentBtn: document.getElementById('add-student-btn'),
+    addStudentModal: document.getElementById('add-student-modal'),
+    addStudentForm: document.getElementById('add-student-form'),
+    addStudentCuenta: document.getElementById('add-student-cuenta'),
+    addStudentNombre: document.getElementById('add-student-nombre'),
+    addStudentDni: document.getElementById('add-student-dni'),
+    addStudentCorreo: document.getElementById('add-student-correo'),
+    addStudentCarrera: document.getElementById('add-student-carrera'),
+    addStudentTipoIngreso: document.getElementById('add-student-tipo-ingreso'),
+    addStudentStatus: document.getElementById('add-student-status'),
+    addStudentSaveBtn: document.getElementById('add-student-save-btn')
 };
 
 const state = {
@@ -773,6 +785,117 @@ function solicitarConfirmacionCierreTrimestre() {
     });
 }
 
+// =======================================
+// AGREGAR UN SOLO ESTUDIANTE
+// =======================================
+
+function setAddStudentStatus(message, isError = false) {
+    if (!elements.addStudentStatus) return;
+    elements.addStudentStatus.textContent = message;
+    elements.addStudentStatus.style.color = isError ? '#b91c1c' : '#6b7280';
+}
+
+function abrirModalAgregarEstudiante() {
+    if (!elements.addStudentModal) return;
+
+    elements.addStudentForm?.reset();
+    setAddStudentStatus('');
+
+    elements.addStudentModal.classList.remove('hidden');
+    elements.addStudentModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+
+    elements.addStudentCuenta?.focus();
+}
+
+function cerrarModalAgregarEstudiante() {
+    if (!elements.addStudentModal) return;
+
+    elements.addStudentModal.classList.add('hidden');
+    elements.addStudentModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+}
+
+async function guardarNuevoEstudiante(event) {
+    event.preventDefault();
+
+    const datos = {
+        cuenta: elements.addStudentCuenta?.value.trim(),
+        nombre: elements.addStudentNombre?.value.trim(),
+        dni: elements.addStudentDni?.value.trim(),
+        correo: elements.addStudentCorreo?.value.trim(),
+        carrera: elements.addStudentCarrera?.value.trim(),
+        tipo_ingreso: elements.addStudentTipoIngreso?.value
+    };
+
+    // Verificación en el propio navegador: no se envía nada
+    // al servidor si falta algún campo obligatorio.
+    const campoFaltante = Object.entries(datos)
+        .find(([, valor]) => !valor);
+
+    if (campoFaltante) {
+        setAddStudentStatus(
+            'Debes completar todos los campos antes de guardar.',
+            true
+        );
+        return;
+    }
+
+    const periodoSeleccionado = getPeriodoSeleccionado();
+
+    try {
+
+        if (elements.addStudentSaveBtn) {
+            elements.addStudentSaveBtn.disabled = true;
+        }
+
+        setAddStudentStatus('Guardando...');
+
+        const response = await fetch(`${API_URL}/estudiantes`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ...datos,
+                ...(periodoSeleccionado
+                    ? { id_periodo: periodoSeleccionado }
+                    : {})
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.mensaje || 'No se pudo agregar al estudiante.'
+            );
+        }
+
+        cerrarModalAgregarEstudiante();
+        setStatus(data.mensaje || 'Estudiante agregado correctamente.');
+        await loadDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+
+        setAddStudentStatus(
+            error.message ||
+            'Ocurrió un error al guardar el estudiante.',
+            true
+        );
+
+    } finally {
+
+        if (elements.addStudentSaveBtn) {
+            elements.addStudentSaveBtn.disabled = false;
+        }
+
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
 
      updateDateTime();
@@ -789,6 +912,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         'submit',
         handleUpload
     );
+
+    elements.addStudentBtn?.addEventListener(
+        'click',
+        abrirModalAgregarEstudiante
+    );
+
+    elements.addStudentForm?.addEventListener(
+        'submit',
+        guardarNuevoEstudiante
+    );
+
+    document.querySelectorAll('#add-student-modal [data-action="close-add-student"]').forEach(el => {
+        el.addEventListener('click', cerrarModalAgregarEstudiante);
+    });
 
     elements.refreshBtn?.addEventListener(
         'click',
@@ -859,8 +996,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && elements.confirmModal && !elements.confirmModal.classList.contains('hidden')) {
+        if (event.key !== 'Escape') return;
+
+        if (elements.confirmModal && !elements.confirmModal.classList.contains('hidden')) {
             cerrarModalConfirmacion();
+        }
+
+        if (elements.addStudentModal && !elements.addStudentModal.classList.contains('hidden')) {
+            cerrarModalAgregarEstudiante();
         }
     });
 

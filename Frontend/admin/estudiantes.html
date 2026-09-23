@@ -163,6 +163,11 @@
                     </form>
 
                     <div class="actions-buttons">
+                        <button id="add-student-btn" class="btn-primary" type="button">
+                            <i class="bi bi-person-plus"></i>
+                            Agregar estudiante
+                        </button>
+
                         <button id="download-last-file-btn" class="btn-secondary" type="button" style="display:none;" disabled>
                             <i class="bi bi-download"></i>
                             Descargar último archivo
@@ -293,7 +298,63 @@
     </div>
 </div>
 
-<!-- MODAL: EDITAR PERFIL -->
+<!-- MODAL: AGREGAR ESTUDIANTE -->
+<div id="add-student-modal" class="custom-modal hidden" aria-hidden="true">
+    <div class="custom-modal-backdrop" data-action="close-add-student"></div>
+    <div class="custom-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="add-student-modal-title">
+        <div class="custom-modal-header">
+            <h3 id="add-student-modal-title">Agregar estudiante</h3>
+            <button type="button" class="modal-close-btn" data-action="close-add-student" aria-label="Cerrar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <form id="add-student-form" class="custom-modal-body">
+
+            <div class="form-group">
+                <label for="add-student-cuenta">Número de cuenta</label>
+                <input type="text" id="add-student-cuenta" required>
+            </div>
+
+            <div class="form-group">
+                <label for="add-student-nombre">Nombre completo</label>
+                <input type="text" id="add-student-nombre" required>
+            </div>
+
+            <div class="form-group">
+                <label for="add-student-dni">DNI</label>
+                <input type="text" id="add-student-dni" required>
+            </div>
+
+            <div class="form-group">
+                <label for="add-student-correo">Correo</label>
+                <input type="email" id="add-student-correo" required>
+            </div>
+
+            <div class="form-group">
+                <label for="add-student-carrera">Carrera</label>
+                <input type="text" id="add-student-carrera" required>
+            </div>
+
+            <div class="form-group">
+                <label for="add-student-tipo-ingreso">Tipo de ingreso</label>
+                <select id="add-student-tipo-ingreso" required>
+                    <option value="" selected disabled>Seleccione...</option>
+                    <option value="Primer Ingreso">Primer Ingreso</option>
+                    <option value="Reingreso">Reingreso</option>
+                </select>
+            </div>
+
+            <div id="add-student-status" class="status-message"></div>
+
+        </form>
+
+        <div class="custom-modal-actions">
+            <button type="button" class="btn-secondary" data-action="close-add-student">Cancelar</button>
+            <button type="submit" form="add-student-form" class="btn-primary" id="add-student-save-btn">Guardar</button>
+        </div>
+    </div>
+</div>
 <div class="modal-jaguar" id="modal-perfil">
     <div class="modal-jaguar-caja">
         <h3>Editar perfil</h3>

@@ -641,8 +641,155 @@ router.get("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
 });
 
 // ========================================
-// CERRAR TRIMESTRE
+// CREAR UN SOLO ESTUDIANTE (formulario individual)
+// POST /estudiantes
+//
+// body: cuenta, nombre, dni, correo, carrera,
+// tipo_ingreso, id_periodo (opcional, por
+// defecto usa el periodo activo)
 // ========================================
+
+router.post("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const {
+            cuenta,
+            nombre,
+            dni,
+            correo,
+            carrera,
+            tipo_ingreso
+        } = req.body;
+
+        let id_periodo = req.body.id_periodo;
+
+        // Validar que no falte ningún dato obligatorio
+        const camposObligatorios = {
+            cuenta,
+            nombre,
+            dni,
+            correo,
+            carrera,
+            tipo_ingreso
+        };
+
+        const faltantes = Object.entries(camposObligatorios)
+            .filter(([, valor]) => !valor || !String(valor).trim())
+            .map(([clave]) => clave);
+
+        if (faltantes.length > 0) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: `Faltan datos obligatorios: ${faltantes.join(", ")}.`
+            });
+
+        }
+
+        if (!id_periodo) {
+            id_periodo = await obtenerPeriodoActivo();
+        }
+
+        if (!id_periodo) {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No hay un periodo académico activo ni se especificó id_periodo"
+            });
+
+        }
+
+        // No se puede agregar un estudiante a un periodo
+        // que ya fue cerrado (mismo criterio que activar/inactivar)
+        const estadoPeriodo = await obtenerEstadoPeriodo(id_periodo);
+
+        if (!estadoPeriodo) {
+
+            return res.status(404).json({
+                ok: false,
+                mensaje: "El periodo indicado no existe."
+            });
+
+        }
+
+        if (estadoPeriodo !== "Activo") {
+
+            return res.status(400).json({
+                ok: false,
+                mensaje: "No se puede agregar un estudiante a un periodo ya finalizado."
+            });
+
+        }
+
+        // No se puede agregar un estudiante que ya está
+        // registrado (mismo número de cuenta)
+        const [existente] = await db.query(
+            "SELECT id_estudiante FROM estudiantes WHERE cuenta = ?",
+            [cuenta]
+        );
+
+        if (existente.length > 0) {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Ya existe un estudiante registrado con ese número de cuenta."
+            });
+
+        }
+
+        const [resultado] = await db.query(
+
+            `INSERT INTO estudiantes
+            (nombre, dni, cuenta, correo, activo)
+            VALUES (?, ?, ?, ?, 1)`,
+
+            [nombre, dni, cuenta, correo]
+
+        );
+
+        const id_estudiante = resultado.insertId;
+
+        await db.query(
+
+            `INSERT INTO estudiante_periodo
+            (id_estudiante, id_periodo, carrera, tipo_ingreso, activo)
+            VALUES (?, ?, ?, ?, 1)`,
+
+            [id_estudiante, id_periodo, carrera, tipo_ingreso]
+
+        );
+
+        res.json({
+            ok: true,
+            mensaje: "Estudiante agregado correctamente.",
+            id_estudiante,
+            id_periodo
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        // Por si la tabla tiene alguna restricción UNIQUE
+        // (cuenta o dni) que no se haya detectado antes
+        if (error.code === "ER_DUP_ENTRY") {
+
+            return res.status(409).json({
+                ok: false,
+                mensaje: "Ya existe un estudiante registrado con esos datos."
+            });
+
+        }
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
 
 router.put(
     "/estudiantes/cerrar-trimestre",
