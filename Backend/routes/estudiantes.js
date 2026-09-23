@@ -641,6 +641,46 @@ router.get("/estudiantes", requiereSesion, requiereAdmin, async (req, res) => {
 });
 
 // ========================================
+// LISTAR CARRERAS YA REGISTRADAS
+// (para el select del formulario de
+// "Agregar estudiante" — evita que se
+// escriban a mano y queden inconsistentes)
+// GET /estudiantes/carreras
+// ========================================
+
+router.get("/estudiantes/carreras", requiereSesion, requiereAdmin, async (req, res) => {
+
+    try {
+
+        const [rows] = await db.query(
+
+            `SELECT DISTINCT carrera
+             FROM estudiante_periodo
+             WHERE carrera IS NOT NULL
+             AND TRIM(carrera) <> ''
+             ORDER BY carrera ASC`
+
+        );
+
+        res.json({
+            ok: true,
+            carreras: rows.map(fila => fila.carrera)
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            ok: false,
+            mensaje: "Error del servidor."
+        });
+
+    }
+
+});
+
+// ========================================
 // CREAR UN SOLO ESTUDIANTE (formulario individual)
 // POST /estudiantes
 //

@@ -201,7 +201,8 @@ const state = {
     periodoActivo: '',
     confirmAction: null,
     currentPage: 1,
-    pageSize: 15
+    pageSize: 15,
+    carrerasCache: null
 };
 
 function escapeHtml(value = '') {
@@ -795,6 +796,41 @@ function setAddStudentStatus(message, isError = false) {
     elements.addStudentStatus.style.color = isError ? '#b91c1c' : '#6b7280';
 }
 
+async function cargarCarrerasParaSelect() {
+    if (!elements.addStudentCarrera) return;
+
+    if (!state.carrerasCache) {
+
+        try {
+
+            const response = await fetch(`${API_URL}/estudiantes/carreras`, {
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                throw new Error(data.mensaje || 'No se pudieron cargar las carreras.');
+            }
+
+            state.carrerasCache = data.carreras || [];
+
+        } catch (error) {
+            console.error(error);
+            elements.addStudentCarrera.innerHTML =
+                '<option value="" selected disabled>No se pudieron cargar las carreras</option>';
+            return;
+        }
+
+    }
+
+    elements.addStudentCarrera.innerHTML =
+        '<option value="" selected disabled>Seleccione...</option>' +
+        state.carrerasCache.map(carrera =>
+            `<option value="${escapeHtml(carrera)}">${escapeHtml(carrera)}</option>`
+        ).join('');
+}
+
 function abrirModalAgregarEstudiante() {
     if (!elements.addStudentModal) return;
 
@@ -804,6 +840,8 @@ function abrirModalAgregarEstudiante() {
     elements.addStudentModal.classList.remove('hidden');
     elements.addStudentModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
+
+    cargarCarrerasParaSelect();
 
     elements.addStudentCuenta?.focus();
 }
