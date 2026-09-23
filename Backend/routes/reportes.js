@@ -856,25 +856,18 @@ router.get('/listado-detallado', async (req, res) => {
                 r.hora_fin,
                 r.estado,
                 r.tipo_reserva,
-                (
-                    SELECT GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ')
-                    FROM club_integrantes ci
-                    INNER JOIN clubes c ON c.id_club = ci.id_club
-                    WHERE ci.id_estudiante = r.id_estudiante
-                    AND ci.activo = 1
-                ) AS club_pertenece,
-                (
-                    SELECT GROUP_CONCAT(DISTINCT eq.nombre SEPARATOR ', ')
-                    FROM equipo_integrantes ei
-                    INNER JOIN equipos eq ON eq.id_equipo = ei.id_equipo
-                    WHERE ei.id_estudiante = r.id_estudiante
-                    AND ei.activo = 1
-                ) AS equipo_pertenece
+                GROUP_CONCAT(DISTINCT c.nombre SEPARATOR ', ') AS club_pertenece,
+                GROUP_CONCAT(DISTINCT eq.nombre SEPARATOR ', ') AS equipo_pertenece
              FROM reservas r
              JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
              LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
              LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             LEFT JOIN club_integrantes ci ON ci.id_estudiante = r.id_estudiante AND ci.activo = 1
+             LEFT JOIN clubes c ON c.id_club = ci.id_club
+             LEFT JOIN equipo_integrantes ei ON ei.id_estudiante = r.id_estudiante AND ei.activo = 1
+             LEFT JOIN equipos eq ON eq.id_equipo = ei.id_equipo
              WHERE 1 = 1 ${clausula}
+             GROUP BY r.id_reserva, e.nombre, e.cuenta, es.nombre, r.fecha, r.hora_inicio, r.hora_fin, r.estado, r.tipo_reserva
              ORDER BY r.fecha DESC, r.hora_inicio DESC
              ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
             sinLimite ? params : [...params, porPagina, offset]
@@ -1027,6 +1020,77 @@ router.get('/listado-acompanantes', async (req, res) => {
         });
     } catch (error) {
         console.error('Error listado-acompanantes:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
+    }
+});
+
+// =============================================================
+// 9) LISTADO DE RESERVAS DE EQUIPO — solo reservas hechas COMO
+// equipo (tipo_reserva = 'equipo'), con el nombre del equipo,
+// su deporte, quién la hizo (líder/sublíder) y cuántos
+// integrantes tenía el equipo en ese momento.
+//
+// Mismo patrón que listado-clubes; se usa solo para exportar
+// (no tiene pestaña propia en pantalla).
+//
+// GET /api/reportes/listado-equipos?pagina=1&por_pagina=50
+// =============================================================
+router.get('/listado-equipos', async (req, res) => {
+    try {
+        const { clausula, params } = construirFiltros(req.query);
+        const { pagina, porPagina, offset, sinLimite } = leerPaginacion(req.query);
+
+        const clausulaEquipo = `${clausula} AND r.tipo_reserva = 'equipo'`;
+
+        const [totalRows] = await db.query(
+            `SELECT COUNT(*) AS total
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             WHERE 1 = 1 ${clausulaEquipo}`,
+            params
+        );
+
+        const [rows] = await db.query(
+            `SELECT
+                r.id_reserva,
+                eq.nombre AS equipo,
+                eq.deporte,
+                e.nombre AS titular_nombre,
+                e.cuenta AS titular_cuenta,
+                COALESCE(es.nombre, 'Sin espacio') AS espacio,
+                r.fecha,
+                r.hora_inicio,
+                r.hora_fin,
+                r.estado,
+                (
+                    SELECT COUNT(*)
+                    FROM equipo_integrantes ei
+                    WHERE ei.id_equipo = r.id_equipo
+                    AND ei.activo = 1
+                ) AS cantidad_integrantes
+             FROM reservas r
+             JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
+             LEFT JOIN ${SUBQUERY_ULTIMO_PERIODO} ep ON ep.id_estudiante = e.id_estudiante
+             LEFT JOIN espacios es ON es.id_espacio = r.id_espacio
+             LEFT JOIN equipos eq ON eq.id_equipo = r.id_equipo
+             WHERE 1 = 1 ${clausulaEquipo}
+             ORDER BY r.fecha DESC, r.hora_inicio DESC
+             ${sinLimite ? '' : 'LIMIT ? OFFSET ?'}`,
+            sinLimite ? params : [...params, porPagina, offset]
+        );
+
+        res.json({
+            ok: true,
+            reporte: 'listado_equipos',
+            filtros: req.query,
+            total: totalRows[0]?.total || 0,
+            pagina,
+            por_pagina: sinLimite ? rows.length : porPagina,
+            datos: rows
+        });
+    } catch (error) {
+        console.error('Error listado-equipos:', error);
         res.status(500).json({ ok: false, mensaje: 'Error del servidor' });
     }
 });

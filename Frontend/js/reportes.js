@@ -406,21 +406,24 @@ async function obtenerListadosParaExportar() {
     const params = construirQuery();
     params.set('sin_limite', '1');
 
-    const [resListado, resClubes, resAcompanantes] = await Promise.all([
+    const [resListado, resClubes, resEquipos, resAcompanantes] = await Promise.all([
         fetch(`${API_URL}/api/reportes/listado-detallado?${params.toString()}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/reportes/listado-clubes?${params.toString()}`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/reportes/listado-equipos?${params.toString()}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/reportes/listado-acompanantes?${params.toString()}`, { credentials: 'include' })
     ]);
 
-    const [dataListado, dataClubes, dataAcompanantes] = await Promise.all([
+    const [dataListado, dataClubes, dataEquipos, dataAcompanantes] = await Promise.all([
         resListado.json(),
         resClubes.json(),
+        resEquipos.json(),
         resAcompanantes.json()
     ]);
 
     return {
         listado: dataListado.ok ? dataListado.datos : [],
         clubes: dataClubes.ok ? dataClubes.datos : [],
+        equipos: dataEquipos.ok ? dataEquipos.datos : [],
         acompanantes: dataAcompanantes.ok ? dataAcompanantes.datos : []
     };
 }
@@ -434,7 +437,7 @@ async function exportarCSV() {
 
     setStatus('Preparando exportación (esto puede tardar unos segundos)...');
 
-    const { listado, clubes, acompanantes } = await obtenerListadosParaExportar();
+    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
 
     const totalReservas = (r.reservas_por_carrera || [])
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
@@ -570,6 +573,19 @@ async function exportarCSV() {
     lineas.push('');
 
     // =========================================================
+    // RESERVAS DE EQUIPO (detalle)
+    // =========================================================
+    lineas.push('DETALLE DE RESERVAS DE EQUIPO');
+    lineas.push('Solo reservas hechas como equipo (no incluye reservas individuales de sus integrantes).');
+    lineas.push('Codigo,Equipo,Deporte,Reservo (lider/sublider),Cuenta,Espacio,Fecha,Hora inicio,Hora fin,Estado,Integrantes');
+    equipos.forEach(f => lineas.push(
+        `${csv(f.id_reserva)},${csv(f.equipo)},${csv(f.deporte)},${csv(f.titular_nombre)},${csv(f.titular_cuenta)},${csv(f.espacio)},` +
+        `${csv(formatearFechaCorta(f.fecha))},${csv(String(f.hora_inicio).substring(0,5))},${csv(String(f.hora_fin).substring(0,5))},` +
+        `${csv(etiquetaEstado(f.estado))},${f.cantidad_integrantes}`
+    ));
+    lineas.push('');
+
+    // =========================================================
     // ACOMPAÑANTES (detalle)
     // =========================================================
     lineas.push('DETALLE DE ACOMPAÑANTES');
@@ -670,7 +686,7 @@ async function exportarPDF() {
 
     setStatus('Preparando exportación (esto puede tardar unos segundos)...');
 
-    const { listado, clubes, acompanantes } = await obtenerListadosParaExportar();
+    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -989,6 +1005,36 @@ async function exportarPDF() {
         styles: { fontSize: 7, cellPadding: 1.5 }
     });
 
+    // ---- Detalle de reservas de equipo ----
+    doc.addPage();
+    y = 20;
+
+    doc.setFontSize(13);
+    doc.setTextColor(...COLOR_CARMINE);
+    doc.text('Detalle de reservas de equipo', 14, y);
+    y += 6;
+
+    const filasDetalleEquipos = equipos.map(f => [
+        f.id_reserva,
+        f.equipo,
+        f.deporte,
+        `${f.titular_nombre}\n${f.titular_cuenta || ''}`,
+        f.espacio,
+        `${formatearFechaCorta(f.fecha)} ${String(f.hora_inicio).substring(0,5)}-${String(f.hora_fin).substring(0,5)}`,
+        etiquetaEstado(f.estado),
+        f.cantidad_integrantes
+    ]);
+
+    y = dibujarSubtitulo(doc, y, 'Solo reservas hechas como equipo (no incluye reservas individuales de sus integrantes).');
+    doc.autoTable({
+        startY: y,
+        head: [['Código', 'Equipo', 'Deporte', 'Reservó', 'Espacio', 'Fecha y hora', 'Estado', 'Integrantes']],
+        body: filasDetalleEquipos,
+        theme: 'grid',
+        headStyles: { fillColor: COLOR_CARMINE },
+        styles: { fontSize: 7, cellPadding: 1.5 }
+    });
+
     // ---- Detalle de acompañantes ----
     doc.addPage();
     y = 20;
@@ -1030,7 +1076,7 @@ async function exportarExcel() {
 
     setStatus('Preparando exportación (esto puede tardar unos segundos)...');
 
-    const { listado, clubes, acompanantes } = await obtenerListadosParaExportar();
+    const { listado, clubes, equipos, acompanantes } = await obtenerListadosParaExportar();
 
     const totalReservas = (r.reservas_por_carrera || [])
         .reduce((s, f) => s + Number(f.total_reservas || 0), 0);
@@ -1199,7 +1245,32 @@ async function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasDetalleClubesExcel), 'Reservas de club');
 
     // =========================================================
-    // Hoja 4: Detalle de acompañantes
+    // Hoja: Detalle de reservas de equipo
+    // =========================================================
+    const filasDetalleEquiposExcel = [
+        ['DETALLE DE RESERVAS DE EQUIPO'],
+        ['Solo reservas hechas como equipo (no incluye reservas individuales de sus integrantes).'],
+        ['Código', 'Equipo', 'Deporte', 'Reservó (líder/sublíder)', 'Cuenta', 'Espacio', 'Fecha', 'Hora inicio', 'Hora fin', 'Estado', 'Integrantes']
+    ];
+
+    equipos.forEach(f => filasDetalleEquiposExcel.push([
+        f.id_reserva,
+        f.equipo,
+        f.deporte,
+        f.titular_nombre,
+        f.titular_cuenta,
+        f.espacio,
+        formatearFechaCorta(f.fecha),
+        String(f.hora_inicio).substring(0, 5),
+        String(f.hora_fin).substring(0, 5),
+        etiquetaEstado(f.estado),
+        f.cantidad_integrantes
+    ]));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filasDetalleEquiposExcel), 'Reservas de equipo');
+
+    // =========================================================
+    // Hoja: Detalle de acompañantes
     // =========================================================
     const filasAcompanantesExcel = [
         ['DETALLE DE ACOMPAÑANTES'],
