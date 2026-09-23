@@ -781,43 +781,122 @@ router.post("/estudiantes", requiereSesion, requiereSuperAdmin, async (req, res)
 
         }
 
-        // No se puede agregar un estudiante que ya está
-        // registrado (mismo número de cuenta)
+        // =======================================
+        // UPSERT — misma lógica que ya usa la subida
+        // de Excel (router.post('/estudiantes/subir')):
+        //
+        // 1. Si la cuenta ya existe en "estudiantes"
+        //    (fue subida antes por Excel, o agregada
+        //    manualmente, sin importar si hoy está
+        //    activa o inactiva), se REUTILIZA ese
+        //    mismo id_estudiante y se actualizan sus
+        //    datos generales — no se crea un duplicado.
+        //
+        // 2. Solo se BLOQUEA si esa persona YA tiene
+        //    un registro ACTIVO específicamente en el
+        //    periodo al que se está agregando — eso sí
+        //    sería un duplicado real dentro del mismo
+        //    trimestre.
+        //
+        // Esto es lo que permite el caso real: un
+        // estudiante que quedó inactivado porque no
+        // salió en el último Excel subido, y ahora se
+        // quiere volver a agregar manualmente al
+        // periodo actual.
+        // =======================================
+
         const [existente] = await db.query(
             "SELECT id_estudiante FROM estudiantes WHERE cuenta = ?",
             [cuenta]
         );
 
+        let id_estudiante;
+
         if (existente.length > 0) {
 
-            return res.status(409).json({
-                ok: false,
-                mensaje: "Ya existe un estudiante registrado con ese número de cuenta."
-            });
+            id_estudiante = existente[0].id_estudiante;
+
+            // Ya existe como persona — se actualizan sus
+            // datos generales y se reactiva (igual que el
+            // Excel hace con UPDATE ... activo = 1).
+            await db.query(
+
+                `UPDATE estudiantes
+                 SET nombre = ?,
+                     dni = ?,
+                     correo = ?,
+                     activo = 1
+                 WHERE id_estudiante = ?`,
+
+                [nombre, dni, correo, id_estudiante]
+
+            );
+
+        } else {
+
+            const [resultado] = await db.query(
+
+                `INSERT INTO estudiantes
+                (nombre, dni, cuenta, correo, activo)
+                VALUES (?, ?, ?, ?, 1)`,
+
+                [nombre, dni, cuenta, correo]
+
+            );
+
+            id_estudiante = resultado.insertId;
 
         }
 
-        const [resultado] = await db.query(
-
-            `INSERT INTO estudiantes
-            (nombre, dni, cuenta, correo, activo)
-            VALUES (?, ?, ?, ?, 1)`,
-
-            [nombre, dni, cuenta, correo]
-
+        // ¿Ya tiene un registro para ESTE periodo específico?
+        const [registroPeriodo] = await db.query(
+            `SELECT id, activo FROM estudiante_periodo
+             WHERE id_estudiante = ? AND id_periodo = ?`,
+            [id_estudiante, id_periodo]
         );
 
-        const id_estudiante = resultado.insertId;
+        if (registroPeriodo.length > 0) {
 
-        await db.query(
+            if (registroPeriodo[0].activo) {
 
-            `INSERT INTO estudiante_periodo
-            (id_estudiante, id_periodo, carrera, tipo_ingreso, activo)
-            VALUES (?, ?, ?, ?, 1)`,
+                // Esto sí es un duplicado real: ya está
+                // activo en este mismo periodo.
+                return res.status(409).json({
+                    ok: false,
+                    mensaje: "Ese estudiante ya está registrado y activo en este periodo."
+                });
 
-            [id_estudiante, id_periodo, carrera, tipo_ingreso]
+            }
 
-        );
+            // Tenía un registro inactivo en este periodo
+            // (por ejemplo, quedó fuera de la última carga
+            // de Excel) — se reactiva con los datos nuevos.
+            await db.query(
+
+                `UPDATE estudiante_periodo
+                 SET carrera = ?,
+                     tipo_ingreso = ?,
+                     activo = 1
+                 WHERE id = ?`,
+
+                [carrera, tipo_ingreso, registroPeriodo[0].id]
+
+            );
+
+        } else {
+
+            // No tenía ningún registro en este periodo todavía.
+            await db.query(
+
+                `INSERT INTO estudiante_periodo
+                (id_estudiante, id_periodo, carrera, tipo_ingreso, activo)
+                VALUES (?, ?, ?, ?, 1)`,
+
+                [id_estudiante, id_periodo, carrera, tipo_ingreso]
+
+            );
+
+        }
 
         res.json({
             ok: true,
